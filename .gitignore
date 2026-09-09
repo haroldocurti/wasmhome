@@ -1,0 +1,10 @@
+build*/
+managed_components/
+dependencies.lock
+artifacts/*.wasm
+artifacts/*.aot
+artifacts/*_embedded.c
+results/raw/*.log
+results/processed/*.csv
+__pycache__/
+*.pyc
