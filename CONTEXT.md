@@ -123,9 +123,12 @@ Começa somente após o piloto e mantém falhas e timeouts no denominador.
 
 Bateria complementar, separada da campanha normal, que observa rejeição de
 assinatura inválida, hash divergente e sequência antiga, além da contenção de
-falhas reproduzíveis durante a execução. A definição dos testes de memória depende
-de pesquisa sobre semântica equivalente e não presume que endereço linear zero
-produza um trap em WebAssembly.
+falhas reproduzíveis durante a execução. A [decisão de resiliência](docs/research/ensaios-resiliencia.md)
+define 70 tentativas de falha e dois controles, com traps Wasm e aborto nativo
+sem presumir equivalência. O endereço linear zero é um controle válido.
+O disparo e os eventos do ensaio usam serial, correlacionados à observação UDP;
+rejeição do comando UDP não substitui rejeição do envelope assinado. Implementação
+e validação no dispositivo permanecem pendentes.
 
 ## Canal de diagnóstico
 

@@ -71,7 +71,8 @@ impacto de uma falha fatal sobre o firmware inteiro.
   `wamrc`, opções de compilação e mapa de partições fixados no registro da
   campanha.
 - Manter FreeRTOS nos três cenários e o observador externo enviando estímulos a
-  cada 100 ms, com timeout funcional de 300 ms.
+  cada 100 ms. O timeout funcional começa em 300 ms no piloto; o valor congelado
+  ao final do piloto será usado também nesta bateria e registrado no JSONL.
 - Executar exatamente uma injeção por tentativa, precedida e seguida por pelo
   menos 30 respostas válidas de cada serviço aplicável.
 - Usar um `attempt_id` único e registrar no JSONL todos os datagramas, eventos
@@ -133,8 +134,8 @@ grupos não serão combinados como se tivessem a mesma causa.
 
 | ID | Injeção exata | Nativo | Interpretado | AOT | Resultado esperado |
 |---|---|---:|---:|---:|---|
-| `ENV-SIG` | Manifesto e payload válidos para a próxima sequência, assinados por uma chave ECDSA P-256 não confiável | 5 | 5 | 5 | rejeição `SIGNATURE_INVALID` antes de gravar ou instanciar |
-| `ENV-HASH` | Alterar um bit do payload depois de assinar o manifesto; manter manifesto e assinatura originais | 5 | 5 | 5 | rejeição `HASH_MISMATCH` antes de gravar ou instanciar |
+| `ENV-SIG` | Manifesto e payload válidos para a próxima sequência, assinados por uma chave ECDSA P-256 não confiável | 5 | 5 | 5 | rejeição `SIGNATURE_INVALID` antes de gravar o payload ou instanciar |
+| `ENV-HASH` | Alterar um bit do payload depois de assinar o manifesto; manter manifesto e assinatura originais | 5 | 5 | 5 | rejeição `HASH_MISMATCH` antes de instanciar ou ativar; gravação temporária somente em slot inativo |
 | `ENV-OLD` | Reoferecer um manifesto corretamente assinado cuja sequência seja igual ou menor que a maior sequência aceita | 5 | 5 | 5 | rejeição `SEQUENCE_NOT_NEWER`, sem ativação |
 | `WASM-ZERO` | Chamar `probe_zero` | — | 1 | 1 | retorno `0x12345678`, sem exceção; falhar este controle invalida a bateria de traps |
 | `WASM-OOB` | Chamar `fault_oob` em uma memória fixa de uma página | — | 5 | 5 | chamada WAMR retorna `false`; exceção classificada como acesso fora dos limites |
@@ -148,10 +149,57 @@ corresponde a ele. Em `ENV-OLD`, o dispositivo parte de uma versão válida já
 ativa e de uma maior sequência persistida; reinicializar o equipamento não pode
 apagar esse estado.
 
+## Disparo, contagem e canal de eventos
+
+A tentativa de resiliência é diferente da atualização normal. O observador
+atribui um `attempt_id` e registra o pedido de injeção no seu relógio monotônico.
+O firmware confirma o pedido com `fault_accepted` antes de executar o caso.
+Esse evento aceita o ensaio, não o comando UDP de atualização nem o artefato.
+Após essa confirmação, rejeições esperadas, falhas, resets e timeouts permanecem
+no denominador da célula. Ausência de confirmação é falha do disparo, preservada
+no registro e reposta com outro ID; não comprova rejeição do envelope.
+
+O ticket #22 implementará um canal serial de ensaio separado do UDP v1. O pedido
+será uma linha JSON com `event=fault_request`, `attempt_id` e `case_id` da matriz.
+O dispositivo só aceitará casos e fixtures previamente configurados na bancada,
+sem receber URL, caminho arbitrário ou chave confiável pelo pedido. Esse canal
+é exclusivo do firmware de ensaio e não faz parte da atualização normal.
+
+Para `ENV-OLD`, o injetor obtém a fixture assinada e chama o mesmo validador de
+envelope usado na atualização normal, com o piso NVS real. Não altera o piso,
+não desativa a verificação e não passa pelo filtro de sequência do
+`UPDATE_TRIGGER`. Assim, `SEQUENCE_NOT_NEWER` deve ser emitido no estágio
+`envelope_sequence`. Uma recusa antecipada do comando UDP é um teste separado
+do protocolo, fora das 70 tentativas; não substitui esse caso.
+
+O firmware emitirá os eventos abaixo como linhas JSON na serial. Cada evento
+inclui `event`, `attempt_id`, `case_id`, `scenario`, `boot_id` e `monotonic_us`
+do dispositivo. Rejeição inclui `reason` e `stage`; trap inclui função, retorno
+da API e exceção bruta; recuperação e boot incluem versão ativa e sequência
+aceita; boot também inclui motivo de reset. Após um reset, a correlação da
+tentativa deve ser recuperada pelo mecanismo implementado no ticket #22.
+
+O observador registra as linhas recebidas com seu timestamp monotônico local
+e conserva a serial bruta, inclusive o marcador de aborto e o pânico. Junta
+esses eventos às observações UDP por `attempt_id` e `boot_id`, sem subtrair
+relógios de emissores diferentes. Ausência de evento é evidência incompleta,
+nunca um motivo de rejeição inferido por timeout. O ticket #22 deve testar
+correlação, parsing e recuperação após reboot antes da campanha #23.
+
+O protocolo UDP v1 e seus cinco tipos permanecem como canal de disponibilidade
+funcional. Seus códigos de `UPDATE_ACCEPTANCE` não representam resultados de
+validação posteriores ao download. Não se introduzem tipos ou motivos novos
+no codec v1 para transportar estes eventos de ensaio.
+
+Em `ENV-HASH`, o payload pode ser recebido no slot OTA ou modular inativo para
+calcular o hash completo. O conteúdo divergente deve ser invalidado e não pode
+ser instanciado, selecionado para boot ou marcado ativo. O slot ativo, a versão
+e o piso antirretorno permanecem intactos, conforme a política do envelope.
+
 ## Eventos e critérios de aprovação
 
-O protocolo binário pode escolher os códigos numéricos, mas o observador deve
-normalizar no JSONL estes eventos sem inferi-los apenas por timeout:
+O observador deve normalizar no JSONL estes eventos do canal serial de ensaio,
+sem inferi-los apenas por timeout:
 
 - `fault_accepted`: dispositivo aceitou a injeção identificada;
 - `update_rejected`: inclui um dos motivos da matriz e o estágio de validação;
@@ -166,14 +214,15 @@ Uma tentativa de rejeição do envelope é aprovada somente quando:
 2. nenhum byte é marcado como imagem ou módulo ativo;
 3. versão e maior sequência aceita permanecem iguais às anteriores;
 4. `boot_id` não muda;
-5. telemetria e controle continuam corretos, sem intervalo superior a 300 ms.
+5. telemetria e controle continuam corretos, sem intervalo superior ao timeout
+   funcional congelado após o piloto.
 
 Uma tentativa de trap WebAssembly é aprovada somente quando:
 
 1. a chamada da função injetora retorna falha e a exceção é registrada;
 2. `boot_id` não muda e não há pânico ou reset do ESP32-S3;
 3. o módulo de telemetria mantém respostas corretas, sem intervalo superior a
-   300 ms, durante toda a injeção e recuperação;
+   timeout funcional congelado, durante toda a injeção e recuperação;
 4. somente a instância do módulo de controle é destruída;
 5. a última versão válida do controle volta a responder corretamente dentro de
    30 segundos, conservando a sequência aceita anterior.
@@ -189,7 +238,8 @@ O limite de 30 segundos é um timeout operacional para impedir tentativas
 indefinidas. O tempo efetivo de recuperação e todos os intervalos de perda devem
 ser preservados como métricas, sem substituir valores pelo timeout.
 
-Qualquer reset, pânico do firmware-base, lacuna de telemetria acima de 300 ms ou
+Qualquer reset, pânico do firmware-base, lacuna de telemetria acima do timeout
+funcional congelado ou
 alteração da sequência aceita durante um trap Wasm reprova a contenção, mesmo que
 o controle volte a funcionar depois.
 
@@ -220,6 +270,8 @@ o controle volte a funcionar depois.
 - configuração completa do WAMR demonstrando bounds checks ativos;
 - injetor nativo com `esp_system_abort` e configuração de pânico;
 - três fixtures de envelope derivadas de um artefato válido;
+- canal serial de injeção/eventos, com correlação antes e depois de reboot;
+- comprovação de que `ENV-OLD` usa o validador real e não a recusa UDP;
 - máquina de recuperação que descarte somente a instância de controle;
 - testes do observador para todos os eventos e critérios acima;
 - JSONL bruto, versões de toolchain e resumo por `attempt_id` na campanha.

@@ -128,11 +128,14 @@ entre amostras e documentar se instâncias coexistem. Medir o pico de memória.
 Definir recuperação quando a ativação falhar; nunca liberar a instância enquanto
 ela ainda estiver executando.
 
-Realizar uma bateria complementar separada: três tentativas por cenário com
-artefato corrompido e três com versão antiga, registrando recusa, versão ativa e
-recuperação. Ensaios de falhas de memória ficam para extensão posterior com
-semântica de teste comprovada. Não presumir equivalência entre falhas em C e
-traps Wasm.
+Preparar a bateria complementar separada conforme a
+[decisão de resiliência](research/ensaios-resiliencia.md): cinco tentativas por
+célula aplicável, totalizando 70 falhas e dois controles. Inclui assinatura,
+hash e sequência, traps Wasm e aborto nativo controlado, com limites de
+comparação explícitos. Implementar e comprovar os mecanismos no ticket #22;
+executar a matriz no ticket #23, após congelar o protocolo no piloto.
+Usar o canal serial de ensaio para disparo/eventos e o UDP para disponibilidade
+funcional. Preservar rejeições e falhas segundo a contagem própria da bateria.
 
 ### E5. Pilotar, corrigir e congelar
 
@@ -142,7 +145,9 @@ e tentativa; rejeitar evidências vazias ou malformadas; verificar referência d
 resultado e presença da matriz completa. Guardar as falhas como resultados.
 
 Congelar janela, cadência, timeout, condições iniciais, memória e sequência de
-eventos. Ajustar o aquecimento ao serviço persistente. O comando atual executa
+eventos. O timeout funcional congelado aplica-se também à campanha de resiliência;
+300 ms é seu valor inicial, e 30 segundos permanece o limite operacional de
+recuperação dessa bateria. Ajustar o aquecimento ao serviço persistente. O comando atual executa
 ao boot, portanto esperar 60 segundos depois dele não aquece as medições já
 realizadas. A espera deve anteceder explicitamente o disparo medido.
 
