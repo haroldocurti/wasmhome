@@ -75,9 +75,10 @@ Porta serial, rede e condições ambientais são variáveis e devem ser reconfir
 no início de cada sessão ou campanha. O LXC do servidor de artefatos ainda não
 está provisionado.
 
-Especificar transformação comum, alteração v1/v2, dados de referência e versão
-do protocolo de mensagens. Deixar intervalo de amostragem e timeout como
-parâmetros candidatos, a congelar no piloto.
+Definir a transformação comum, a alteração v1/v2 e os dados de referência. O
+[contrato UDP v1](protocolo-observacao.md) fixa os campos das mensagens; a
+cadência de aquisição/observação é 500/100 ms conforme `CONTEXT.md`. O timeout
+inicial de 300 ms segue como candidato a congelar ou ajustar após o piloto.
 
 ### E1. Comprovar viabilidade antes de construir o restante
 

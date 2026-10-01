@@ -16,9 +16,11 @@ different algorithms by accident.
 
 ## Current state
 
-The protocol, firmware harness, workload, artifact builder, log collector and
-automated local tests are present. No ESP32 result has been collected yet.
-OTA, dynamic replacement and external monitoring remain to be implemented.
+The UDP observation contract, host-side reference codec, firmware harness,
+workload, artifact builder, log collector and automated local tests are present.
+The codec tests do not implement embedded UDP transport. No ESP32 result has
+been collected yet. OTA, dynamic replacement and external monitoring remain to
+be implemented.
 Thirty current calls are not thirty updates; loading occurs once per boot.
 The last environment inspection found Docker and Git, but no ESP-IDF environment,
 CMake, Ninja, WASI-SDK or `wamrc` in `PATH`. Recheck in stage E0.

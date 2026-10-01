@@ -87,10 +87,13 @@ aceite não inicia tentativa; falha ou timeout posterior integra seu resultado.
 
 ## Protocolo de observação
 
-Formato binário versionado usado nos datagramas UDP. Possui cabeçalho comum com
-assinatura mágica, versão, tipo, identificadores de tentativa, sequência e boot,
-timestamp monotônico do emissor e tamanho do corpo. Serializa cada campo em ordem
-de rede, sem transmitir diretamente a representação de uma estrutura C.
+Formato UDP binário v1 definido em
+[Protocolo binário de observação](docs/protocolo-observacao.md). Usa cabeçalho
+fixo de 48 bytes, UUID de tentativa, contador de mensagem, `boot_id` e timestamp
+monotônico; inteiros em ordem de rede. Tipos incluem telemetria, pedido e
+resultado de controle, disparo e aceite/recusa de atualização. O codec Python
+valida vetores no host; transporte no firmware e na placa ainda não foi
+implementado.
 
 ## Registro bruto
 
