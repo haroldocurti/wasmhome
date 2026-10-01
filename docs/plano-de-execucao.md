@@ -70,6 +70,11 @@ computador, sistema operacional, rede e acesso ao servidor. Escolher ambiente
 de compilação e distribuição. Verificar a disponibilidade do Proxmox/LXC previsto
 no TCC antes de pressupor a instalação de uma infraestrutura nova.
 
+O levantamento inicial da bancada está em [Inventário da bancada física](bancada-fisica.md).
+Porta serial, rede e condições ambientais são variáveis e devem ser reconfirmadas
+no início de cada sessão ou campanha. O LXC do servidor de artefatos ainda não
+está provisionado.
+
 Especificar transformação comum, alteração v1/v2, dados de referência e versão
 do protocolo de mensagens. Deixar intervalo de amostragem e timeout como
 parâmetros candidatos, a congelar no piloto.
