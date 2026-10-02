@@ -53,7 +53,7 @@ Leitura por SSH ao host em 2026-10-01, autorizada pelo usuário. Os detalhes aba
 | Memória instalada | 16 GB DDR3 | Informação fornecida pelo usuário. O sistema reporta 15 GiB utilizáveis. |
 | Memória em uso na observação | 13 GiB usados; 1,9 GiB disponíveis; swap de 8,0 GiB, dos quais 6,3 GiB usados | Amostra pontual de `free -h` via SSH; carga pode mudar. Considerar antes de provisionar novos guests. |
 | Discos detectados | 1 × Kingston SV300S37A240G (223,6 GiB); 2 × Kingston SA400S37240G (223,6 GiB cada); 1 × WDC WD10SPZX-00Z10T0 (931,5 GiB); 1 × ST2000DM006-2DM164 (1,8 TiB) | Modelos e capacidades reportados por `lsblk`. Isso não confirma espaço livre nem configuração como storage Proxmox. |
-| LXC do servidor de artefatos | Ainda não provisionado | `pct list` não mostrou guest destinado a esse serviço; o host tem outros guests. |
+| LXC do servidor de artefatos | CT 107, wasmhome-bench, Debian 13, 1 CPU, 1.024 MiB RAM, 24 GiB em local-lvm | Criado com autorização em 01/10/2026; não privilegiado, nesting=1, DHCP 192.168.0.138, onboot desabilitado. Acesso por chave e persistência após reboot comprovados. Ver [registro do provisionamento](provisionamento-lxc.md). |
 
 ## Ambiente
 
@@ -67,4 +67,4 @@ Leitura por SSH ao host em 2026-10-01, autorizada pelo usuário. Os detalhes aba
 - O modelo, a revisão do silício, as capacidades de memória e a porta serial do ESP32 vêm das imagens e informações fornecidas pelo usuário; não foram lidos novamente a partir do hardware.
 - A fiação está documentada conforme as fotos e a confirmação do usuário. Não foi executado teste de continuidade, leitura 1-Wire ou leitura funcional do loopback.
 - SSID, senha/banda do Wi-Fi não foram verificados. O endereço IP, a rota, o hardware e as versões de software do Proxmox foram consultados ao vivo via SSH; o painel web não foi consultado.
-- Ainda faltam o modelo/revisão da placa portadora, a identificação do ponto de acesso, a confirmação da banda Wi-Fi e a criação do LXC de artefatos.
+- Ainda faltam o modelo/revisão da placa portadora, a identificação do ponto de acesso e a confirmação da banda Wi-Fi. O LXC foi criado; falta comprovar conectividade com o ESP32 e reconstrução separada. O usuário confirmou este PC como observador, na mesma rede local do ESP32.

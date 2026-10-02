@@ -1,0 +1,322 @@
+2026-10-01T21:10:11-03:00
+arch: amd64
+cores: 1
+cpulimit: 1
+features: nesting=1
+hostname: wasmhome-bench
+memory: 1024
+net0: name=eth0,bridge=vmbr0,firewall=1,hwaddr=BC:24:11:B6:36:F7,ip=dhcp,ip6=manual,type=veth
+onboot: 0
+ostype: debian
+rootfs: local-lvm:vm-107-disk-0,size=24G
+swap: 0
+timezone: America/Sao_Paulo
+unprivileged: 1
+status: running
+running
+No jobs running.
+  UNIT LOAD ACTIVE SUB DESCRIPTION
+
+0 loaded units listed.
+lo               UNKNOWN        127.0.0.1/8 
+eth0@if43        UP             192.168.0.138/24 
+default via 192.168.0.1 dev eth0 
+192.168.0.0/24 dev eth0 proto kernel scope link src 192.168.0.138 
+nameserver 192.168.0.2
+nameserver 8.8.4.4
+8f0f6e8c-a348-4804-996b-8c204eb1df3b
+wasmhome-initial-state-v1
+net.ipv6.conf.all.disable_ipv6=1
+net.ipv6.conf.default.disable_ipv6=1
+adduser	3.152
+apt	3.0.3
+apt-listchanges	4.8
+apt-utils	3.0.3
+base-files	13.8+deb13u1
+base-passwd	3.6.7
+bash	5.2.37-2+b5
+bash-completion	1:2.16.0-7
+bind9-dnsutils	1:9.20.11-4
+bind9-host	1:9.20.11-4
+bind9-libs:amd64	1:9.20.11-4
+bsdextrautils	2.41-5
+bsdutils	1:2.41-5
+bzip2	1.0.8-6
+ca-certificates	20250419
+coreutils	9.7-3
+cpio	2.15+dfsg-2
+cron	3.0pl1-197
+cron-daemon-common	3.0pl1-197
+curl	8.14.1-2+deb13u5
+dash	0.5.12-12
+dbus	1.16.2-2
+dbus-bin	1.16.2-2
+dbus-daemon	1.16.2-2
+dbus-session-bus-common	1.16.2-2
+dbus-system-bus-common	1.16.2-2
+debconf	1.5.91
+debconf-i18n	1.5.91
+debian-archive-keyring	2025.1
+debian-faq	12.2
+debianutils	5.23.2
+dhcpcd-base	1:10.1.0-11
+diffutils	1:3.10-4
+distro-info-data	0.66
+dmidecode	3.6-2
+doc-debian	11.3+nmu1
+dpkg	1.22.21
+e2fsprogs	1.47.2-3+b3
+fdisk	2.41-5
+file	1:5.46-5
+findutils	4.10.0-3
+gcc-14-base:amd64	14.2.0-19
+gettext-base	0.23.1-2
+grep	3.11-4
+groff-base	1.23.0-9
+gzip	1.13-1
+hostname	3.25
+ifupdown	0.8.44
+ifupdown2	3.0.0-1.3
+inetutils-telnet	2:2.6-3
+init	1.69~deb13u1
+init-system-helpers	1.69~deb13u1
+iproute2	6.15.0-1
+iputils-ping	3:20240905-3
+isc-dhcp-client	4.4.3-P1-8
+kmod	34.2-2
+krb5-locales	1.21.3-5
+less	668-1
+libacl1:amd64	2.3.2-2+b1
+libapparmor1:amd64	4.1.0-1
+libapt-pkg7.0:amd64	3.0.3
+libattr1:amd64	1:2.5.2-3
+libaudit-common	1:4.0.2-2
+libaudit1:amd64	1:4.0.2-2+b2
+libblkid1:amd64	2.41-5
+libbpf1:amd64	1:1.5.0-3
+libbrotli1:amd64	1.1.0-2+b7
+libbsd0:amd64	0.12.2-2
+libbz2-1.0:amd64	1.0.8-6
+libc-bin	2.41-12
+libc-l10n	2.41-12
+libc6:amd64	2.41-12
+libcap-ng0:amd64	0.8.5-4+b1
+libcap2:amd64	1:2.75-10+b1
+libcap2-bin	1:2.75-10+b1
+libcbor0.10:amd64	0.10.2-2
+libcom-err2:amd64	1.47.2-3+b3
+libcrypt1:amd64	1:4.4.38-1
+libcurl4t64:amd64	8.14.1-2+deb13u5
+libdb5.3t64:amd64	5.3.28+dfsg2-9
+libdbus-1-3:amd64	1.16.2-2
+libdebconfclient0:amd64	0.280
+libedit2:amd64	3.1-20250104-1
+libelf1t64:amd64	0.192-4
+libexpat1:amd64	2.7.1-2
+libext2fs2t64:amd64	1.47.2-3+b3
+libfdisk1:amd64	2.41-5
+libffi8:amd64	3.4.8-2
+libfido2-1:amd64	1.15.0-1+b1
+libfstrm0:amd64	0.6.1-1+b3
+libgcc-s1:amd64	14.2.0-19
+libgdbm-compat4t64:amd64	1.24-2
+libgdbm6t64:amd64	1.24-2
+libgmp10:amd64	2:6.3.0+dfsg-3
+libgnutls30t64:amd64	3.8.9-3
+libgssapi-krb5-2:amd64	1.21.3-5
+libhogweed6t64:amd64	3.10.1-1
+libicu76:amd64	76.1-4
+libidn2-0:amd64	2.3.8-2
+libjansson4:amd64	2.14-2+b3
+libjemalloc2:amd64	5.3.0-3
+libjson-c5:amd64	0.18+ds-1
+libk5crypto3:amd64	1.21.3-5
+libkeyutils1:amd64	1.6.3-6
+libkmod2:amd64	34.2-2
+libkrb5-3:amd64	1.21.3-5
+libkrb5support0:amd64	1.21.3-5
+liblastlog2-2:amd64	2.41-5
+libldap2:amd64	2.6.10+dfsg-1
+liblmdb0:amd64	0.9.31-1+b2
+liblocale-gettext-perl	1.07-7+b1
+liblockfile-bin	1.17-2
+liblsof0	4.99.4+dfsg-2
+liblz4-1:amd64	1.10.0-4
+liblzma5:amd64	5.8.1-1
+libmagic-mgc	1:5.46-5
+libmagic1t64:amd64	1:5.46-5
+libmaxminddb0:amd64	1.12.2-1
+libmd0:amd64	1.1.0-2+b1
+libmnl0:amd64	1.0.5-3
+libmount1:amd64	2.41-5
+libncursesw6:amd64	6.5+20250216-2
+libnettle8t64:amd64	3.10.1-1
+libnewt0.52:amd64	0.52.25-1
+libnftables1:amd64	1.1.3-1
+libnftnl11:amd64	1.2.9-1
+libnghttp2-14:amd64	1.64.0-1.1
+libnghttp3-9:amd64	1.8.0-1
+libnsl2:amd64	1.3.0-3+b3
+libnss-systemd:amd64	257.8-1~deb13u2
+libp11-kit0:amd64	0.25.5-3
+libpam-modules:amd64	1.7.0-5
+libpam-modules-bin	1.7.0-5
+libpam-runtime	1.7.0-5
+libpam-systemd:amd64	257.8-1~deb13u2
+libpam-wtmpdb:amd64	0.73.0-3
+libpam0g:amd64	1.7.0-5
+libpcre2-8-0:amd64	10.46-1~deb13u1
+libperl5.40:amd64	5.40.1-6
+libpipeline1:amd64	1.5.8-1
+libpopt0:amd64	1.19+dfsg-2
+libproc2-0:amd64	2:4.0.4-9
+libprotobuf-c1:amd64	1.5.1-1
+libpsl5t64:amd64	0.21.2-1.1+b1
+libpython3-stdlib:amd64	3.13.5-1
+libpython3.13-minimal:amd64	3.13.5-2
+libpython3.13-stdlib:amd64	3.13.5-2
+libreadline8t64:amd64	8.2-6
+librtmp1:amd64	2.4+20151223.gitfa8646d.1-2+b5
+libsasl2-2:amd64	2.1.28+dfsg1-9
+libsasl2-modules-db:amd64	2.1.28+dfsg1-9
+libseccomp2:amd64	2.6.0-2
+libselinux1:amd64	3.8.1-1
+libsemanage-common	3.8.1-1
+libsemanage2:amd64	3.8.1-1
+libsepol2:amd64	3.8.1-1
+libslang2:amd64	2.3.3-5+b2
+libsmartcols1:amd64	2.41-5
+libsqlite3-0:amd64	3.46.1-7
+libss2:amd64	1.47.2-3+b3
+libssh2-1t64:amd64	1.11.1-1+deb13u2
+libssl3t64:amd64	3.5.1-1+deb13u1
+libstdc++6:amd64	14.2.0-19
+libsystemd-shared:amd64	257.8-1~deb13u2
+libsystemd0:amd64	257.8-1~deb13u2
+libtasn1-6:amd64	4.20.0-2
+libtext-charwidth-perl:amd64	0.04-11+b4
+libtext-iconv-perl:amd64	1.7-8+b4
+libtext-wrapi18n-perl	0.06-10
+libtinfo6:amd64	6.5+20250216-2
+libtirpc-common	1.3.6+ds-1
+libtirpc3t64:amd64	1.3.6+ds-1
+libtlsrpt0:amd64	0.5.0rc1-2
+libuchardet0:amd64	0.0.8-1+b2
+libudev1:amd64	257.8-1~deb13u2
+libunistring5:amd64	1.3-2
+liburcu8t64:amd64	0.15.2-2
+libuuid1:amd64	2.41-5
+libuv1t64:amd64	1.50.0-2
+libwrap0:amd64	7.6.q-36
+libwtmpdb0:amd64	0.73.0-3
+libxml2:amd64	2.12.7+dfsg+really2.9.14-2.1+deb13u1
+libxtables12:amd64	1.8.11-2
+libxxhash0:amd64	0.8.3-2
+libzstd1:amd64	1.5.7+dfsg-1
+linux-sysctl-defaults	4.12
+locales	2.41-12
+login	1:4.16.0-2+really2.41-5
+login.defs	1:4.17.4-2
+logrotate	3.22.0-1
+logsave	1.47.2-3+b3
+lsof	4.99.4+dfsg-2
+man-db	2.13.1-1
+manpages	6.9.1-1
+mawk	1.3.4.20250131-1
+media-types	13.0.0
+mount	2.41-5
+nano	8.4-1
+ncurses-base	6.5+20250216-2
+ncurses-bin	6.5+20250216-2
+ncurses-term	6.5+20250216-2
+netbase	6.5
+netcat-traditional	1.10-50
+nftables	1.1.3-1
+openssh-client	1:10.0p1-7+deb13u4
+openssh-server	1:10.0p1-7+deb13u4
+openssh-sftp-server	1:10.0p1-7+deb13u4
+openssl	3.5.1-1+deb13u1
+openssl-provider-legacy	3.5.1-1+deb13u1
+passwd	1:4.17.4-2
+perl	5.40.1-6
+perl-base	5.40.1-6
+perl-modules-5.40	5.40.1-6
+postfix	3.10.4-1~deb13u1
+procps	2:4.0.4-9
+python-apt-common	3.0.0
+python3	3.13.5-1
+python3-apt	3.0.0
+python3-certifi	2025.1.31+ds-1
+python3-chardet	5.2.0+dfsg-2
+python3-charset-normalizer	3.4.2-1
+python3-debconf	1.5.91
+python3-debian	1.0.1
+python3-debianbts	4.1.1
+python3-idna	3.10-1
+python3-minimal	3.13.5-1
+python3-reportbug	13.2.0
+python3-requests	2.32.3+dfsg-5
+python3-urllib3	2.3.0-3
+python3.13	3.13.5-2
+python3.13-minimal	3.13.5-2
+readline-common	8.2-6
+reportbug	13.2.0
+runit-helper	2.16.4
+sed	4.9-2
+sensible-utils	0.0.25
+sqv	1.3.0-3
+ssh	1:10.0p1-7+deb13u4
+systemd	257.8-1~deb13u2
+systemd-sysv	257.8-1~deb13u2
+systemd-timesyncd	257.8-1~deb13u2
+sysvinit-utils	3.14-4
+tar	1.35+dfsg-3.1
+traceroute	1:2.1.6-1
+tzdata	2025b-4+deb13u1
+ucf	3.0052
+udev	257.8-1~deb13u2
+util-linux	2.41-5
+util-linux-extra	2.41-5
+vim-common	2:9.1.1230-2
+vim-tiny	2:9.1.1230-2
+wamerican	2020.12.07-4
+wget	1.25.0-2
+whiptail	0.52.25-1
+wtmpdb	0.73.0-3
+xz-utils	5.8.1-1
+zlib1g:amd64	1:1.3.dfsg+really1.3.1-1+b1
+active
+               total        used        free      shared  buff/cache   available
+Mem:           15861       13689         988         472        1990        2171
+Swap:           8191        6836        1355
+Name              Type     Status     Total (KiB)      Used (KiB) Available (KiB)        %
+DevServer      lvmthin     active       229609472        28838949       200770522   12.56%
+Webserver      lvmthin     active       229609472        71408545       158200926   31.10%
+backup-hdd         dir     active       960302804       799732764       160553656   83.28%
+local              dir     active        67169672        10685600        53026232   15.91%
+local-lvm      lvmthin     active       136593408        88594484        47998923   64.86%
+uid=1000(wasmhome) gid=1000(wasmhome) groups=1000(wasmhome)
+wasmhome-bench
+wasmhome-initial-state-v1
+running
+HTTP/2 200 
+server: Apache
+x-content-type-options: nosniff
+x-frame-options: sameorigin
+referrer-policy: no-referrer
+x-xss-protection: 1
+permissions-policy: interest-cohort=()
+x-clacks-overhead: GNU Terry Pratchett
+content-type: text/html;charset=UTF-8
+backend: 4qpvL1tJyeV1P6Tmf0Lj8g--F_skroutz_debian_backend_mirrors_debian_org
+via: 1.1 varnish, 1.1 varnish
+accept-ranges: bytes
+date: Fri, 02 Oct 2026 00:10:35 GMT
+age: 33
+x-served-by: cache-ams-eham8680060-AMS, cache-gru-sbgr1930096-GRU
+x-cache: HIT, HIT
+x-cache-hits: 27, 1
+x-timer: S1790899836.578531,VS0,VE2
+vary: Accept-Encoding
+content-length: 6153
+

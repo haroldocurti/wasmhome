@@ -72,8 +72,14 @@ no TCC antes de pressupor a instalação de uma infraestrutura nova.
 
 O levantamento inicial da bancada está em [Inventário da bancada física](bancada-fisica.md).
 Porta serial, rede e condições ambientais são variáveis e devem ser reconfirmadas
-no início de cada sessão ou campanha. O LXC do servidor de artefatos ainda não
-está provisionado.
+no início de cada sessão ou campanha. O LXC do servidor de artefatos foi criado
+como CT 107 em 01/10/2026; acesso, sistema-base e persistência foram verificados.
+Conectividade com o ESP32 e reconstrução em CT separado continuam pendentes.
+
+A [documentação do provisionamento do LXC](provisionamento-lxc.md) registra a
+inspeção de capacidade e rede, a configuração efetiva e os testes de
+aceite da issue #6. O PC observador foi confirmado pelo usuário; os caminhos de
+rede entre o ESP32 e o LXC permanecem pendentes de comprovação.
 
 Definir a transformação comum, a alteração v1/v2 e os dados de referência. O
 [contrato UDP v1](protocolo-observacao.md) fixa os campos das mensagens; a
