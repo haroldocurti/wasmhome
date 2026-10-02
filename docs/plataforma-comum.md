@@ -120,7 +120,7 @@ Antes do aceite da issue, preservar:
   sem credenciais; tamanho e hash da imagem e tabela de partições.
 - Logs de boots distintos, leitura do sensor, desconexão/CRC inválido e retomada.
 - GPIO solicitado/observado com o jumper presente e removido.
-- Associação Wi-Fi, tráfego UDP nas duas direções e retorno após desconexão.
+- Associação Wi-Fi, tráfego UDP nas duas direções e retomada após reboot do watchdog. A perda e reconexão do enlace Wi-Fi dentro do mesmo boot ainda não foram ensaiadas.
 - Teste de watchdog e evidência de que diagnóstico não é contado como serviço.
 
 Os testes no host validam o codec e a interpretação do scratchpad. Não validam

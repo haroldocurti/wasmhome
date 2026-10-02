@@ -36,7 +36,7 @@ O loopback físico usa um jumper roxo entre GPIO5, configurado como saída de co
 
 - O ESP32-S3 recebe alimentação por USB conectado ao PC. As fotos mostram a placa ligada.
 - No levantamento inicial, o usuário informou **hal9000**. Em 02/10/2026, corrigiu o nome exato para **Hal9000**. O ESP32 associou no canal 5/BW20, com IPv4 DHCP `192.168.0.145`. A credencial permanece somente nos arquivos locais ignorados. Ver [ensaio no dispositivo](evidence/esp32s3-hardware-2026-10-02.md).
-- O PC conectado à serial é usado como USB host. Modelo e sistema operacional não foram informados; seu papel como observador experimental ainda não foi confirmado.
+- O usuário confirmou o PC conectado à serial como observador na mesma rede local do ESP32. Nos ensaios de 02/10/2026, a ferramenta de diagnóstico executou no Windows, usando a Ethernet 2, índice 9, IPv4 `192.168.0.190`. O modelo do PC não foi identificado.
 
 ## Host Proxmox
 
@@ -64,7 +64,7 @@ Leitura por SSH ao host em 2026-10-01, autorizada pelo usuário. Os detalhes aba
 
 ## Limites deste registro
 
-- O modelo, a revisão do silício, as capacidades de memória e a porta serial do ESP32 vêm das imagens e informações fornecidas pelo usuário; não foram lidos novamente a partir do hardware.
+- A identificação inicial veio das imagens e informações do usuário. Em 02/10/2026, o esptool na COM12 confirmou ESP32-S3 QFN56, revisão v0.2, flash de 16 MiB e PSRAM AP de 8 MiB/3,3 V. O boot confirmou PSRAM a 80 MHz e teste de memória aprovado; ver [evidência física](evidence/esp32s3-hardware-2026-10-02.md).
 - A fiação foi documentada conforme fotos e confirmação do usuário. Em 02/10/2026, o diagnóstico produziu leituras válidas do DS18B20 e verificou os dois níveis do loopback. Isso não é um teste separado de continuidade com instrumento.
 - SSID e associação Wi-Fi foram verificados no ESP32 em 02/10/2026. O endereço IP, a rota, o hardware e as versões de software do Proxmox foram consultados ao vivo via SSH no levantamento inicial; o painel web não foi consultado.
-- Ainda faltam o modelo/revisão da placa portadora, a identificação do ponto de acesso e a confirmação da banda Wi-Fi. O LXC foi criado; falta comprovar conectividade com o ESP32 e reconstrução separada. O usuário confirmou este PC como observador, na mesma rede local do ESP32.
+- Ainda faltam o modelo/revisão da placa portadora e a identificação do ponto de acesso. A associação do ESP32 no canal 5 confirmou a banda de 2,4 GHz. O LXC foi criado; falta comprovar conectividade com o ESP32 e reconstrução separada.

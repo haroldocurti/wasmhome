@@ -129,6 +129,8 @@ de repetir. A credencial da bancada não deve entrar nos argumentos ou no Git.
 ## Pendências
 
 - Integrar a implementação na `main` após revisão. A issue permanece aberta.
+- Ensaiar perda e reconexão do enlace Wi-Fi no mesmo boot antes das campanhas;
+  a retomada comprovada aqui foi após reboot do watchdog.
 - Demonstrar os módulos de serviço, calibrar o observador e executar as
   atualizações nas respectivas issues. Pacote diagnóstico ou log serial não
   conta como serviço prestado.

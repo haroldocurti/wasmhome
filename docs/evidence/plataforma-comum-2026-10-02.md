@@ -69,9 +69,11 @@ binária em outro caminho ou ambiente. O lock e as imagens permanecem locais.
 
 ## Limite da evidência
 
-Não houve flash, acesso serial ao dispositivo, associação Wi-Fi, tráfego UDP,
+Neste primeiro build local não houve flash, acesso serial ao dispositivo, associação Wi-Fi, tráfego UDP,
 leitura física do DS18B20, teste do jumper, reset de watchdog ou ensaio da PSRAM.
-Os três critérios da issue #8 continuam sem aceite na placa. A camada comum
+Naquele momento, os três critérios da issue #8 estavam sem aceite na placa.
+Os ensaios físicos posteriores estão no [registro de diagnóstico](esp32s3-hardware-2026-10-02.md).
+A camada comum
 fornece transporte e drivers; regras, deduplicação e publicação periódica dos
 serviços permanecem nas issues #11–#14. Este registro não comprova merge ou
 fechamento da issue.
