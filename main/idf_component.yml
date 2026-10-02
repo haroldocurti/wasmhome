@@ -1,4 +1,6 @@
 dependencies:
+  espressif/onewire_bus:
+    version: "1.0.2"
   espressif/wasm-micro-runtime:
     version: "2.4.0~1"
   idf:

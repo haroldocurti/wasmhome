@@ -1,6 +1,6 @@
 # Inventário da bancada física
 
-**Levantamento inicial:** 2026-10-01. Este registro consolida as informações fornecidas pelo usuário e as fotos da montagem. A identificação e a ligação dos componentes foram confirmadas pelo usuário; ainda não houve leitura funcional do sensor nem execução experimental.
+**Levantamento inicial:** 2026-10-01. Este registro consolida as informações fornecidas pelo usuário e as fotos da montagem. A identificação e a ligação dos componentes foram confirmadas pelo usuário. Na data do levantamento ainda não havia leitura funcional do sensor. Os ensaios de diagnóstico realizados em 02/10/2026 estão registrados nos limites e evidências abaixo; não são resultados das campanhas.
 
 ## ESP32-S3
 
@@ -35,8 +35,8 @@ O loopback físico usa um jumper roxo entre GPIO5, configurado como saída de co
 ## Alimentação, rede e observador
 
 - O ESP32-S3 recebe alimentação por USB conectado ao PC. As fotos mostram a placa ligada.
-- O usuário informou a rede Wi-Fi doméstica com SSID **hal9000**. A senha não foi registrada. A banda e o ponto de acesso ainda não foram identificados.
-- O PC conectado à serial é usado como USB host. Modelo e sistema operacional não foram informados; seu papel como observador experimental ainda não foi confirmado.
+- No levantamento inicial, o usuário informou **hal9000**. Em 02/10/2026, corrigiu o nome exato para **Hal9000**. O ESP32 associou no canal 5/BW20, com IPv4 DHCP `192.168.0.145`. A credencial permanece somente nos arquivos locais ignorados. Ver [ensaio no dispositivo](evidence/esp32s3-hardware-2026-10-02.md).
+- O usuário confirmou o PC conectado à serial como observador na mesma rede local do ESP32. Nos ensaios de 02/10/2026, a ferramenta de diagnóstico executou no Windows, usando a Ethernet 2, índice 9, IPv4 `192.168.0.190`. O modelo do PC não foi identificado.
 
 ## Host Proxmox
 
@@ -53,7 +53,7 @@ Leitura por SSH ao host em 2026-10-01, autorizada pelo usuário. Os detalhes aba
 | Memória instalada | 16 GB DDR3 | Informação fornecida pelo usuário. O sistema reporta 15 GiB utilizáveis. |
 | Memória em uso na observação | 13 GiB usados; 1,9 GiB disponíveis; swap de 8,0 GiB, dos quais 6,3 GiB usados | Amostra pontual de `free -h` via SSH; carga pode mudar. Considerar antes de provisionar novos guests. |
 | Discos detectados | 1 × Kingston SV300S37A240G (223,6 GiB); 2 × Kingston SA400S37240G (223,6 GiB cada); 1 × WDC WD10SPZX-00Z10T0 (931,5 GiB); 1 × ST2000DM006-2DM164 (1,8 TiB) | Modelos e capacidades reportados por `lsblk`. Isso não confirma espaço livre nem configuração como storage Proxmox. |
-| LXC do servidor de artefatos | Ainda não provisionado | `pct list` não mostrou guest destinado a esse serviço; o host tem outros guests. |
+| LXC do servidor de artefatos | CT 107, wasmhome-bench, Debian 13, 1 CPU, 1.024 MiB RAM, 24 GiB em local-lvm | Criado com autorização em 01/10/2026; não privilegiado, nesting=1, DHCP 192.168.0.138, onboot desabilitado. Acesso por chave e persistência após reboot comprovados. Ver [registro do provisionamento](provisionamento-lxc.md). |
 
 ## Ambiente
 
@@ -64,7 +64,7 @@ Leitura por SSH ao host em 2026-10-01, autorizada pelo usuário. Os detalhes aba
 
 ## Limites deste registro
 
-- O modelo, a revisão do silício, as capacidades de memória e a porta serial do ESP32 vêm das imagens e informações fornecidas pelo usuário; não foram lidos novamente a partir do hardware.
-- A fiação está documentada conforme as fotos e a confirmação do usuário. Não foi executado teste de continuidade, leitura 1-Wire ou leitura funcional do loopback.
-- SSID, senha/banda do Wi-Fi não foram verificados. O endereço IP, a rota, o hardware e as versões de software do Proxmox foram consultados ao vivo via SSH; o painel web não foi consultado.
-- Ainda faltam o modelo/revisão da placa portadora, a identificação do ponto de acesso, a confirmação da banda Wi-Fi e a criação do LXC de artefatos.
+- A identificação inicial veio das imagens e informações do usuário. Em 02/10/2026, o esptool na COM12 confirmou ESP32-S3 QFN56, revisão v0.2, flash de 16 MiB e PSRAM AP de 8 MiB/3,3 V. O boot confirmou PSRAM a 80 MHz e teste de memória aprovado; ver [evidência física](evidence/esp32s3-hardware-2026-10-02.md).
+- A fiação foi documentada conforme fotos e confirmação do usuário. Em 02/10/2026, o diagnóstico produziu leituras válidas do DS18B20 e verificou os dois níveis do loopback. Isso não é um teste separado de continuidade com instrumento.
+- SSID e associação Wi-Fi foram verificados no ESP32 em 02/10/2026. O endereço IP, a rota, o hardware e as versões de software do Proxmox foram consultados ao vivo via SSH no levantamento inicial; o painel web não foi consultado.
+- Ainda faltam o modelo/revisão da placa portadora e a identificação do ponto de acesso. A associação do ESP32 no canal 5 confirmou a banda de 2,4 GHz. O LXC foi criado; falta comprovar conectividade com o ESP32 e reconstrução separada.

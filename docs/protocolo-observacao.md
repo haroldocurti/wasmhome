@@ -133,9 +133,17 @@ Corpo `!QQBBH`: `request_sequence:u64`, `target_sequence:u64`, `status:u8`,
   `3=UNSUPPORTED_COMPONENT`, `4=UNSUPPORTED_VERSION`,
   `5=SEQUENCE_NOT_NEWER`, `6=BUSY`, `7=ATTEMPT_CONFLICT`.
 - O dispositivo transmite `ACCEPTED` antes de iniciar o download HTTPS. A
-  tentativa começa no observador quando esse aceite chega. Recusa não inicia uma
-  tentativa medida. A janela de 300 ms é o timeout inicial do piloto, ainda a
+  tentativa normal começa no observador quando esse aceite chega. Recusa não
+  inicia uma tentativa da campanha normal. A campanha de resiliência tem disparo
+  e contagem próprios, definidos em [Ensaios válidos de
+  resiliência](research/ensaios-resiliencia.md#disparo-contagem-e-canal-de-eventos).
+  A janela de 300 ms é o timeout inicial do piloto, ainda a
   confirmar antes de congelar o protocolo.
+
+`UPDATE_ACCEPTANCE` informa aceite ou recusa do comando, antes do download.
+Não informa validação de assinatura/hash, trap ou recuperação. Esses eventos
+da campanha de resiliência usam o canal serial de ensaio e são correlacionados
+às mensagens UDP no registro do observador, sem alterar os cinco tipos v1.
 
 ## Regras de aceitação e rejeição
 
@@ -226,6 +234,10 @@ verifica ida e volta dos cinco vetores e recusa estruturas inválidas. Execuçã
 python -m unittest discover -s tests -p 'test_observation_protocol_v1.py' -v
 ```
 
-Os exemplos e rejeições passam no codec de referência. Ainda não houve integração
-com ESP-IDF, tráfego UDP real ou validação no dispositivo; isso pertence às
-etapas de implementação e viabilidade da bancada.
+Os exemplos e rejeições passam no codec de referência. A implementação da
+[plataforma comum](plataforma-comum.md) acrescenta codec C e transporte UDP
+embarcado com interfaces para os serviços. Os testes comparativos executam o C
+no host. Os [ensaios de diagnóstico no ESP32-S3](evidence/esp32s3-hardware-2026-10-02.md)
+comprovaram telemetria diagnóstica no fio, despacho de pedido válido e rejeição
+de boot incorreto e datagrama truncado. Validação funcional dos módulos e
+tratamento completo de atualização/deduplicação continuam nas próximas etapas.

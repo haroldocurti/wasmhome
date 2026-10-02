@@ -1,0 +1,10 @@
+{"host_monotonic_ns": 3678609000000, "kind": "WASMHOME_EVENT", "value": {"event": "boot_observed", "scenario": "native", "boot_id": "a47ab3015984f38e", "monotonic_us": 900306, "status": 1, "heap_internal": 323319}}
+{"host_monotonic_ns": 3678796000000, "kind": "WASMHOME_EVENT", "value": {"event": "platform_initialized", "scenario": "native", "boot_id": "a47ab3015984f38e", "monotonic_us": 1098057, "status": 0, "heap_internal": 261923}}
+{"host_monotonic_ns": 3678828000000, "kind": "WASMHOME_EVENT", "value": {"event": "platform_selftest_diagnostic_only", "scenario": "native", "boot_id": "a47ab3015984f38e", "monotonic_us": 1116911, "status": 0, "heap_internal": 261647}}
+{"host_monotonic_ns": 3678828000000, "kind": "WASMHOME_DIAG", "value": {"sample_id": 0, "temperature_mC": -2147483648, "age_ms": 65535, "sensor_status": 3, "requested_gpio": 0, "observed_gpio": 0, "gpio_error": 0}}
+{"host_monotonic_ns": 3679812000000, "kind": "WASMHOME_DIAG", "value": {"sample_id": 2, "temperature_mC": 27500, "age_ms": 465, "sensor_status": 0, "requested_gpio": 1, "observed_gpio": 1, "gpio_error": 0}}
+{"host_monotonic_ns": 3679906000000, "kind": "WASMHOME_EVENT", "value": {"event": "wifi_ip_acquired", "scenario": "native", "boot_id": "a47ab3015984f38e", "monotonic_us": 2202240, "status": 0, "heap_internal": 261191}}
+{"host_monotonic_ns": 3679906000000, "kind": "WASMHOME_NETWORK", "value": {"ip": "192.168.0.145", "gateway": "192.168.0.1"}}
+{"host_monotonic_ns": 3679906000000, "kind": "probe_sent", "value": {"case": "valid_control", "hex": "57484f420102000c000000000000000000000000000000000000000000000001a47ab3015984f38e00000000db56e8d00000000000000123000061a8"}}
+{"host_monotonic_ns": 3679906000000, "kind": "probe_sent", "value": {"case": "wrong_boot", "hex": "57484f420102000c000000000000000000000000000000000000000000000002a47ab3015984f38f00000000db56e8d00000000000000124000061a8"}}
+{"host_monotonic_ns": 3679906000000, "kind": "probe_sent", "value": {"case": "truncated", "hex": "57484f420102000c000000000000000000000000000000000000000000000001a47ab3015984f38e00000000db56e8d00000000000000123000061"}}

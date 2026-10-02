@@ -1,0 +1,19 @@
+I (346) esp_psram: Found 8MB PSRAM device
+I (350) esp_psram: Speed: 80MHz
+I (767) esp_psram: SPI SRAM memory test OK
+I (853) esp_psram: Adding pool of 8192K of PSRAM memory to heap allocator
+I (887) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations
+WASMHOME_EVENT,{"event":"selftest_watchdog_triggered","scenario":"native","boot_id":"e46e46310723c1fc","monotonic_us":12030895,"status":0,"heap_internal":260475}
+E (17163) task_wdt: Task watchdog got triggered. The following tasks/users did not reset the watchdog in time:
+E (17163) task_wdt:  - wh_diag (CPU 0/1)
+E (17163) task_wdt: Tasks currently running:
+E (17163) task_wdt: CPU 0: IDLE0
+E (17163) task_wdt: CPU 1: IDLE1
+E (17163) task_wdt: Print CPU 0 (current core) backtrace
+E (17163) task_wdt: Aborting.
+E (17163) task_wdt: Print CPU 1 backtrace
+I (351) esp_psram: Found 8MB PSRAM device
+I (356) esp_psram: Speed: 80MHz
+I (773) esp_psram: SPI SRAM memory test OK
+I (858) esp_psram: Adding pool of 8192K of PSRAM memory to heap allocator
+I (892) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations

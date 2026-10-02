@@ -92,8 +92,10 @@ Formato UDP binário v1 definido em
 fixo de 48 bytes, UUID de tentativa, contador de mensagem, `boot_id` e timestamp
 monotônico; inteiros em ordem de rede. Tipos incluem telemetria, pedido e
 resultado de controle, disparo e aceite/recusa de atualização. O codec Python
-valida vetores no host; transporte no firmware e na placa ainda não foi
-implementado.
+valida vetores no host. A plataforma comum agora contém codec C e transporte
+UDP embarcado. Os [ensaios de diagnóstico na placa](docs/evidence/esp32s3-hardware-2026-10-02.md)
+comprovaram transporte UDP da plataforma nos dois sentidos; integração e
+validação funcional dos módulos permanecem pendentes. Ver [Plataforma comum](docs/plataforma-comum.md).
 
 ## Registro bruto
 
@@ -123,9 +125,12 @@ Começa somente após o piloto e mantém falhas e timeouts no denominador.
 
 Bateria complementar, separada da campanha normal, que observa rejeição de
 assinatura inválida, hash divergente e sequência antiga, além da contenção de
-falhas reproduzíveis durante a execução. A definição dos testes de memória depende
-de pesquisa sobre semântica equivalente e não presume que endereço linear zero
-produza um trap em WebAssembly.
+falhas reproduzíveis durante a execução. A [decisão de resiliência](docs/research/ensaios-resiliencia.md)
+define 70 tentativas de falha e dois controles, com traps Wasm e aborto nativo
+sem presumir equivalência. O endereço linear zero é um controle válido.
+O disparo e os eventos do ensaio usam serial, correlacionados à observação UDP;
+rejeição do comando UDP não substitui rejeição do envelope assinado. Implementação
+e validação no dispositivo permanecem pendentes.
 
 ## Canal de diagnóstico
 

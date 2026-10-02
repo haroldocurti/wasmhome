@@ -1,0 +1,5 @@
+I (346) esp_psram: Found 8MB PSRAM device
+I (351) esp_psram: Speed: 80MHz
+I (768) esp_psram: SPI SRAM memory test OK
+I (853) esp_psram: Adding pool of 8192K of PSRAM memory to heap allocator
+I (887) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations

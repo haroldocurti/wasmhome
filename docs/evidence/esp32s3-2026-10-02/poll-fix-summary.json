@@ -1,0 +1,35 @@
+{
+  "purpose": "platform diagnostics only; not functional availability",
+  "device_ip": null,
+  "boot_ids": [
+    "9c3adb2435ed6551"
+  ],
+  "diagnostic_rows": 19,
+  "valid_sensor_rows": 18,
+  "temperatures_mC": [
+    27500
+  ],
+  "gpio_observations": [
+    [
+      0,
+      0,
+      0
+    ],
+    [
+      1,
+      1,
+      0
+    ]
+  ],
+  "udp_packets": 0,
+  "udp_sequence_increases": false,
+  "valid_probe_received": false,
+  "wrong_boot_discarded": false,
+  "truncated_discarded": false,
+  "wifi_disconnect_reasons": {
+    "201": 7
+  },
+  "error_counts": {
+    "wifi_disconnected:-1": 7
+  }
+}
