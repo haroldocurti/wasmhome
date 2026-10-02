@@ -18,12 +18,16 @@ different algorithms by accident.
 
 The UDP observation contract, host-side reference codec, firmware harness,
 workload, artifact builder, log collector and automated local tests are present.
-The codec tests do not implement embedded UDP transport. No ESP32 result has
+The common platform source now includes sensor acquisition, GPIO loopback,
+Wi-Fi and embedded UDP transport. See [platform configuration and validation](docs/plataforma-comum.md).
+No ESP32 result has
 been collected yet. OTA, dynamic replacement and external monitoring remain to
 be implemented.
 Thirty current calls are not thirty updates; loading occurs once per boot.
-The last environment inspection found Docker and Git, but no ESP-IDF environment,
-CMake, Ninja, WASI-SDK or `wamrc` in `PATH`. Recheck in stage E0.
+The common platform built locally with ESP-IDF 5.2.6 on 2026-10-02; the
+[verification record](docs/evidence/plataforma-comum-2026-10-02.md) identifies
+the tool versions and image hashes. WASI-SDK, `wamrc`, interpreted/AOT execution
+and the LXC toolchain remain to be validated in their respective stages.
 
 ## Prerequisites
 
@@ -49,15 +53,16 @@ $env:WAMRC = 'C:\tools\wamrc.exe'
 Then build each firmware from an ESP-IDF PowerShell prompt:
 
 ```powershell
-idf.py -B build-native -DEXPERIMENT_SCENARIO=native set-target esp32s3 build
-idf.py -B build-interp -DEXPERIMENT_SCENARIO=interp `
+idf.py -B build-native -DSDKCONFIG=build-native/sdkconfig -DEXPERIMENT_SCENARIO=native set-target esp32s3 build
+idf.py -B build-interp -DSDKCONFIG=build-interp/sdkconfig -DEXPERIMENT_SCENARIO=interp `
   '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.interp' set-target esp32s3 build
-idf.py -B build-aot -DEXPERIMENT_SCENARIO=aot `
+idf.py -B build-aot -DSDKCONFIG=build-aot/sdkconfig -DEXPERIMENT_SCENARIO=aot `
   '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.aot' set-target esp32s3 build
 ```
 
-Flash one scenario at a time and save the serial output. The firmware emits one
-CSV row per measured repetition after five warm-up runs. See
+Configure the Wi-Fi and observer settings locally before using the platform.
+Enable `WASMHOME_RUN_BENCHMARK` for the preliminary execution check. In that mode,
+the firmware emits one CSV row per measured repetition after five warm-up runs. See
 [`docs/experiment-protocol.md`](docs/experiment-protocol.md) before collecting
 data.
 

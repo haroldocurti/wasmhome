@@ -2,8 +2,8 @@ if(NOT DEFINED EXPERIMENT_SCENARIO)
     set(EXPERIMENT_SCENARIO "native")
 endif()
 
-set(SCENARIO_SOURCE "main.c")
-set(SCENARIO_REQUIRES "esp_timer")
+set(SCENARIO_SOURCE "main.c" "platform.c" "sensor.c" "observation_wire.c")
+set(SCENARIO_REQUIRES "esp_timer" "esp_wifi" "esp_netif" "esp_event" "nvs_flash" "driver" "esp_system" "onewire_bus")
 
 if(EXPERIMENT_SCENARIO STREQUAL "native")
     list(APPEND SCENARIO_SOURCE "../workload/benchmark.c")

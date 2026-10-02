@@ -92,8 +92,9 @@ Formato UDP binário v1 definido em
 fixo de 48 bytes, UUID de tentativa, contador de mensagem, `boot_id` e timestamp
 monotônico; inteiros em ordem de rede. Tipos incluem telemetria, pedido e
 resultado de controle, disparo e aceite/recusa de atualização. O codec Python
-valida vetores no host; transporte no firmware e na placa ainda não foi
-implementado.
+valida vetores no host. A plataforma comum agora contém codec C e transporte
+UDP embarcado; integração dos serviços e validação na placa permanecem
+pendentes. Ver [Plataforma comum](docs/plataforma-comum.md).
 
 ## Registro bruto
 

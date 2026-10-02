@@ -8,3 +8,7 @@ results/raw/*.log
 results/processed/*.csv
 __pycache__/
 *.pyc
+sdkconfig
+sdkconfig.old
+sdkconfig.local
+sdkconfig-*

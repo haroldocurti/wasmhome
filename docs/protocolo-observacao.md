@@ -234,6 +234,8 @@ verifica ida e volta dos cinco vetores e recusa estruturas inválidas. Execuçã
 python -m unittest discover -s tests -p 'test_observation_protocol_v1.py' -v
 ```
 
-Os exemplos e rejeições passam no codec de referência. Ainda não houve integração
-com ESP-IDF, tráfego UDP real ou validação no dispositivo; isso pertence às
-etapas de implementação e viabilidade da bancada.
+Os exemplos e rejeições passam no codec de referência. A implementação da
+[plataforma comum](plataforma-comum.md) acrescenta codec C e transporte UDP
+embarcado com interfaces para os serviços. Os testes comparativos executam o C
+no host. Tráfego UDP real e validação no dispositivo permanecem pendentes;
+isso pertence às etapas de implementação e viabilidade da bancada.

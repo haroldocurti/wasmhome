@@ -9,6 +9,8 @@
 #include "esp_timer.h"
 
 #include "benchmark.h"
+#include "platform.h"
+#include "sdkconfig.h"
 
 #if !defined(WASMHOME_SCENARIO_NATIVE)
 #include "bh_platform.h"
@@ -131,6 +133,10 @@ static void runner_close(runner_t *runner)
 
 void app_main(void)
 {
+    ESP_ERROR_CHECK(wh_platform_start());
+#if !defined(CONFIG_WASMHOME_RUN_BENCHMARK)
+    return;
+#endif
 #if !defined(WASMHOME_SCENARIO_NATIVE)
     RuntimeInitArgs args;
     memset(&args, 0, sizeof(args));

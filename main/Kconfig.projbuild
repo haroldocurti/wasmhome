@@ -1,0 +1,29 @@
+menu "WasmHome common platform"
+config WASMHOME_WIFI_SSID
+    string "Wi-Fi SSID"
+    default "hal9000"
+config WASMHOME_WIFI_PASSWORD
+    string "Wi-Fi password (local sdkconfig only)"
+    default ""
+config WASMHOME_OBSERVER_IPV4
+    string "Observer IPv4 address (empty disables UDP)"
+    default ""
+config WASMHOME_UDP_PORT
+    int "UDP observation port (device and observer)"
+    range 1024 65535
+    default 3333
+config WASMHOME_SENSOR_GPIO
+    int
+    default 4
+config WASMHOME_CONTROL_GPIO
+    int
+    default 5
+config WASMHOME_LOOPBACK_GPIO
+    int
+    default 6
+config WASMHOME_RUN_BENCHMARK
+    bool "Run preliminary benchmark after platform startup"
+    default n
+    help
+        Benchmark CSV is diagnostic and does not establish service availability.
+endmenu
