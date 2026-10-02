@@ -2,7 +2,7 @@ if(NOT DEFINED EXPERIMENT_SCENARIO)
     set(EXPERIMENT_SCENARIO "native")
 endif()
 
-set(SCENARIO_SOURCE "main.c" "platform.c" "sensor.c" "observation_wire.c" "platform_selftest.c")
+set(SCENARIO_SOURCE "main.c" "platform.c" "sensor.c" "observation_wire.c" "platform_selftest.c" "observer_selftest.c")
 set(SCENARIO_REQUIRES "esp_timer" "esp_wifi" "esp_netif" "esp_event" "nvs_flash" "driver" "esp_system" "onewire_bus")
 
 if(EXPERIMENT_SCENARIO STREQUAL "native")

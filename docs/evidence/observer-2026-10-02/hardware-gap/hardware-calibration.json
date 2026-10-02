@@ -1,0 +1,21 @@
+{
+  "purpose": "ESP32-S3 observer fixture integration; no OTA or campaign modules",
+  "mode": "gap",
+  "known_silence_ns": 1003158000,
+  "estimated_silence_ns": 1010000000,
+  "absolute_error_ns": 6842000,
+  "resolution_ns": 100000000,
+  "boot_ids": [
+    13316274848266632854
+  ],
+  "valid_controls_by_boot": {
+    "13316274848266632854": 89
+  },
+  "reboot_command_seen": false,
+  "reboot_observed": false,
+  "correct_controls": 89,
+  "lost_controls": 10,
+  "incorrect_controls": 0,
+  "update_rejection_seen": true,
+  "passed": true
+}

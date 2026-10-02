@@ -1,0 +1,13 @@
+{"host_monotonic_ns": 9050515000000, "kind": "serial_command", "command": "WH_V1"}
+{"host_monotonic_ns": 9050546000000, "kind": "firmware_event", "tag": "WASMHOME_EVENT", "value": {"event": "observer_fixture_v1", "scenario": "native", "boot_id": "b8cce96bfe66be96", "monotonic_us": 31455095, "status": 0, "heap_internal": 260299}}
+{"host_monotonic_ns": 9051531000000, "kind": "firmware_event", "tag": "WASMHOME_EVENT", "value": {"event": "observer_fixture_update_rejected", "scenario": "native", "boot_id": "b8cce96bfe66be96", "monotonic_us": 32434041, "status": 0, "heap_internal": 259803}}
+{"host_monotonic_ns": 9053515000000, "kind": "serial_command", "command": "WH_REBOOT"}
+{"host_monotonic_ns": 9053546000000, "kind": "firmware_event", "tag": "WASMHOME_EVENT", "value": {"event": "observer_fixture_reboot", "scenario": "native", "boot_id": "b8cce96bfe66be96", "monotonic_us": 34459082, "status": 0, "heap_internal": 260299}}
+{"host_monotonic_ns": 9053625000000, "kind": "firmware_event", "tag": "WASMHOME_WIFI", "value": {"reason": 8}}
+{"host_monotonic_ns": 9053625000000, "kind": "firmware_event", "tag": "WASMHOME_EVENT", "value": {"event": "wifi_disconnected", "scenario": "native", "boot_id": "b8cce96bfe66be96", "monotonic_us": 34525227, "status": -1, "heap_internal": 262207}}
+{"host_monotonic_ns": 9054562000000, "kind": "firmware_event", "tag": "WASMHOME_EVENT", "value": {"event": "boot_observed", "scenario": "native", "boot_id": "4f9a4bb63197dee6", "monotonic_us": 905674, "status": 3, "heap_internal": 323271}}
+{"host_monotonic_ns": 9054765000000, "kind": "firmware_event", "tag": "WASMHOME_EVENT", "value": {"event": "platform_initialized", "scenario": "native", "boot_id": "4f9a4bb63197dee6", "monotonic_us": 1102930, "status": 0, "heap_internal": 261875}}
+{"host_monotonic_ns": 9054765000000, "kind": "firmware_event", "tag": "WASMHOME_EVENT", "value": {"event": "observer_fixture_no_ota_or_modules", "scenario": "native", "boot_id": "4f9a4bb63197dee6", "monotonic_us": 1111575, "status": 0, "heap_internal": 261799}}
+{"host_monotonic_ns": 9055859000000, "kind": "firmware_event", "tag": "WASMHOME_EVENT", "value": {"event": "wifi_ip_acquired", "scenario": "native", "boot_id": "4f9a4bb63197dee6", "monotonic_us": 2205641, "status": 0, "heap_internal": 260963}}
+{"host_monotonic_ns": 9055875000000, "kind": "firmware_event", "tag": "WASMHOME_NETWORK", "value": {"ip": "192.168.0.145", "gateway": "192.168.0.1"}}
+{"host_monotonic_ns": 9055953000000, "kind": "firmware_event", "tag": "WASMHOME_EVENT", "value": {"event": "udp_bound", "scenario": "native", "boot_id": "4f9a4bb63197dee6", "monotonic_us": 2302742, "status": 0, "heap_internal": 260443}}

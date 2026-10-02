@@ -22,8 +22,12 @@ The common platform source now includes sensor acquisition, GPIO loopback,
 Wi-Fi and embedded UDP transport. See [platform configuration and validation](docs/plataforma-comum.md).
 Initial ESP32-S3 platform diagnostics are recorded in the
 [hardware verification](docs/evidence/esp32s3-hardware-2026-10-02.md).
-OTA, dynamic replacement and campaign external monitoring remain to
-be implemented.
+The [external observer](docs/observador-externo.md) now sends functional control
+probes and update triggers, preserves JSONL events and has local UDP calibration
+with simulated reboot. Its [ESP32-S3 calibration](docs/evidence/observador-hardware-2026-10-02.md)
+also covers known interruptions, physical GPIO loopback and actual reboot.
+OTA, dynamic replacement and integration with the campaign modules remain to
+be validated in their respective stages.
 Thirty current calls are not thirty updates; loading occurs once per boot.
 The common platform built locally with ESP-IDF 5.2.6 on 2026-10-02; the
 [verification record](docs/evidence/plataforma-comum-2026-10-02.md) identifies
