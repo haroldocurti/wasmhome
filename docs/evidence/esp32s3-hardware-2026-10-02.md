@@ -35,11 +35,37 @@ recebidos; não executa controle nem aceita atualização.
 | Identificação de boot | IDs `e46e46310723c1fc` e `fb8c18c6435211f9`; motivo do segundo reset 6, `ESP_RST_TASK_WDT` |
 | Retomada após watchdog | Nova associação Wi-Fi e leituras válidas; 301 datagramas no ensaio de 40 s, contadores reiniciados somente no novo boot |
 | Observação sem reset | 120 s no boot `c6e0799686eecc62`: 1.200 datagramas, 120 linhas de diagnóstico válidas, 27,75–28,00 °C e nenhum evento de erro |
+| Retirada do fio do sensor | Estado `WH_SENSOR_DISCONNECTED`, erro de aquisição 261; amostra 3957 e temperatura de 28,50 °C preservadas, idade crescente até saturar em 65.534 ms |
+| Retirada do jumper | GPIO5 solicitado em 1 e GPIO6 observado em 0; a diferença aparece no diagnóstico, com API GPIO sem erro |
+| Reconexão dos dois fios | 20 s, 200 datagramas válidos e 20 linhas de diagnóstico com sensor válido; GPIO 0→0 e 1→1; nenhum evento de erro, desconexão Wi-Fi ou reset |
 
 Os 17 testes locais passaram após a correção do driver. Também passou um build
 nativo com diagnóstico desabilitado, em `build-native-validated`. A imagem
 nativa tem 744.752 bytes; o diagnóstico gravado tem 767.376 bytes. Nenhum desses
 ensaios executou OTA, intérprete WAMR, AOT ou troca de módulos.
+
+## Desconexão e recuperação físicas
+
+O usuário retirou somente o jumper GPIO5→GPIO6 e o fio de dados GPIO4 do
+DS18B20, mantendo alimentação e GND. A coleta `physical-transition` de 45 s
+registrou leituras válidas antes da retirada e falhas depois, com 450 pacotes
+UDP. A coleta seguinte, `physical-fault`, preservou 449 pacotes e o estado de
+desconexão do sensor. O jumper foi reconectado perto do final dessa coleta,
+que também registrou o retorno de GPIO6 ao nível solicitado.
+
+Durante a falha, o ID da amostra permaneceu em 3957 e a temperatura em
+28,50 °C. A idade aumentou de 357 ms até o teto de 65.534 ms do campo UDP,
+sem transformar a leitura antiga em uma nova amostra válida. O diagnóstico
+serial preserva a idade sem essa saturação. GPIO6 permaneceu em zero nas
+solicitações de nível alto enquanto o jumper estava ausente.
+
+Após o usuário confirmar a reconexão de ambos os fios, `physical-recovered`
+registrou 200 pacotes em 20 s, todos com sensor válido, IDs de amostra de
+3998 a 4038 e idade máxima de 457 ms. As 20 linhas de diagnóstico confirmaram
+os dois níveis do GPIO e temperaturas de 28,25–28,50 °C, sem eventos de erro.
+As três coletas mantiveram o boot `c6e0799686eecc62`, contadores UDP crescentes
+e nenhum evento de desconexão Wi-Fi. A recuperação não exigiu reset ou flash.
+As coletas foram passivas, sem pedidos de controle.
 
 ## Falhas encontradas e correções
 
@@ -68,8 +94,9 @@ ensaios executou OTA, intérprete WAMR, AOT ou troca de módulos.
 
 O diretório [esp32s3-2026-10-02](esp32s3-2026-10-02/) contém JSONL, resumos e
 trechos seriais selecionados. Inclui a primeira falha do sensor, o SSID incorreto,
-o erro de bootstrap UDP, a coleta pela interface padrão, o watchdog e o ensaio
-positivo com Ethernet. As tentativas malsucedidas permanecem registradas.
+o erro de bootstrap UDP, a coleta pela interface padrão, o watchdog, o ensaio
+positivo com Ethernet e a retirada/reconexão físicas dos fios. As tentativas
+malsucedidas permanecem registradas.
 Não são dados da campanha normal ou da campanha complementar de resiliência.
 
 Senhas, sdkconfigs locais, firmware com credenciais, backups e serial bruta
@@ -101,8 +128,6 @@ de repetir. A credencial da bancada não deve entrar nos argumentos ou no Git.
 
 ## Pendências
 
-- Capturar desconexão/reconexão físicas do sensor e do jumper, preservando a
-  última leitura válida e o mesmo boot.
 - Integrar a implementação na `main` após revisão. A issue permanece aberta.
 - Demonstrar os módulos de serviço, calibrar o observador e executar as
   atualizações nas respectivas issues. Pacote diagnóstico ou log serial não
