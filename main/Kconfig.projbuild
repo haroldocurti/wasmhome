@@ -1,7 +1,7 @@
 menu "WasmHome common platform"
 config WASMHOME_WIFI_SSID
     string "Wi-Fi SSID"
-    default "hal9000"
+    default "Hal9000"
 config WASMHOME_WIFI_PASSWORD
     string "Wi-Fi password (local sdkconfig only)"
     default ""
@@ -21,9 +21,16 @@ config WASMHOME_CONTROL_GPIO
 config WASMHOME_LOOPBACK_GPIO
     int
     default 6
+config WASMHOME_PLATFORM_SELFTEST
+    bool "Run platform hardware diagnostics (not a functional service)"
+    default n
+    help
+        Publishes diagnostic sensor telemetry and alternates the loopback output.
+        Use only on the documented bench; it is not campaign service evidence.
 config WASMHOME_RUN_BENCHMARK
     bool "Run preliminary benchmark after platform startup"
     default n
+    depends on !WASMHOME_PLATFORM_SELFTEST
     help
         Benchmark CSV is diagnostic and does not establish service availability.
 endmenu

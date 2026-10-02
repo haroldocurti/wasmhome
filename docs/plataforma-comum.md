@@ -2,8 +2,10 @@
 
 Implementação local da [issue #8](https://github.com/haroldocurti/wasmhome/issues/8).
 O [build nativo e os testes locais passaram em 02/10/2026](evidence/plataforma-comum-2026-10-02.md).
-O aceite no dispositivo permanece pendente. As configurações abaixo são a base
+Os ensaios no dispositivo estão em andamento. As configurações abaixo são a base
 proposta para os três cenários e devem ser preservadas nas evidências de build.
+Os [ensaios no ESP32-S3](evidence/esp32s3-hardware-2026-10-02.md) registram
+sensor, GPIO, PSRAM, Wi-Fi, UDP e watchdog, com as falhas e os limites encontrados.
 
 ## Configuração compartilhada
 
@@ -36,7 +38,10 @@ configura o scratchpad em 10 bits e dispara a conversão sem usar a função
 bloqueante do componente DS18B20. A espera de 200 ms suspende somente a tarefa
 de aquisição. O máximo especificado para 10 bits é 187,5 ms, conforme o
 [datasheet](https://www.analog.com/media/en/technical-documentation/data-sheets/DS18B20.pdf).
-Antes de ler, verifica conclusão; valida CRC, configuração e faixa física.
+Após essa espera, lê o scratchpad e valida CRC, configuração e faixa física.
+O ensaio físico encontrou um resultado zero na consulta isolada de conclusão
+com o backend RMT fixado; essa consulta foi removida. A leitura após a espera
+prevista no datasheet produziu amostras válidas na bancada, sem alterar a cadência.
 Falhas preservam a última leitura válida e seu timestamp. Uma conversão em
 curso não invalida a amostra anterior. Não há persistência de configuração no
 EEPROM do sensor. O uso de Skip ROM pressupõe o único sensor da bancada.

@@ -97,12 +97,17 @@ static void wifi_event(void *arg, esp_event_base_t base, int32_t id, void *data)
     (void)arg; (void)data;
     if (base == WIFI_EVENT && id == WIFI_EVENT_STA_START) esp_wifi_connect();
     else if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
+        wifi_event_sta_disconnected_t *disconnected = data;
+        printf("WASMHOME_WIFI,{\"reason\":%u}\n", disconnected->reason);
         xEventGroupClearBits(network, NETWORK_READY);
         wh_platform_event("wifi_disconnected", ESP_FAIL);
         esp_wifi_connect();
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
         xEventGroupSetBits(network, NETWORK_READY);
         wh_platform_event("wifi_ip_acquired", ESP_OK);
+        ip_event_got_ip_t *ip = data;
+        printf("WASMHOME_NETWORK,{\"ip\":\"" IPSTR "\",\"gateway\":\"" IPSTR "\"}\n",
+               IP2STR(&ip->ip_info.ip), IP2STR(&ip->ip_info.gw));
     } else if (base == IP_EVENT && id == IP_EVENT_STA_LOST_IP) xEventGroupClearBits(network, NETWORK_READY);
 }
 

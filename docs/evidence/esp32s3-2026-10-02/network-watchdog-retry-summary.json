@@ -1,0 +1,40 @@
+{
+  "purpose": "platform diagnostics only; not functional availability",
+  "device_ip": "192.168.0.145",
+  "boot_ids": [
+    "e46e46310723c1fc",
+    "fb8c18c6435211f9"
+  ],
+  "reset_reasons": [
+    1,
+    6
+  ],
+  "watchdog_trigger_seen": true,
+  "diagnostic_rows": 33,
+  "valid_sensor_rows": 31,
+  "temperatures_mC": [
+    27500,
+    27750
+  ],
+  "gpio_observations": [
+    [
+      0,
+      0,
+      0
+    ],
+    [
+      1,
+      1,
+      0
+    ]
+  ],
+  "udp_packets": 301,
+  "udp_sequence_increases_within_boot": true,
+  "valid_probe_received": false,
+  "wrong_boot_discarded": false,
+  "truncated_discarded": true,
+  "wifi_disconnect_reasons": {},
+  "error_counts": {
+    "udp_discarded:258": 3
+  }
+}

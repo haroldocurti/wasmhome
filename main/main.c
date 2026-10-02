@@ -134,6 +134,10 @@ static void runner_close(runner_t *runner)
 void app_main(void)
 {
     ESP_ERROR_CHECK(wh_platform_start());
+#if defined(CONFIG_WASMHOME_PLATFORM_SELFTEST)
+    extern esp_err_t wh_platform_selftest_start(void);
+    ESP_ERROR_CHECK(wh_platform_selftest_start());
+#endif
 #if !defined(CONFIG_WASMHOME_RUN_BENCHMARK)
     return;
 #endif

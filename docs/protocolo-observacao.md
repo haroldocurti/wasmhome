@@ -237,5 +237,7 @@ python -m unittest discover -s tests -p 'test_observation_protocol_v1.py' -v
 Os exemplos e rejeições passam no codec de referência. A implementação da
 [plataforma comum](plataforma-comum.md) acrescenta codec C e transporte UDP
 embarcado com interfaces para os serviços. Os testes comparativos executam o C
-no host. Tráfego UDP real e validação no dispositivo permanecem pendentes;
-isso pertence às etapas de implementação e viabilidade da bancada.
+no host. Os [ensaios de diagnóstico no ESP32-S3](evidence/esp32s3-hardware-2026-10-02.md)
+comprovaram telemetria diagnóstica no fio, despacho de pedido válido e rejeição
+de boot incorreto e datagrama truncado. Validação funcional dos módulos e
+tratamento completo de atualização/deduplicação continuam nas próximas etapas.

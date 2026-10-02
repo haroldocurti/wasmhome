@@ -20,8 +20,9 @@ The UDP observation contract, host-side reference codec, firmware harness,
 workload, artifact builder, log collector and automated local tests are present.
 The common platform source now includes sensor acquisition, GPIO loopback,
 Wi-Fi and embedded UDP transport. See [platform configuration and validation](docs/plataforma-comum.md).
-No ESP32 result has
-been collected yet. OTA, dynamic replacement and external monitoring remain to
+Initial ESP32-S3 platform diagnostics are recorded in the
+[hardware verification](docs/evidence/esp32s3-hardware-2026-10-02.md).
+OTA, dynamic replacement and campaign external monitoring remain to
 be implemented.
 Thirty current calls are not thirty updates; loading occurs once per boot.
 The common platform built locally with ESP-IDF 5.2.6 on 2026-10-02; the

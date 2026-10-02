@@ -44,9 +44,10 @@ static void sensor_task(void *arg)
             portEXIT_CRITICAL(&sample_lock);
             /* Conversion runs on the sensor; UDP and services keep running. */
             vTaskDelay(pdMS_TO_TICKS(200));
-            uint8_t ready = 0;
-            err = onewire_bus_read_bit(bus, &ready);
-            if (err == ESP_OK && !ready) err = ESP_ERR_INVALID_STATE;
+            /* The 10-bit conversion maximum is 187.5 ms. The pinned RMT
+             * backend's isolated read-bit poll returned zero after this idle
+             * window on the bench. Read/CRC-check the scratchpad after the
+             * bounded conversion wait instead of treating that poll as proof. */
         }
         uint8_t scratchpad[9];
         if (err == ESP_OK) err = command(read, sizeof(read));
