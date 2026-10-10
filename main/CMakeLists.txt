@@ -28,8 +28,14 @@ if(NOT EXPERIMENT_SCENARIO STREQUAL "native" AND NOT CMAKE_BUILD_EARLY_EXPANSION
         "${CMAKE_SOURCE_DIR}/tools/validate_build_config.py"
         "${CMAKE_SOURCE_DIR}/tools/embed_artifact.py"
         "${CMAKE_SOURCE_DIR}/runtime-port/lock.json"
+        "${CMAKE_SOURCE_DIR}/runtime-port/idf_component.yml"
         "${CMAKE_SOURCE_DIR}/runtime-port/esp-idf.patch"
         "${CMAKE_SOURCE_DIR}/tools/runtime_package.py"
+        "${CMAKE_SOURCE_DIR}/tools/evidence_json.py"
+        "${CMAKE_SOURCE_DIR}/tools/toolchain_provenance.py"
+        "${CMAKE_SOURCE_DIR}/tools/generate_artifacts.py"
+        "${CMAKE_SOURCE_DIR}/tools/build-artifacts.ps1"
+        "${CMAKE_SOURCE_DIR}/tools/record_wamrc_build.py"
         "${CMAKE_SOURCE_DIR}/build-runtime-port/component/wasm-micro-runtime/.wasmhome-runtime.json"
     )
 endif()

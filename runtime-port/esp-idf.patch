@@ -52,15 +52,6 @@ index b47cd16a..e0c87f9d 100644
  endif ()
  
  idf_component_register(SRCS ${srcs}
-@@ -90,7 +116,7 @@ idf_component_register(SRCS ${srcs}
-                        REQUIRES pthread lwip esp_timer
-                        KCONFIG ${CMAKE_CURRENT_LIST_DIR}/Kconfig)
- 
--target_compile_options(${COMPONENT_LIB} PRIVATE "-Wno-format")
-+target_compile_options(${COMPONENT_LIB} PRIVATE "-Wno-format" "-Wno-type-limits")
- 
- if (CONFIG_IDF_TARGET_ARCH_RISCV)
-   if (CONFIG_IDF_TARGET_ESP32P4)
 diff --git a/build-scripts/esp-idf/wamr/Kconfig b/build-scripts/esp-idf/wamr/Kconfig
 index 5ed49625..ba7c679d 100644
 --- a/build-scripts/esp-idf/wamr/Kconfig

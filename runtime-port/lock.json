@@ -11,23 +11,25 @@
     "url": "https://github.com/bytecodealliance/wamr-app-framework.git",
     "revision": "e97860611e371d91d2ef25101b02b29719476a48"
   },
-  "port_origin": {
-    "url": "https://github.com/espressif/wasm-micro-runtime.git",
-    "revision": "8f806e0f2c02a768d2c35044f2964f769612d9bc"
-  },
   "patches": [
     {
       "path": "esp-idf.patch",
-      "sha256": "b60cdc5437935a9a6dbcde6a83e532bee1f648fc7eb0c01a853482264353f941"
+      "sha256": "baf820ac38452498f5857a1c4dd593558e17c3f3bf478b41425900eea1a0e246"
     }
   ],
   "patched_files": {
-    "build-scripts/esp-idf/wamr/CMakeLists.txt": "f44d47262e0f599ee0de0ac767c58ed099a4b92c6c6a857648f5bc1300c97fdf",
+    "build-scripts/esp-idf/wamr/CMakeLists.txt": "0c7409bd7e311026c75aee56a771185bce30c6c35df0670361c0cf0ccd7dfdbf",
     "build-scripts/esp-idf/wamr/Kconfig": "41139330ecbf32d30e3f0db7b28d0fb26c19cca006fe3ca0f029635072168365",
     "core/config.h": "4a73939ede01a133cc3dc3b031e43c0a24ac8f015f405181191cb8662f351144",
     "core/shared/platform/esp-idf/espidf_thread.c": "16bf767089f15f34d8b0e96d0a7fb181a78188629e7e36e5cece3f15696aec5b",
     "core/shared/platform/esp-idf/platform_internal.h": "90fbd50c36a95a8a0476b04a2a9d6301eba1ffecc94fbfa160b4323116705136"
   },
-  "metadata_sha256": "b2d4438657621cdaee4bb8cc0d65904bbdc3fc415a2727e84a4c13f6f8f739a1",
-  "package_sha256": "1f5af199cf16d7774c29e35a7ce471998f01dcc6451a2508901fbaa090ea775c"
+  "metadata_sha256": "b0634bee7c6ad144daadf9a0ad209e4ce5d80243d5f2746b5de46a4dd964b7ce",
+  "package_sha256": "7d3eba8883eaaefee0457e8593b2a5203050736487fcf62bbf05cd8ce0306251",
+  "port_delta_reviewed_reference": {
+    "url": "https://github.com/espressif/wasm-micro-runtime.git",
+    "revision": "8f806e0f2c02a768d2c35044f2964f769612d9bc",
+    "base_revision": "47c7c85ac21f240a878026af603e032065d183fb",
+    "verification": "reviewed_reference_not_verified_by_acquirer"
+  }
 }

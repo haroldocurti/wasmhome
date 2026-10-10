@@ -19,14 +19,19 @@ projeto guarda somente o delta e os verificadores.
 | [Port Espressif examinado](https://github.com/espressif/wasm-micro-runtime/tree/8f806e0f2c02a768d2c35044f2964f769612d9bc) | `8f806e0f2c02a768d2c35044f2964f769612d9bc` |
 | [App framework](https://github.com/bytecodealliance/wamr-app-framework/tree/e97860611e371d91d2ef25101b02b29719476a48) | `e97860611e371d91d2ef25101b02b29719476a48` |
 
-Digest próprio do pacote: `1f5af199cf16d7774c29e35a7ce471998f01dcc6451a2508901fbaa090ea775c`.
+Digest próprio do pacote: `7d3eba8883eaaefee0457e8593b2a5203050736487fcf62bbf05cd8ce0306251`.
 É SHA-256 da concatenação, em ordem lexical, de cada caminho relativo seguido
 do SHA-256 textual de seus bytes. Exclui o recibo gerado, inclui metadados e
 framework. Esse digest é do port materializado; não é um digest oficial de tar
 ou do registro Espressif.
 
-[esp-idf.patch](../runtime-port/esp-idf.patch) preserva o delta do fork sobre
-upstream 2.4.0, aplicado e verificado sobre 2.4.5:
+[esp-idf.patch](../runtime-port/esp-idf.patch) contém o delta selecionado na
+comparação revisada do fork sobre upstream 2.4.0, aplicado e verificado sobre
+2.4.5. A referência do fork é uma trilha de revisão; o acquirer verifica os
+objetos upstream/framework e os hashes do delta, sem baixar ou autenticar o
+checkout do fork. `port_delta_reviewed_reference` declara esse limite. A
+supressão global `-Wno-type-limits` foi removida até haver diagnóstico real
+que justifique uma exceção específica. O delta mantido é:
 
 - Stack default de 8 KiB no grupo de plataformas embarcadas do fork.
 - `esp_pthread` e caps SPIRAM somente sob `CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM`.
@@ -42,7 +47,7 @@ do framework antigo com essas APIs permanece um gate de compilação e execuçã
 
 ## Reprodução da preparação
 
-Requer Git e Python 3.10+ no computador da revisão. Não instala pacotes:
+Requer Git e Python 3.11+ no computador da revisão. Não instala pacotes:
 
 ```powershell
 python tools/runtime_package.py --acquire
@@ -69,25 +74,91 @@ O cache Git também faz parte do material necessário à revisão offline.
 
 ## Gates da geração futura
 
-AOT passou de formato 4 para 5. O manifesto agora é
-`wasmhome-e1-artifacts-v2`; declara formato 5 e o gate também lê os oito bytes
-do cabeçalho AOT. Todo payload antigo precisa ser regenerado. `wamrc` deve
-reportar `wamrc 2.4.5` e o SHA declarado deve ser o upstream fixado acima.
-A declaração permanece marcada como origem de binário não comprovada.
+AOT passou de formato 4 para 5. O manifesto é `wasmhome-e1-artifacts-v3`;
+declara formato 5 e o gate também lê os oito bytes do cabeçalho AOT. Todo
+payload antigo precisa ser regenerado. Lock e recibos JSON recusam chaves
+duplicadas, inclusive em objetos aninhados; versão/AOT são confrontados com
+os macros do core 2.4.5 e os metadados fixam ESP-IDF `==5.2.6`.
 
-O compilador poderá usar a árvore materializada em
-`build-runtime-port/component/wasm-micro-runtime/wamr-compiler`. Usar somente
-um diretório de build novo, fora dessa árvore, e LLVM Espressif
-`344b928e67bfc1d07cb150609c55548e86a9bf19` conforme a receita doadora existente.
-Não reutilizar CMakeCache desconhecido. Não existe binário LLVM/Xtensa
-compatível comprovado nesta entrega, e nenhuma compilação LLVM foi feita.
+Antes de criar staging, a geração exige:
 
-Após construir e verificar a origem do binário real, gerar com:
+- WasmHome em revisão Git limpa, inclusive untracked; registra commit, tree
+  e hashes dos geradores. A revisão permanece igual até o fim da geração.
+- Checkout ESP-IDF oficial, limpo, SHA `9ef24e3e2a2c96e720d83c574a3f8699177573da`,
+  tag `v5.2.6`, com submódulos inicializados no pin e limpos.
+- Tar oficial WASI-SDK 27.0 Linux x86_64, SHA-256
+  `b7d4d944c88503e4f21d84af07ac293e3440b1b6210bfd7fe78e0afd92c23bc2`.
+  O SDK extraído é comparado aos arquivos e symlinks desse tar. Não basta
+  uma string de versão do clang ou um caminho fornecido pelo operador.
+- `wamrc 2.4.5` com binário cujo hash corresponde a recibo completo
+  `wasmhome-wamrc-build-v1`. O recibo vincula a identidade do port verificado,
+  LLVM Espressif `344b928e67bfc1d07cb150609c55548e86a9bf19`, caches e snapshots
+  compile_commands, comandos configure/build, ferramentas host e hashes das
+  bibliotecas estáticas listadas no build.ninja. X86/Xtensa, Release, Ninja,
+  custom LLVM e diretórios de fonte/build precisam concordar.
+
+Não existe esse recibo real nem binário LLVM/Xtensa verificado nesta entrega.
+Sua ausência bloqueia geração antes de escrever. Para o futuro doador, usar
+`build-runtime-port/component/wasm-micro-runtime/wamr-compiler`, diretórios
+novos externos à fonte, `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON` nas duas
+configurações e caminhos absolutos para o executável CMake, `-S`, `-B` e
+`--build`. Antes de configurar, registrar que os diretórios não existiam;
+preservar os quatro argv completos executados em um JSON de comandos:
+
+```json
+{
+  "fresh_build_directories": true,
+  "commands": {
+    "llvm_configure": ["/caminho/absoluto/cmake", "-S", "/fonte/llvm/llvm", "-B", "/run/llvm-build", "...todos os argumentos realmente executados..."],
+    "llvm_build": ["/caminho/absoluto/cmake", "--build", "/run/llvm-build", "--parallel", "1"],
+    "wamrc_configure": ["/caminho/absoluto/cmake", "-S", "/projeto/build-runtime-port/component/wasm-micro-runtime/wamr-compiler", "-B", "/run/wamrc-build", "...todos os argumentos realmente executados..."],
+    "wamrc_build": ["/caminho/absoluto/cmake", "--build", "/run/wamrc-build", "--parallel", "1"]
+  }
+}
+```
+
+O exemplo é um contrato de registro, não um recibo executado. As flags LLVM
+continuam na [receita doadora](proposta-toolchain.md), com as mudanças acima.
+Após o build real, o registrador confere arquivos locais e escreve recibo novo:
+
+```sh
+python3 tools/record_wamrc_build.py --llvm-source /fonte/llvm \
+  --llvm-build /run/llvm-build --wamrc-build /run/wamrc-build \
+  --binary /run/wamrc-build/wamrc --commands /run/comandos.json \
+  --output /run/wamrc-build-receipt.json
+```
+
+Esse recibo é **sem assinatura**. O consumidor verifica seu conteúdo e hash
+contra o binário transferido, e verifica localmente os fontes materializados,
+IDF e WASI. Ele não recompila LLVM/wamrc nem autentica o relato do operador
+sobre a criação de diretórios novos. A associação do binário ao build depende
+da confiança no doador/recibo; atestação ou reprodução independente continua
+pendente. Os snapshots de bibliotecas não substituem inspeção final da ABI.
+
+Depois de obter as provas reais, gerar em PowerShell Linux:
 
 ```powershell
-# WASI_SDK_PATH e WAMRC apontam para ferramentas já verificadas.
-./tools/build-artifacts.ps1 -WamrcSourceRevision 25bd7eb63e828e4bd242cc9b38d260b4b31c6605
+$env:WASI_SDK_PATH = '/tools/wasi-sdk-27.0-x86_64-linux'
+$env:WAMRC = '/tools/wamrc'
+$env:IDF_PATH = '/tools/esp-idf'
+./tools/build-artifacts.ps1 -WasiSdkPackage /receipts/wasi-sdk-27.0-x86_64-linux.tar.gz `
+  -WamrcBuildReceipt /receipts/wamrc-build-receipt.json
 ```
+
+A geração recusa symlink/junction/reparse no destino e staging. Gera e valida
+um conjunto inteiro novo; só então renomeia o anterior para backup e o novo
+para `artifacts/`. São duas renomeações individuais, com pequeno intervalo
+sem destino canônico; não é um exchange atômico único. Falha da segunda troca
+restaura o anterior, e o journal permite recuperação explícita após interrupção:
+
+```powershell
+./tools/build-artifacts.ps1 -RecoverPublication
+```
+
+Staging com falha e backup anterior são preservados para inspeção. A recuperação
+valida identidade e caminhos; não apaga árvores. Se a interrupção ocorreu antes
+de escrever o journal, inspecionar o lock vazio antes de qualquer recuperação.
+Não começar outra geração com transação pendente nem leitores concorrentes.
 
 As flags continuam `--target=xtensa --bounds-checks=1 --disable-llvm-lto -O3`.
 CPU continua sem override até `--cpu=help` do binário real e inspeção da ABI.
@@ -102,9 +173,12 @@ Os registros físicos anteriores permanecem históricos e não provam este port.
 
 ## Verificação local desta entrega
 
-A aquisição real e sua repetição verificaram o digest acima. Os 12 testes
-diretamente afetados passaram: três do pacote e nove de E1, incluindo runner
-C compilado com MSVC e gate CMake. A suíte geral teve 49 casos: 45 passaram e quatro foram pulados
-(testes do codec C), porque a biblioteca não foi fornecida nesta sessão.
-Esses skips não são prova do codec. Não houve geração Wasm/AOT, build ESP-IDF,
-flash, instalação remota ou alteração dos CT107/CT109, Proxmox, SDKs ou WSL.
+A aquisição real e sua repetição verificaram o digest acima. Os testes cobrem
+JSON ambíguo, metadados/core divergentes, fontes sujas/untracked, ausência de
+prova obrigatória, pins e caches divergentes, falha real de processo gerador,
+rejeição de junction, conjunto inválido, troca e recuperação da publicação.
+`tools/test-platform.ps1` compilou o codec com MSVC e executou 60 testes,
+todos aprovados, sem skips. O recibo ignorado de revisão registra o log e
+a revisão congelada; esses testes não constroem LLVM/wamrc nem ESP-IDF B/C.
+Não houve geração Wasm/AOT real, build ESP-IDF, flash, instalação remota ou
+alteração dos CT107/CT109, Proxmox, SDKs ou WSL.

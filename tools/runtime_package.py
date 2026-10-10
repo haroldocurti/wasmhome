@@ -4,9 +4,12 @@ import hashlib
 import io
 import json
 import pathlib
+import re
 import shutil
 import subprocess
 import tarfile
+
+from evidence_json import read
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PACKAGE = pathlib.Path("build-runtime-port/component/wasm-micro-runtime")
@@ -35,13 +38,18 @@ def git(repo, *args, binary=False):
 
 def load_lock(root):
     port = root / "runtime-port"
-    lock = json.loads((port / "lock.json").read_text())
+    lock = read(port / "lock.json")
     require(lock["schema"] == "wasmhome-runtime-port-v1", "invalid port schema")
+    require(lock["component"] == "wasmhome/wasm-micro-runtime", "unexpected independent component identity")
+    require(lock["version"] == "2.4.5-wasmhome.1" and lock["aot_version"] == 5, "unexpected runtime version/AOT identity")
     for patch in lock["patches"]:
         path = (port / patch["path"]).resolve()
         require(path.is_relative_to(port.resolve()), "patch escapes port directory")
         require(digest(path.read_bytes()) == patch["sha256"], "port patch digest differs")
     require(digest((port / "idf_component.yml").read_bytes()) == lock["metadata_sha256"], "port metadata differs")
+    metadata = (port / "idf_component.yml").read_text(encoding="utf-8")
+    require(re.findall(r'^version: "([^"]+)"$', metadata, re.M) == [lock["version"]], "metadata version differs from lock")
+    require(re.findall(r'^  idf: "([^"]+)"$', metadata, re.M) == ["==5.2.6"], "metadata must pin IDF 5.2.6")
     return lock
 
 
@@ -103,6 +111,11 @@ def verify(root=ROOT):
     require(not any(path.is_symlink() for path in directory.rglob("*")), "runtime symlink is not allowed")
     actual = {path.relative_to(directory).as_posix() for path in directory.rglob("*") if path.is_file()}
     require(actual == set(expected) | extra, "runtime files missing or extra/untracked")
+    config = (directory / "core/config.h").read_text(encoding="utf-8")
+    require(re.findall(r'^#define AOT_CURRENT_VERSION (\d+)$', config, re.M) == [str(lock["aot_version"])], "core AOT version differs from lock")
+    version = (directory / "core/version.h").read_text(encoding="utf-8")
+    for field, value in (("MAJOR", 2), ("MINOR", 4), ("PATCH", 5)):
+        require(re.findall(rf'^#define WAMR_VERSION_{field} (\d+)$', version, re.M) == [str(value)], "core runtime version differs from lock/metadata")
     package_hash = hashlib.sha256()
     checked = set()
     for name in sorted(actual - {".wasmhome-runtime.json"}):
@@ -125,7 +138,7 @@ def verify(root=ROOT):
     identity = dict(component=lock["component"], version=lock["version"], component_hash=package_hash.hexdigest(),
                     repository_revision=lock["upstream"]["revision"], app_framework_revision=lock["app_framework"]["revision"],
                     port_lock_sha256=digest((root / "runtime-port/lock.json").read_bytes()), aot_version=lock["aot_version"])
-    receipt = json.loads((directory / ".wasmhome-runtime.json").read_text())
+    receipt = read(directory / ".wasmhome-runtime.json")
     require(receipt == identity, "runtime receipt differs from checked source identity")
     return identity, directory.resolve(), checked
 

@@ -37,7 +37,11 @@ agora contém o [port candidato 2.4.5](runtime-port-candidato.md), identidade
 `wasmhome/wasm-micro-runtime` `2.4.5-wasmhome.1`, upstream
 `25bd7eb63e828e4bd242cc9b38d260b4b31c6605` e framework fixo. O core completo
 2.4.5 é preservado, com cinco arquivos alterados pelo patch Espressif.
-O gate exige `wamrc 2.4.5`, o mesmo SHA declarado, manifesto v2 e AOT v5.
+O gate exige `wamrc 2.4.5`, fonte materializada verificada, recibo completo
+do build/binaryhash, IDF5.2.6 no SHA fixo, pacote oficial WASI27, revisão limpa
+do WasmHome, manifesto v3 e AOT v5. O recibo do doador continua sem assinatura;
+a geração não demonstra reprodução independente. A supressão global de
+`-Wno-type-limits` foi removida até haver diagnóstico específico.
 A fonte foi adquirida e verificada localmente; compilador binário, builds B/C,
 ABI física e aceite do pin continuam pendentes. Os testes e registros de
 09/10 abaixo permanecem evidência da árvore anterior.
@@ -69,18 +73,19 @@ chamadas na mesma instância, com uma carga/instanciação compartilhada.
 
 ## Ferramentas e evidências
 
-`tools/build-artifacts.ps1` exige WASI-SDK, `WAMRC` e o SHA completo da origem
-declarada do compilador. Esse SHA é informado pelo operador e precisa ser
-conferido com o checkout da ferramenta e a evidência de compilação do binário.
-O manifesto identifica essa declaração como
-`operator_declaration_not_binary_origin_proof`. O validador recusa ausência de
-SHA completo, versões divergentes e hashes dos executáveis diferentes; isso
-comprova a identidade das ferramentas disponíveis, sem provar como foram
-compiladas. O script registra versões, hashes dos compiladores, fonte/header,
-payloads, arrays e flags em `build-manifest.json`, no diretório canônico
-`artifacts/`. Não há opção de saída para outro diretório.
-Gera em staging e publica o manifesto por último. Uma falha após verificar as ferramentas invalida o manifesto
-anterior, ainda que payloads antigos permaneçam no diretório.
+`tools/build-artifacts.ps1` exige `WASI_SDK_PATH`, `WAMRC`, `IDF_PATH`,
+`-WasiSdkPackage` e `-WamrcBuildReceipt`. O [contrato candidato](runtime-port-candidato.md)
+descreve a comparação do SDK com o tar oficial e a validação do recibo de
+build do compilador. Um SHA fornecido isoladamente pelo operador não satisfaz
+o gate. Registra versões, hashes, identidade da revisão limpa do WasmHome,
+IDF, pacote WASI, recibo completo do wamrc, fonte/header, payloads, arrays e
+flags em `build-manifest.json`. A ausência de prova obrigatória falha antes
+de criar staging. Destino e staging com symlink/junction/reparse são recusados.
+Gera e valida o conjunto inteiro antes de publicar por duas renomeações
+recuperáveis, preservando o conjunto anterior em backup. Não remove o manifesto
+antigo no início. Uma interrupção pode deixar um intervalo sem `artifacts/`;
+o journal e `-RecoverPublication` restauram o conjunto anterior, com staging
+preservado para inspeção. Não é uma troca atômica única de diretórios.
 O CMake de B/C executa a validação de integridade antes de compilar e acompanha
 manifesto, payloads, arrays e fonte em suas dependências de reconfiguração.
 Arrays antigos sem manifesto, ou hashes divergentes, bloqueiam a compilação.
@@ -107,7 +112,8 @@ construído e verificar sua compatibilidade.
 Exemplo de geração após preparar e verificar o compilador compatível:
 
 ```powershell
-.\tools\build-artifacts.ps1 -WamrcSourceRevision <SHA-de-40-caracteres>
+./tools/build-artifacts.ps1 -WasiSdkPackage /receipts/wasi-sdk-27.0-x86_64-linux.tar.gz `
+  -WamrcBuildReceipt /receipts/wamrc-build-receipt.json
 ```
 
 Cada build deve usar diretório e `SDKCONFIG` próprios, com defaults comuns e o
