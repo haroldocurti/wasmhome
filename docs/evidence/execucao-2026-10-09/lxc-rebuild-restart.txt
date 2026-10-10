@@ -1,0 +1,6 @@
+status: running
+starting
+76 networking.service start running
+192.168.0.171 
+47512c48-88a6-4882-b9cd-85db57f74f33
+wasmhome-initial-state-v1

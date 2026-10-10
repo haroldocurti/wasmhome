@@ -1,0 +1,24 @@
+starting
+99 networking.service start running
+f70e7450-44ba-4c52-b80e-763f929a6835
+wasmhome-initial-state-v1
+192.168.0.171 
+HTTP/2 200 
+ca-certificates	20250419
+curl	8.14.1-2+deb13u5
+openssh-server	1:10.0p1-7+deb13u4
+700:wasmhome:wasmhome
+600:wasmhome:wasmhome
+640:wasmhome:wasmhome
+USAGE: pct reboot <vmid> [OPTIONS]
+
+  Reboot the container by shutting it down, and starting it again. Applies
+  pending changes.
+
+  <vmid>     <integer> (100 - 999999999)
+	     The (unique) ID of the VM.
+
+  --timeout  <integer> (0 - N)
+	     Wait maximal timeout seconds for the shutdown.
+
+

@@ -1,0 +1,3 @@
+{"event": "listening", "bind": "192.168.0.138", "port": 18080, "expected_peer": "192.168.0.145", "duration_seconds": 45}
+{"event": "request", "source_ipv4": "192.168.0.145", "source_port": 56716, "server_ipv4": "192.168.0.138", "server_port": 18080, "utc": "2026-10-09T15:56:37.437794+00:00", "result": "response_sent", "nonce": "df1ceb32d326d4b75b0376e2efb7d5873582ebf912622f011a77463b44c76c47", "elapsed_ms": 3}
+{"event": "stopped", "reason": "fixture_duration_complete"}

@@ -1,0 +1,50 @@
+2026-10-09T12:21:26-03:00
+pve-manager/9.1.6/71482d1833ded40a (running kernel: 6.17.13-1-pve)
+status: running
+arch: amd64
+cores: 1
+cpulimit: 1
+features: nesting=1
+hostname: wasmhome-bench
+memory: 1024
+net0: name=eth0,bridge=vmbr0,firewall=1,hwaddr=BC:24:11:B6:36:F7,ip=dhcp,ip6=manual,type=veth
+onboot: 0
+ostype: debian
+rootfs: local-lvm:vm-107-disk-0,size=24G
+swap: 0
+timezone: America/Sao_Paulo
+unprivileged: 1
+               total        used        free      shared  buff/cache   available
+Mem:           15861       14497         622          56        1133        1363
+Swap:           8191        4080        4111
+some avg10=0.00 avg60=0.00 avg300=0.00 total=53653216
+full avg10=0.00 avg60=0.00 avg300=0.00 total=47791709
+Name              Type     Status     Total (KiB)      Used (KiB) Available (KiB)        %
+DevServer      lvmthin     active       229609472        29275207       200334264   12.75%
+Webserver      lvmthin     active       229609472        71569272       158040199   31.17%
+backup-hdd         dir     active       960302804       891154324        69132096   92.80%
+local              dir     active        67169672        10694788        53017044   15.92%
+local-lvm      lvmthin     active       136593408        89017923        47575484   65.17%
+109
+ca6dffb91c3239fedc30af2c11389198140de1f1fc3d58082f3d9f4239b92e1b  /var/lib/vz/template/cache/debian-13-standard_13.1-2_amd64.tar.zst
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+NAME="Debian GNU/Linux"
+VERSION_ID="13"
+VERSION="13 (trixie)"
+VERSION_CODENAME=trixie
+DEBIAN_VERSION_FULL=13.1
+ID=debian
+HOME_URL="https://www.debian.org/"
+SUPPORT_URL="https://www.debian.org/support"
+BUG_REPORT_URL="https://bugs.debian.org/"
+192.168.0.138 
+running
+default via 192.168.0.1 dev eth0 
+192.168.0.0/24 dev eth0 proto kernel scope link src 192.168.0.138 
+Filesystem                        Size  Used Avail Use% Mounted on
+/dev/mapper/pve-vm--107--disk--0   24G  737M   22G   4% /
+drwxr-x--- 2 wasmhome wasmhome 4096 Oct  1 21:04 /srv/wasmhome/artifacts
+drwxr-x--- 2 wasmhome wasmhome 4096 Oct  1 21:04 /srv/wasmhome/builds
+drwxr-x--- 2 wasmhome wasmhome 4096 Oct  1 21:04 /srv/wasmhome/logs
+wasmhome-initial-state-v1
+HTTP/2 200 

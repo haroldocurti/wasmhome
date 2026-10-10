@@ -5,6 +5,34 @@ endif()
 set(SCENARIO_SOURCE "main.c" "platform.c" "sensor.c" "observation_wire.c" "platform_selftest.c" "observer_selftest.c")
 set(SCENARIO_REQUIRES "esp_timer" "esp_wifi" "esp_netif" "esp_event" "nvs_flash" "driver" "esp_system" "onewire_bus")
 
+if(NOT EXPERIMENT_SCENARIO STREQUAL "native" AND NOT CMAKE_BUILD_EARLY_EXPANSION)
+    execute_process(
+        COMMAND "${PYTHON}" "${CMAKE_SOURCE_DIR}/tools/validate_build_config.py" --artifact-integrity
+        RESULT_VARIABLE ARTIFACT_VALIDATION_RESULT
+        OUTPUT_VARIABLE ARTIFACT_VALIDATION_OUTPUT
+        ERROR_VARIABLE ARTIFACT_VALIDATION_ERROR
+    )
+    if(NOT ARTIFACT_VALIDATION_RESULT EQUAL 0)
+        message(FATAL_ERROR "E1 artifacts are missing/stale/invalid: ${ARTIFACT_VALIDATION_ERROR}")
+    endif()
+    # Trigger reconfiguration after a generation failure or payload changes.
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+        "${CMAKE_SOURCE_DIR}/artifacts/build-manifest.json"
+        "${CMAKE_SOURCE_DIR}/artifacts/benchmark.wasm"
+        "${CMAKE_SOURCE_DIR}/artifacts/benchmark.aot"
+        "${CMAKE_SOURCE_DIR}/artifacts/benchmark.wasm.s"
+        "${CMAKE_SOURCE_DIR}/artifacts/benchmark_wasm_embedded.c"
+        "${CMAKE_SOURCE_DIR}/artifacts/benchmark_aot_embedded.c"
+        "${CMAKE_SOURCE_DIR}/workload/benchmark.c"
+        "${CMAKE_SOURCE_DIR}/workload/benchmark.h"
+        "${CMAKE_SOURCE_DIR}/tools/validate_build_config.py"
+        "${CMAKE_SOURCE_DIR}/tools/embed_artifact.py"
+        "${CMAKE_SOURCE_DIR}/dependencies.lock"
+        "${CMAKE_SOURCE_DIR}/managed_components/espressif__wasm-micro-runtime/.component_hash"
+        "${CMAKE_SOURCE_DIR}/managed_components/espressif__wasm-micro-runtime/CHECKSUMS.json"
+    )
+endif()
+
 if(EXPERIMENT_SCENARIO STREQUAL "native")
     list(APPEND SCENARIO_SOURCE "../workload/benchmark.c")
     set(SCENARIO_DEFINE WASMHOME_SCENARIO_NATIVE=1)
@@ -39,3 +67,9 @@ idf_component_register(
 )
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE ${SCENARIO_DEFINE})
+
+if(EXPERIMENT_SCENARIO STREQUAL "native")
+    # ESP-IDF performance defaults to -O2. The comparison protocol fixes -O3
+    # for the workload; apply it after target flags on this translation unit.
+    set_source_files_properties("../workload/benchmark.c" PROPERTIES COMPILE_OPTIONS "-O3")
+endif()

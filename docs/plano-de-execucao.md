@@ -1,8 +1,11 @@
 # Plano de execução dos experimentos
 
-Status: planejamento revisado. Este plano prevalece sobre o protocolo inicial e
-sobre os comandos provisórios do README. O firmware existente é preliminar;
-nenhum cenário foi comprovado no ESP32-S3.
+Status: execução iniciada, com preparação e diagnóstico físico registrados. Este
+plano prevalece sobre o protocolo inicial e sobre os comandos provisórios do
+README. Plataforma comum e observador têm evidências de diagnóstico no ESP32-S3;
+os serviços definitivos, a execução WAMR e as atualizações dos três cenários
+permanecem pendentes. O [checklist de execução](checklist-execucao.md) detalha
+as dependências, os critérios de aceite e as revisões de cada entrega.
 
 ## Objetivo e delimitação
 
@@ -23,9 +26,16 @@ duas versões, v1 e v2, diferenciadas por uma pequena alteração de parâmetro.
 As saídas esperadas permitirão comprovar a ativação da nova versão.
 
 O código inteiro em `workload/benchmark.c` é um teste preliminar de execução.
-Não o apresentar como Embench. Sensores físicos, Kalman, dashboard, frotas,
-múltiplos módulos e migração de estado ficam fora da primeira campanha. Usar uma
-transformação sem estado entre amostras para delimitar a aplicação.
+Não o apresentar como Embench. Conforme o domínio aprovado em `CONTEXT.md` e
+no mapa da issue #1, a campanha usa dois serviços: telemetria DS18B20 estável e
+controle GPIO substituível. Em B/C, as regras de ambos pertencem a módulos
+separados; o firmware-base mantém drivers e bindings. Somente o módulo de
+controle muda de v1 para v2. Em A, os dois serviços integram a imagem nativa.
+O controle usa limiares de 25 °C em v1 e 30 °C em v2, com histerese de 1 °C
+e loopback GPIO5→GPIO6. A sequência de entrada atravessa os dois limiares, e o
+observador confere a versão, o pedido e o GPIO observado. Não há migração de
+estado entre versões. Sensores adicionais,
+Kalman, dashboard, frotas e múltiplos dispositivos ficam fora da campanha.
 
 ## Problemas encontrados no plano inicial
 
@@ -57,7 +67,7 @@ podem acrescentar tempo. Não são datas de entrega contratadas.
 | E4. Troca modular | Download, validação e substituição em B e C | Nova versão correta e continuidade do boot observada | E2 | 2–4 dias |
 | E5. Piloto | Cinco ciclos completos por cenário e protocolo congelado | 15 tentativas rastreáveis, instrumentos e critérios revisados | E3 e E4 | 1–2 dias |
 | E6. Campanha | 30 tentativas por cenário | 90 tentativas contabilizadas, inclusive falhas | E5 | 1–2 dias |
-| E7. Análise | Tabelas, gráficos, texto e pacote de reprodução | Resultados rastreáveis aos dados e limitações explícitas | E6 | 2–3 dias |
+| E7. Análise | Tabelas, gráficos, texto e pacote de reprodução | Campanhas normal e de resiliência contabilizadas, resultados rastreáveis e limitações explícitas | E6 e campanha complementar da #23 | 2–3 dias |
 
 Estimativa sequencial total: aproximadamente 11–20 dias de trabalho, além de
 esperas externas. Reservar margem no calendário acadêmico. E3 e E4 são
@@ -74,12 +84,18 @@ O levantamento inicial da bancada está em [Inventário da bancada física](banc
 Porta serial, rede e condições ambientais são variáveis e devem ser reconfirmadas
 no início de cada sessão ou campanha. O LXC do servidor de artefatos foi criado
 como CT 107 em 01/10/2026; acesso, sistema-base e persistência foram verificados.
-Conectividade com o ESP32 e reconstrução em CT separado continuam pendentes.
+Em 09/10, a reconstrução do sistema-base foi executada no CT 109 e o caminho
+ESP32→CT 107 foi demonstrado por TCP com nonce, origem e logs dos dois lados.
+O CT 109 ficou parado ao final. As evidências e seus limites estão no
+[registro da sessão](evidence/execucao-2026-10-09/README.md); revisão final,
+publicação e aceite formal da issue #6 permanecem etapas próprias.
 
 A [documentação do provisionamento do LXC](provisionamento-lxc.md) registra a
 inspeção de capacidade e rede, a configuração efetiva e os testes de
-aceite da issue #6. O PC observador foi confirmado pelo usuário; os caminhos de
-rede entre o ESP32 e o LXC permanecem pendentes de comprovação.
+aceite da issue #6. O PC observador foi confirmado pelo usuário. A reserva DHCP
+do CT 107 foi confirmada pelo usuário em 09/10; não houve inspeção do painel DHCP.
+O ensaio TCP temporário comprova transporte, sem comprovar HTTPS, distribuição
+assinada ou disponibilidade dos serviços da campanha.
 
 Definir a transformação comum, a alteração v1/v2 e os dados de referência. O
 [contrato UDP v1](protocolo-observacao.md) fixa os campos das mensagens; a
@@ -92,6 +108,10 @@ Configurar as ferramentas e executar a carga mínima nos três modos. Antecipar
 o teste AOT para detectar dificuldades com backend Xtensa, CPU, memória executável
 e compatibilidade entre compilador e runtime. Não presumir que qualquer `wamrc`
 pré-compilado sirva para ESP32-S3.
+
+Guardar também a execução nativa da carga mínima e seu checksum na mesma placa.
+O diagnóstico físico da plataforma comum não executa essa carga. Compilar um
+firmware com benchmark habilitado tampouco comprova sua execução no dispositivo.
 
 Revisar os avisos oficiais das versões antes de manter o pin WAMR 2.4.0. Fixar
 versões exatas e origem dos componentes após a prova. Guardar flags e hashes.
@@ -111,6 +131,10 @@ O observador envia `sample_id` e entrada. O dispositivo responde com o mesmo ID,
 resultado, versão da aplicação e identificador de boot. Apenas respostas de
 cálculo correto contam como serviço prestado. Heartbeat do firmware-base é
 adicional e não comprova que a aplicação permaneceu disponível.
+
+A calibração já registrada do observador usa uma fixture diagnóstica. E2 exige
+validar também os serviços definitivos dos três cenários, das issues #11, #13
+e #14. O fechamento da issue #10 não encerra E2.
 
 Usar relógio monotônico do observador para eventos que atravessam reinicializações.
 Registrar horário planejado/efetivo de envio, recepção, duplicatas e atrasos.
@@ -178,6 +202,10 @@ identificada. Não repetir seletivamente resultados desfavoráveis.
 
 ### E7. Analisar e redigir
 
+A análise final da issue #24 exige a campanha normal e a complementar de
+resiliência da issue #23. É possível preparar a análise normal após E6;
+a entrega completa permanece pendente até contabilizar ambas separadamente.
+
 Apresentar taxa de sucesso, distribuição, mediana e intervalo interquartil por
 cenário. Comparar diferenças pareadas por bloco, com intervalos de confiança
 de 95% por reamostragem dos blocos, método e semente documentados. Tempos de
@@ -207,6 +235,13 @@ Campos não aplicáveis recebem `null`/`not_applicable`, não zero. A perda medi
 é perda de respostas ao gerador, não uma prova direta de perda de aquisição de
 um sensor real. O custo de disponibilidade do serviço-base pode ser medido à
 parte quando necessário.
+
+Preservar tanto o envio do disparo quanto a recepção de `update_accepted` no
+relógio monotônico do observador. O aceite inicia a tentativa normal, conforme
+`CONTEXT.md`; o tempo total ainda inclui o intervalo desde o envio correlacionado
+até a primeira resposta correta de v2. Disparos nunca aceitos são preservados
+como eventos de disparo, separados do denominador de tentativas aceitas. Falhas
+e timeouts depois do aceite permanecem nesse denominador.
 
 ## Evidências e conclusão
 

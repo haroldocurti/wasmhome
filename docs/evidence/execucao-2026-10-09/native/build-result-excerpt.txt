@@ -1,0 +1,1 @@
+wasmhome_bench.bin binary size 0xb6190 bytes. Smallest app partition is 0x700000 bytes. 0x649e70 bytes (90%) free.
