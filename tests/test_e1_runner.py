@@ -91,7 +91,7 @@ class EvidenceTests(unittest.TestCase):
                             wamrc_source_revision_declared="a" * 40, wamrc_source_provenance="operator_declaration_not_binary_origin_proof",
                             wamrc_version="wamrc 2.4.0", wamrc_path="fixture-wamrc", wamrc_sha256="a" * 64,
                             clang_version="clang fixture", clang_path="fixture-clang", clang_sha256="b" * 64,
-                            expected_checksum="0xDBB2F0D4", clang_flags=["--target=wasm32-wasi", "-O3"], aot_flags=["--target=xtensa", "--bounds-checks=1", "-O3"],
+                            expected_checksum="0xDBB2F0D4", clang_flags=["--target=wasm32-wasi", "-O3"], aot_flags=["--target=xtensa", "--bounds-checks=1", "--disable-llvm-lto", "-O3"],
                             files={p.name: dict(sha256=sha256(p), bytes=p.stat().st_size) for p in folder.iterdir()})
             path = folder / "build-manifest.json"
             path.write_text(json.dumps(manifest))
@@ -109,6 +109,11 @@ class EvidenceTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "disable bounds"):
                 validate_artifacts(folder, ROOT, check_tools=False, runtime_identity=identity)
             manifest["aot_flags"].pop()
+            manifest["aot_flags"].remove("--disable-llvm-lto")
+            path.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(ValueError, "explicitly disable LLVM LTO"):
+                validate_artifacts(folder, ROOT, check_tools=False, runtime_identity=identity)
+            manifest["aot_flags"].append("--disable-llvm-lto")
             manifest["runtime_identity"]["version"] = "2.4.1"
             path.write_text(json.dumps(manifest))
             with self.assertRaisesRegex(ValueError, "runtime identity"):

@@ -116,6 +116,7 @@ def validate_artifacts(directory, root, check_tools=True, runtime_identity=None)
     require("--target=xtensa" in manifest.get("aot_flags", []), "AOT target must be Xtensa")
     require("--bounds-checks=1" in manifest.get("aot_flags", []), "AOT bounds checks must be explicit")
     aot_flags = manifest["aot_flags"]
+    require("--disable-llvm-lto" in aot_flags, "AOT compiler must explicitly disable LLVM LTO")
     require(all(flag == "--target=xtensa" for flag in aot_flags if flag.startswith("--target=")), "conflicting AOT target flags")
     require(all(flag.endswith("=1") for flag in aot_flags if flag.startswith(("--bounds-checks=", "--stack-bounds-checks=")))
             and "--disable-aux-stack-check" not in aot_flags, "AOT flags disable bounds checks")

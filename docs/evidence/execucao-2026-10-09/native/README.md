@@ -41,6 +41,15 @@ python docs/evidence/execucao-2026-10-09/verify-e1-native.py
 python -m unittest discover -s docs/evidence/execucao-2026-10-09 -p test_verify_e1_native.py -v
 ```
 
-Os três testes do verificador passaram. Seus casos negativos recusam conjunto
+O comando de conferência é somente leitura: recalcula os resultados e os
+compara com os derivados preservados. Para gerar outra cópia, usar
+`--derive-output build-session-e0/native-recheck` com diretório que ainda não
+exista. Uma falha não apaga nem altera os derivados anteriores. `--prepare` é
+uma operação explícita de preservação de build e não faz parte da conferência
+somente leitura.
+
+Os quatro testes do verificador passaram na revalidação de 10/10. Seus casos negativos recusam conjunto
 vazio, checksum errado mesmo com `status=ok`, falha declarada, chamada faltante,
 aquecimento incorreto, boot duplicado, linhas fora de ordem e ELF divergente.
+O teste de falha por imagem ausente confirma que JSON e CSV anteriores ficam
+intactos.

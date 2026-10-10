@@ -43,7 +43,7 @@ try {
         throw 'Generated Wasm assembly has no loop; investigate workload elimination before E1.'
     }
     # Explicit memory bounds checks; no unverified esp32s3 CPU flag.
-    $aotFlags = @('--target=xtensa', '--bounds-checks=1', '-O3')
+    $aotFlags = @('--target=xtensa', '--bounds-checks=1', '--disable-llvm-lto', '-O3')
     & $env:WAMRC @aotFlags -o $aot $wasm
     if ($LASTEXITCODE -ne 0) { throw 'AOT compilation failed. Confirm the Xtensa LLVM backend.' }
     foreach ($kind in @('wasm', 'aot')) {

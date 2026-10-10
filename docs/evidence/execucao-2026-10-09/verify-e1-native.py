@@ -3,6 +3,7 @@
 import argparse
 import csv
 import hashlib
+import io
 import json
 import pathlib
 import re
@@ -135,13 +136,28 @@ def verify(native, artifact):
                   transport_status='unvalidated_connection_failed', udp_packets=generic.get('udp_packets'),
                   wifi_disconnect_reasons=generic.get('wifi_disconnect_reasons'), instrument_errors=generic.get('error_counts'),
                   pending=['LXC/toolchain issue #7 acceptance', 'Wasm classic and AOT device checks', 'functional transport for this firmware', 'complete comparative campaign'])
-    with (native / 'derived-native.csv').open('w', encoding='utf-8', newline='') as stream:
-        writer = csv.DictWriter(stream, fieldnames=FIELDS)
-        writer.writeheader()
-        writer.writerows(rows)
-    result['derived_csv_sha256'] = sha(native / 'derived-native.csv')
-    (native / 'derived-native.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8', newline='\n')
-    return result
+    stream = io.StringIO(newline='')
+    writer = csv.DictWriter(stream, fieldnames=FIELDS)
+    writer.writeheader()
+    writer.writerows(rows)
+    csv_data = stream.getvalue().encode('utf-8')
+    result['derived_csv_sha256'] = hashlib.sha256(csv_data).hexdigest()
+    return result, csv_data
+
+
+def check_derivation(native, result, csv_data):
+    require((native / 'derived-native.csv').read_bytes() == csv_data, 'preserved CSV differs from verified raw records')
+    saved = json.loads((native / 'derived-native.json').read_text(encoding='utf-8'))
+    require(saved == result, 'preserved JSON differs from verified evidence')
+
+
+def write_derivation(output, result, csv_data):
+    # A failed check never touches old evidence. Explicit output must be fresh.
+    output.mkdir(parents=True, exist_ok=False)
+    with (output / 'derived-native.csv').open('xb') as stream:
+        stream.write(csv_data)
+    with (output / 'derived-native.json').open('x', encoding='utf-8', newline='\n') as stream:
+        stream.write(json.dumps(result, indent=2) + '\n')
 
 
 def main():
@@ -149,14 +165,17 @@ def main():
     parser.add_argument('--prepare', action='store_true', help='preserve reviewed build identity and safe excerpts first')
     parser.add_argument('--build-dir', type=pathlib.Path, default=ROOT / 'build-e1-native')
     parser.add_argument('--artifact', type=pathlib.Path, default=ROOT / 'build-e1-native/wasmhome_bench.bin')
+    parser.add_argument('--derive-output', type=pathlib.Path, help='write derived files only to a new directory after verification; default is read-only')
     args = parser.parse_args()
     native = SESSION / 'native'
     try:
-        # Invalidate the success marker if an input changes or verification fails.
-        (native / 'derived-native.json').unlink(missing_ok=True)
         if args.prepare:
             prepare(args.build_dir, native, args.artifact)
-        result = verify(native, args.artifact)
+        result, csv_data = verify(native, args.artifact)
+        if args.derive_output:
+            write_derivation(args.derive_output, result, csv_data)
+        else:
+            check_derivation(native, result, csv_data)
         print(json.dumps(result, indent=2))
     except (OSError, ValueError, KeyError) as error:
         parser.exit(1, f'Native E1 evidence rejected: {error}\n')

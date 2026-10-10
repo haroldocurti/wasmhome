@@ -1,6 +1,10 @@
 import importlib.util
 import pathlib
+import json
+import sys
+import tempfile
 import unittest
+from unittest import mock
 
 SESSION = pathlib.Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location('verify_e1_native', SESSION / 'verify-e1-native.py')
@@ -39,6 +43,23 @@ class NativeEvidenceTests(unittest.TestCase):
         for number, text in enumerate(variants):
             with self.subTest(number=number), self.assertRaises(ValueError):
                 verify.verify_serial(text)
+
+    def test_failed_verification_preserves_existing_derivatives(self):
+        with tempfile.TemporaryDirectory() as directory:
+            session = pathlib.Path(directory)
+            native = session / 'native'
+            native.mkdir()
+            (native / 'build-inventory.json').write_text(json.dumps({'schema': 'wasmhome-native-e1-evidence-v1'}))
+            expected = {'derived-native.json': b'{"previous": "checked"}\n',
+                        'derived-native.csv': b'previous,checked\r\n'}
+            for name, data in expected.items():
+                (native / name).write_bytes(data)
+            arguments = ['verify-e1-native.py', '--artifact', str(session / 'missing.bin')]
+            with mock.patch.object(verify, 'SESSION', session), mock.patch.object(sys, 'argv', arguments):
+                with self.assertRaises(SystemExit) as exit_result:
+                    verify.main()
+            self.assertEqual(exit_result.exception.code, 1)
+            self.assertEqual({name: (native / name).read_bytes() for name in expected}, expected)
 
 
 if __name__ == '__main__':

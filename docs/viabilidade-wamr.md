@@ -82,6 +82,16 @@ comprovar que a transformação não foi eliminada. O manifesto marca explicitam
 `generated_not_device_validated` e mantém essa inspeção e execução na placa como
 pendências. Não compilar B/C com artefatos sem manifesto validado.
 
+A ausência de `-flto` no WASI clang não desativa o LTO interno de `wamrc`.
+O [CLI oficial 2.4.0](https://github.com/wasm-micro-runtime/wasm-micro-runtime/blob/47c7c85ac21f240a878026af603e032065d183fb/wamr-compiler/main.c)
+expõe `--disable-llvm-lto`, e a
+[implementação do pipeline](https://github.com/wasm-micro-runtime/wasm-micro-runtime/blob/47c7c85ac21f240a878026af603e032065d183fb/core/iwasm/compilation/aot_llvm_extra.cpp)
+aplica passes LTO em AOT por padrão. O gerador agora usa a flag explícita junto
+de `--target=xtensa`, `--bounds-checks=1` e `-O3`; o validador recusa manifestos
+sem essa flag. Não há artefato AOT real gerado que comprove essas opções na placa.
+A CPU permanece sem override até consultar o help do compilador efetivamente
+construído e verificar sua compatibilidade.
+
 Exemplo de geração após preparar e verificar o compilador compatível:
 
 ```powershell
