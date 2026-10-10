@@ -5,5 +5,5 @@ docs/evidence/execucao-2026-10-09/** -text whitespace=-blank-at-eol,-blank-at-eo
 main/platform_selftest.c -text
 main/Kconfig.projbuild -text
 tools/probe_lxc_network.py -text
-tools/observation_protocol_v1.py -text
-tools/probe-platform.py -text
+tools/observation_protocol_v1.py -text whitespace=cr-at-eol
+tools/probe-platform.py -text whitespace=cr-at-eol
