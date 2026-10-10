@@ -114,7 +114,7 @@ def calibrate(output, outage_ms=1000, period_ms=100, reboot=True):
     # Discovering a new boot can add a telemetry period before the next probe.
     resolution = round(period_ms * 1e6) * (2 if reboot else 1)
     output = Path(output)
-    output.mkdir(parents=True, exist_ok=True)
+    output.mkdir(parents=True, exist_ok=False)
     # Reserve both loopback ports before starting either participant.
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as device, socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as reservation, (output / "fixture.jsonl").open("x", encoding="utf-8") as log:
         device.bind(("127.0.0.1", 0))
@@ -154,7 +154,8 @@ def calibrate(output, outage_ms=1000, period_ms=100, reboot=True):
                          and summary["activated_ns"] is not None
                          and summary["counters"].get("incorrect_control", 0) == 0
                          and len(summary["boot_ids"]) == (2 if reboot else 1))}
-    (output / "calibration.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    with (output / "calibration.json").open("x", encoding="utf-8") as result_log:
+        result_log.write(json.dumps(result, indent=2) + "\n")
     return result
 
 

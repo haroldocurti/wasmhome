@@ -2,12 +2,16 @@ import io
 import json
 import pathlib
 import sys
+import tempfile
 import unittest
 import uuid
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "tools"))
 from external_observer import Observer, run
+from calibrate_observer import calibrate as calibrate_host
+from calibrate_observer_hardware import calibrate as calibrate_hardware
 from observation_protocol_v1 import MessageType, Packet, encode
 
 
@@ -150,6 +154,36 @@ class ObserverTests(unittest.TestCase):
         for value in (0, -1, float("nan"), float("inf")):
             with self.assertRaises(ValueError):
                 run("127.0.0.1", "unused", seconds=value)
+
+    def test_existing_summary_is_preserved_before_opening_network(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = pathlib.Path(directory)
+            saved = b'{"previous":"verified"}\n'
+            (output / 'summary.json').write_bytes(saved)
+            with patch('socket.socket') as network, self.assertRaises(FileExistsError):
+                run('127.0.0.1', output, seconds=0.01)
+            network.assert_not_called()
+            self.assertEqual((output / 'summary.json').read_bytes(), saved)
+
+    def test_calibrators_refuse_existing_outputs_before_network_or_serial(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for mode in ('host', 'hardware'):
+                with self.subTest(mode=mode):
+                    output = pathlib.Path(directory) / mode
+                    output.mkdir()
+                    saved = b'{"previous":"verified"}\n'
+                    name = 'calibration.json' if mode == 'host' else 'hardware-calibration.json'
+                    (output / name).write_bytes(saved)
+                    serial_factory = Mock()
+                    with patch('socket.socket') as network, patch.dict(sys.modules, {'serial': SimpleNamespace(Serial=serial_factory)}):
+                        with self.assertRaises(FileExistsError):
+                            if mode == 'host':
+                                calibrate_host(output)
+                            else:
+                                calibrate_hardware(output, '127.0.0.1', '127.0.0.1')
+                    network.assert_not_called()
+                    serial_factory.assert_not_called()
+                    self.assertEqual((output / name).read_bytes(), saved)
 
 
 if __name__ == "__main__":
