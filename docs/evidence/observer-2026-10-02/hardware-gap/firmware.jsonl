@@ -1,0 +1,6 @@
+{"host_monotonic_ns": 9028203000000, "kind": "serial_command", "command": "WH_V1"}
+{"host_monotonic_ns": 9028234000000, "kind": "firmware_event", "tag": "WASMHOME_EVENT", "value": {"event": "observer_fixture_v1", "scenario": "native", "boot_id": "b8cce96bfe66be96", "monotonic_us": 9137095, "status": 0, "heap_internal": 260299}}
+{"host_monotonic_ns": 9029234000000, "kind": "firmware_event", "tag": "WASMHOME_EVENT", "value": {"event": "observer_fixture_update_rejected", "scenario": "native", "boot_id": "b8cce96bfe66be96", "monotonic_us": 10145267, "status": 0, "heap_internal": 260047}}
+{"host_monotonic_ns": 9031203000000, "kind": "serial_command", "command": "WH_GAP"}
+{"host_monotonic_ns": 9031234000000, "kind": "firmware_event", "tag": "WASMHOME_EVENT", "value": {"event": "observer_fixture_gap_start", "scenario": "native", "boot_id": "b8cce96bfe66be96", "monotonic_us": 12141868, "status": 0, "heap_internal": 260055}}
+{"host_monotonic_ns": 9032234000000, "kind": "firmware_event", "tag": "WASMHOME_EVENT", "value": {"event": "observer_fixture_gap_end", "scenario": "native", "boot_id": "b8cce96bfe66be96", "monotonic_us": 13145026, "status": 0, "heap_internal": 260299}}

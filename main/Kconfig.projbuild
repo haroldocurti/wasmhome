@@ -27,10 +27,20 @@ config WASMHOME_PLATFORM_SELFTEST
     help
         Publishes diagnostic sensor telemetry and alternates the loopback output.
         Use only on the documented bench; it is not campaign service evidence.
+config WASMHOME_OBSERVER_SELFTEST
+    bool "Run external observer calibration fixture (no OTA or modules)"
+    default n
+    depends on !WASMHOME_PLATFORM_SELFTEST
+    help
+        Native-only bench fixture. Replies to control probes using real GPIO
+        loopback and publishes sensor telemetry. WH_GAP pauses both channels
+        for one second; WH_REBOOT resets the board. Updates are rejected.
+        WH_V1 and WH_V2 select the fixture rule without an artifact update.
+        This firmware is only for calibrating the external observer.
 config WASMHOME_RUN_BENCHMARK
     bool "Run preliminary benchmark after platform startup"
     default n
-    depends on !WASMHOME_PLATFORM_SELFTEST
+    depends on !WASMHOME_PLATFORM_SELFTEST && !WASMHOME_OBSERVER_SELFTEST
     help
         Benchmark CSV is diagnostic and does not establish service availability.
 endmenu

@@ -1,0 +1,44 @@
+{
+  "attempt_id": "4bb467d4-7cda-4196-aa87-e23a8fb99355",
+  "boot_ids": [
+    13316274848266632854,
+    5735980321297915622
+  ],
+  "period_ns": 100000000,
+  "timeout_ns": 300000000,
+  "max_sample_age_ms": 1000,
+  "sent_controls": 199,
+  "valid_controls_by_boot": {
+    "13316274848266632854": 30,
+    "5735980321297915622": 145
+  },
+  "lost_controls": 24,
+  "counters": {
+    "awaiting_boot": 1,
+    "boot_observed": 2,
+    "telemetry_valid": 179,
+    "control_valid": 175,
+    "update_rejected": 1,
+    "control_timeout": 24
+  },
+  "control_max_gap_ns": 2516000000,
+  "control_unavailability_estimate_ns": 2416000000,
+  "telemetry_max_gap_ns": 2547000000,
+  "first_control_valid_ns": 9050625000000,
+  "last_control_valid_ns": 9070421000000,
+  "last_telemetry_valid_ns": 9070781000000,
+  "unresolved_sequence_gaps": {
+    "13316274848266632854:TELEMETRY": 0,
+    "13316274848266632854:CONTROL_RESULT": 0,
+    "13316274848266632854:UPDATE_ACCEPTANCE": 0,
+    "5735980321297915622:TELEMETRY": 0,
+    "5735980321297915622:CONTROL_RESULT": 0
+  },
+  "accepted_ns": null,
+  "activated_ns": null,
+  "update_state": "no_timely_acceptance",
+  "update_total_ns": null,
+  "observation_start_ns": 9050515000000,
+  "observation_end_ns": 9070828000000,
+  "control_tail_censored_ns": 407000000
+}
