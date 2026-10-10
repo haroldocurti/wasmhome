@@ -264,7 +264,7 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
         raise ValueError("invalid scenario, UDP port or sample freshness limit")
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    with (output / "observations.jsonl").open("x", encoding="utf-8") as log, socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp:
+    with (output / "observations.jsonl").open("x", encoding="utf-8") as log, (output / "summary.json").open("x", encoding="utf-8") as summary_log, socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp:
         if interface_index is not None:
             if os.name != "nt":
                 raise ValueError("interface-index is supported only on Windows")
@@ -319,14 +319,14 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
         if trigger_after is not None and observer.trigger is None:
             result["update_state"] = "trigger_not_sent_no_boot"
         observer.record("session_end", time.monotonic_ns(), summary=result)
-    (output / "summary.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+        summary_log.write(json.dumps(result, indent=2) + "\n")
     return result
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device-ip", required=True)
-    parser.add_argument("--output", type=Path, required=True, help="new directory or unused JSONL path")
+    parser.add_argument("--output", type=Path, required=True, help="capture directory; existing output files are refused")
     parser.add_argument("--seconds", type=float, default=10)
     parser.add_argument("--bind-ip", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=3333)

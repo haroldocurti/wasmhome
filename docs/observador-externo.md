@@ -107,7 +107,11 @@ as janelas anteriores e posteriores exigidas pelo piloto. O retorno normal
 da CLI confirma término da captura; consultar o resumo para o resultado do
 serviço e da atualização.
 
-Logs existentes não são sobrescritos. Interrupção por Ctrl+C registra evento
+Logs e resumos existentes não são sobrescritos. O observador reserva JSONL e
+resumo com abertura exclusiva antes da rede; os calibradores exigem uma pasta
+nova antes de iniciar sockets ou serial. Uma captura interrompida pode deixar
+arquivos incompletos, que devem ser preservados e não reutilizados.
+Interrupção por Ctrl+C registra evento
 e preserva resumo parcial. Encerramento abrupto preserva as linhas já gravadas,
 mas pode deixar o resumo ausente. Arquivos mantêm os eventos; a análise desta
 primeira versão também conserva IDs e datagramas em memória durante a janela,

@@ -9,9 +9,9 @@ from external_observer import run
 
 
 def calibrate(output, device_ip, bind_ip, interface_index=None, port="COM12", mode="gap"):
-    import serial
     output = Path(output)
-    output.mkdir(parents=True, exist_ok=True)
+    output.mkdir(parents=True, exist_ok=False)
+    import serial
     version = 2 if mode == "v2" else 1
     duration = 20 if mode == "reboot" else 10
     events = []
@@ -82,7 +82,8 @@ def calibrate(output, device_ip, bind_ip, interface_index=None, port="COM12", mo
         if thread.is_alive() or errors:
             raise RuntimeError(f"serial capture failed: {errors}")
     result = evaluate(summary, events, mode)
-    (output / "hardware-calibration.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    with (output / "hardware-calibration.json").open("x", encoding="utf-8") as result_log:
+        result_log.write(json.dumps(result, indent=2) + "\n")
     return result
 
 
