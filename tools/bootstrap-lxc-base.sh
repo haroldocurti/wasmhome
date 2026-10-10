@@ -2,7 +2,12 @@
 # Run as root inside the dedicated bench container, after verifying its identity.
 set -euo pipefail
 : "${WASMHOME_PUBLIC_KEY_BASE64:?Provide the approved OpenSSH public key as base64}"
-[ "$(hostname)" = "wasmhome-bench" ] || { echo 'Unexpected container hostname' >&2; exit 1; }
+expected_hostname=${WASMHOME_EXPECTED_HOSTNAME:-wasmhome-bench}
+case "$expected_hostname" in
+  wasmhome-bench|wasmhome-bench-rebuild) ;;
+  *) echo 'Unexpected requested container hostname' >&2; exit 1 ;;
+esac
+[ "$(hostname)" = "$expected_hostname" ] || { echo 'Unexpected container hostname' >&2; exit 1; }
 key=$(printf '%s' "$WASMHOME_PUBLIC_KEY_BASE64" | base64 -d)
 case "$key" in
   ssh-ed25519\ *|ssh-rsa\ *|ecdsa-sha2-*\ *) ;;

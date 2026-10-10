@@ -1,0 +1,42 @@
+{
+  "boot_id": "46da5751fa67bcfc",
+  "reset_reason": 1,
+  "serial_elf_sha256_prefix": "35ed6729a",
+  "measured_calls": 30,
+  "checksum": "0xDBB2F0D4",
+  "warmup_runs_declared_completed": 5,
+  "warmup_observation": "startup is emitted after five successful checks; individual warmups are not serial records",
+  "independent_updates": 0,
+  "runner_sessions": 1,
+  "lifecycle_note": "one runner session; native WAMR load/instantiate are not applicable and appear as zero in the preliminary CSV",
+  "heap_before_runtime": 274023,
+  "heap_after_release": 274023,
+  "schema": "wasmhome-native-e1-physical-v1",
+  "status": "preparatory_local_A_checksum_pass",
+  "scope": "local native computation; not three-mode E1, functional transport or campaign",
+  "app_bin_sha256": "7bdbf68d9827d52ff524d9e8c246ac7a4caab0af8a1af196ab09bfb7706e731a",
+  "elf_sha256": "35ed6729ac02653ab36a296131a64636a86b775662bf0f61c80192d776305b9a",
+  "effective_config_sha256": "aab9531c01984b9961721b1517c9bbb9e9dcc972da418700b639be61d55906c6",
+  "serial_sha256": "ac751db9fb73a114c7d6fedac98025dbde5cd422bf2385948f1e7d05f6ca6cc4",
+  "flash_log_sha256": "2f283f4f6cd5475d63bc4b42a0c8ec91b1a04041cb574766c6258ea16cfa8119",
+  "build_inventory_sha256": "74b07ae41fab45b64518d23697db58207cbe123e5dca67c6c24506d5a3234cd5",
+  "preserved_build_report_sha256": "e76cdae5e267fbc42a94dda2d6dfc378eac787b16e4bd8a9af5b8bddf7363591",
+  "capture_summary_sha256": "03f1215cffa5cff3481e7c31387912362082d2b689e50698a566fbf31b0f9d7e",
+  "transport_status": "unvalidated_connection_failed",
+  "udp_packets": 0,
+  "wifi_disconnect_reasons": {
+    "210": 4
+  },
+  "instrument_errors": {
+    "sensor_acquisition_failed:261": 1,
+    "udp_disabled_no_observer:259": 1,
+    "wifi_disconnected:-1": 4
+  },
+  "pending": [
+    "LXC/toolchain issue #7 acceptance",
+    "Wasm classic and AOT device checks",
+    "functional transport for this firmware",
+    "complete comparative campaign"
+  ],
+  "derived_csv_sha256": "833c35a0bb51b8e409719fd024a3ca3b59f587285643bdfa9d17641ee5a44b3c"
+}

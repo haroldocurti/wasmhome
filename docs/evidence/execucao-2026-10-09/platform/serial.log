@@ -1,0 +1,143 @@
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x1 (POWERON),boot:0x2b (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce3810,len:0x1870
+load:0x403c9700,len:0x4
+load:0x403c9704,len:0xcec
+load:0x403cc700,len:0x2ec8
+entry 0x403c9918
+[0;32mI (27) boot: ESP-IDF v5.2.6 2nd stage bootloader[0m
+[0;32mI (27) boot: compile time Oct  2 2026 00:59:15[0m
+[0;32mI (27) boot: Multicore bootloader[0m
+[0;32mI (30) boot: chip revision: v0.2[0m
+[0;32mI (34) boot: efuse block revision: v1.3[0m
+[0;32mI (38) boot.esp32s3: Boot SPI Speed : 80MHz[0m
+[0;32mI (43) boot.esp32s3: SPI Mode       : DIO[0m
+[0;32mI (48) boot.esp32s3: SPI Flash Size : 16MB[0m
+[0;32mI (53) boot: Enabling RNG early entropy source...[0m
+[0;32mI (58) boot: Partition Table:[0m
+[0;32mI (62) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (69) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (76) boot:  1 otadata          OTA data         01 00 0000f000 00002000[0m
+[0;32mI (84) boot:  2 phy_init         RF data          01 01 00011000 00001000[0m
+[0;32mI (91) boot:  3 ota_0            OTA app          00 10 00020000 00700000[0m
+[0;32mI (99) boot:  4 ota_1            OTA app          00 11 00720000 00700000[0m
+[0;32mI (106) boot: End of partition table[0m
+[0;32mI (111) esp_image: segment 0: paddr=00020020 vaddr=3c090020 size=1bb18h (113432) map[0m
+[0;32mI (139) esp_image: segment 1: paddr=0003bb40 vaddr=3fc9b700 size=044d8h ( 17624) load[0m
+[0;32mI (143) esp_image: segment 2: paddr=00040020 vaddr=42000020 size=83714h (538388) map[0m
+[0;32mI (240) esp_image: segment 3: paddr=000c373c vaddr=3fc9fbd8 size=00778h (  1912) load[0m
+[0;32mI (240) esp_image: segment 4: paddr=000c3ebc vaddr=40374000 size=176ach ( 95916) load[0m
+[0;32mI (276) boot: Loaded app from partition at offset 0x20000[0m
+[0;32mI (276) boot: Disabling RNG early entropy source...[0m
+[0;32mI (287) cpu_start: Multicore app[0m
+[0;32mI (288) octal_psram: vendor id    : 0x0d (AP)[0m
+[0;32mI (288) octal_psram: dev id       : 0x02 (generation 3)[0m
+[0;32mI (291) octal_psram: density      : 0x03 (64 Mbit)[0m
+[0;32mI (296) octal_psram: good-die     : 0x01 (Pass)[0m
+[0;32mI (302) octal_psram: Latency      : 0x01 (Fixed)[0m
+[0;32mI (307) octal_psram: VCC          : 0x01 (3V)[0m
+[0;32mI (312) octal_psram: SRF          : 0x01 (Fast Refresh)[0m
+[0;32mI (318) octal_psram: BurstType    : 0x01 (Hybrid Wrap)[0m
+[0;32mI (324) octal_psram: BurstLen     : 0x01 (32 Byte)[0m
+[0;32mI (329) octal_psram: Readlatency  : 0x02 (10 cycles@Fixed)[0m
+[0;32mI (335) octal_psram: DriveStrength: 0x00 (1/1)[0m
+[0;32mI (341) MSPI Timing: PSRAM timing tuning index: 5[0m
+[0;32mI (346) esp_psram: Found 8MB PSRAM device[0m
+[0;32mI (350) esp_psram: Speed: 80MHz[0m
+[0;32mI (767) esp_psram: SPI SRAM memory test OK[0m
+[0;32mI (776) cpu_start: Pro cpu start user code[0m
+[0;32mI (776) cpu_start: cpu freq: 240000000 Hz[0m
+[0;32mI (776) cpu_start: Application information:[0m
+[0;32mI (779) cpu_start: Project name:     wasmhome_bench[0m
+[0;32mI (785) cpu_start: App version:      6d7382b-dirty[0m
+[0;32mI (790) cpu_start: Compile time:     Oct  2 2026 01:09:16[0m
+[0;32mI (796) cpu_start: ELF file SHA256:  911c4fa51...[0m
+[0;32mI (802) cpu_start: ESP-IDF:          v5.2.6[0m
+[0;32mI (807) cpu_start: Min chip rev:     v0.0[0m
+[0;32mI (811) cpu_start: Max chip rev:     v0.99 [0m
+[0;32mI (816) cpu_start: Chip rev:         v0.2[0m
+[0;32mI (821) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (828) heap_init: At 3FCA4710 len 00045000 (276 KiB): RAM[0m
+[0;32mI (834) heap_init: At 3FCE9710 len 00005724 (21 KiB): RAM[0m
+[0;32mI (840) heap_init: At 3FCF0000 len 00008000 (32 KiB): DRAM[0m
+[0;32mI (847) heap_init: At 600FE010 len 00001FD8 (7 KiB): RTCRAM[0m
+[0;32mI (853) esp_psram: Adding pool of 8192K of PSRAM memory to heap allocator[0m
+[0;32mI (861) spi_flash: detected chip: boya[0m
+[0;32mI (865) spi_flash: flash io: dio[0m
+[0;32mI (869) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (876) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (883) main_task: Started on CPU0[0m
+[0;32mI (887) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations[0m
+[0;32mI (896) main_task: Calling app_main()[0m
+WASMHOME_EVENT,{"event":"boot_observed","scenario":"native","boot_id":"4ca284778821a4b4","monotonic_us":900393,"status":1,"heap_internal":323319}
+[0;32mI (913) gpio: GPIO[5]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 [0m
+[0;32mI (922) gpio: GPIO[6]| InputEn: 1| OutputEn: 0| OpenDrain: 0| Pullup: 0| Pulldown: 1| Intr:0 [0m
+[0;32mI (932) gpio: GPIO[4]| InputEn: 1| OutputEn: 0| OpenDrain: 0| Pullup: 1| Pulldown: 0| Intr:0 [0m
+[0;32mI (941) gpio: GPIO[4]| InputEn: 1| OutputEn: 1| OpenDrain: 1| Pullup: 1| Pulldown: 0| Intr:0 [0m
+[0;32mI (962) pp: pp rom version: e7ae62f[0m
+[0;32mI (962) net80211: net80211 rom version: e7ae62f[0m
+I (964) wifi:wifi driver task: 3fcb7e10, prio:23, stack:6656, core=0
+I (973) wifi:wifi firmware version: e851349
+I (974) wifi:wifi certification version: v7.0
+I (974) wifi:config NVS flash: enabled
+I (978) wifi:config nano formating: disabled
+I (982) wifi:Init data frame dynamic rx buffer num: 32
+I (987) wifi:Init static rx mgmt buffer num: 5
+I (991) wifi:Init management short buffer num: 32
+I (995) wifi:Init dynamic tx buffer num: 32
+I (999) wifi:Init static tx FG buffer num: 2
+I (1003) wifi:Init static rx buffer size: 1600
+I (1007) wifi:Init static rx buffer num: 10
+I (1011) wifi:Init dynamic rx buffer num: 32
+[0;32mI (1016) wifi_init: rx ba win: 6[0m
+[0;32mI (1019) wifi_init: tcpip mbox: 32[0m
+[0;32mI (1023) wifi_init: udp mbox: 6[0m
+[0;32mI (1027) wifi_init: tcp mbox: 6[0m
+[0;32mI (1031) wifi_init: tcp tx win: 5760[0m
+[0;32mI (1035) wifi_init: tcp rx win: 5760[0m
+[0;32mI (1039) wifi_init: tcp mss: 1440[0m
+[0;32mI (1043) wifi_init: WiFi IRAM OP enabled[0m
+[0;32mI (1048) wifi_init: WiFi RX IRAM OP enabled[0m
+[0;32mI (1053) phy_init: phy_version 701,f4f1da3a,Mar  3 2025,15:50:10[0m
+[0;32mI (1093) phy_init: Saving new calibration data due to checksum failure or outdated calibration data, mode(0)[0m
+I (1187) wifi:mode : sta (dc:b4:d9:0b:22:e4)
+I (1188) wifi:enable tsf
+I (1190) wifi:Set ps type: 0, coexist: 0
+
+WASMHOME_EVENT,{"event":"platform_initialized","scenario":"native","boot_id":"4ca284778821a4b4","monotonic_us":1192397,"status":0,"heap_internal":261919}
+WASMHOME_EVENT,{"event":"platform_selftest_diagnostic_only","scenario":"native","boot_id":"4ca284778821a4b4","monotonic_us":1201016,"status":0,"heap_internal":261935}
+WASMHOME_DIAG,{"sample_id":1,"temperature_mC":24250,"age_ms":26,"sensor_status":0,"requested_gpio":0,"observed_gpio":0,"gpio_error":0}
+[0;32mI (1227) main_task: Returned from app_main()[0m
+I (2165) wifi:new:<9,2>, old:<1,0>, ap:<255,255>, sta:<9,2>, prof:1
+I (2166) wifi:state: init -> auth (b0)
+I (2198) wifi:state: auth -> assoc (0)
+I (2206) wifi:state: assoc -> run (10)
+WASMHOME_DIAG,{"sample_id":3,"temperature_mC":24250,"age_ms":50,"sensor_status":0,"requested_gpio":1,"observed_gpio":1,"gpio_error":0}
+I (2228) wifi:connected with Hal9000, aid = 11, channel 9, 40D, bssid = 50:3d:d1:a5:e2:97
+I (2229) wifi:security: WPA2-PSK, phy: bgn, rssi: -65
+I (2230) wifi:pm start, type: 0
+
+I (2233) wifi:dp: 1, bi: 102400, li: 3, scale listen interval from 307200 us to 307200 us
+I (2241) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (2257) wifi:<ba-add>idx:0 (ifx:0, 50:3d:d1:a5:e2:97), tid:7, ssn:0, winSize:64
+I (2286) wifi:AP's beacon interval = 102400 us, DTIM period = 1
+WASMHOME_DIAG,{"sample_id":5,"temperature_mC":24250,"age_ms":50,"sensor_status":0,"requested_gpio":0,"observed_gpio":0,"gpio_error":0}
+[0;32mI (3251) esp_netif_handlers: sta ip: 192.168.0.145, mask: 255.255.255.0, gw: 192.168.0.1[0m
+WASMHOME_EVENT,{"event":"wifi_ip_acquired","scenario":"native","boot_id":"4ca284778821a4b4","monotonic_us":3252338,"status":0,"heap_internal":261191}
+WASMHOME_NETWORK,{"ip":"192.168.0.145","gateway":"192.168.0.1"}
+WASMHOME_EVENT,{"event":"udp_bound","scenario":"native","boot_id":"4ca284778821a4b4","monotonic_us":3292495,"status":0,"heap_internal":260795}
+I (3318) wifi:<ba-add>idx:1 (ifx:0, 50:3d:d1:a5:e2:97), tid:0, ssn:0, winSize:64
+WASMHOME_DIAG_RX,{"type":2,"sequence":1,"id":291}
+WASMHOME_EVENT,{"event":"control_wrong_boot","scenario":"native","boot_id":"4ca284778821a4b4","monotonic_us":3321311,"status":259,"heap_internal":258263}
+WASMHOME_EVENT,{"event":"udp_discarded","scenario":"native","boot_id":"4ca284778821a4b4","monotonic_us":3332764,"status":258,"heap_internal":260463}
+WASMHOME_DIAG,{"sample_id":7,"temperature_mC":24250,"age_ms":50,"sensor_status":0,"requested_gpio":1,"observed_gpio":1,"gpio_error":0}
+WASMHOME_DIAG,{"sample_id":9,"temperature_mC":24250,"age_ms":49,"sensor_status":0,"requested_gpio":0,"observed_gpio":0,"gpio_error":0}
+WASMHOME_DIAG,{"sample_id":11,"temperature_mC":24250,"age_ms":50,"sensor_status":0,"requested_gpio":1,"observed_gpio":1,"gpio_error":0}
+WASMHOME_DIAG,{"sample_id":13,"temperature_mC":24250,"age_ms":50,"sensor_status":0,"requested_gpio":0,"observed_gpio":0,"gpio_error":0}
+WASMHOME_DIAG,{"sample_id":15,"temperature_mC":24250,"age_ms":50,"sensor_status":0,"requested_gpio":1,"observed_gpio":1,"gpio_error":0}
+WASMHOME_DIAG,{"sample_id":17,"temperature_mC":24250,"age_ms":50,"sensor_status":0,"requested_gpio":0,"observed_gpio":0,"gpio_error":0}
+WASMHOME_DIAG,{"sample_id":19,"temperature_mC":24250,"age_ms":50,"sensor_status":0,"requested_gpio":1,"observed_gpio":1,"gpio_error":0}
+WASMHOME_DIAG,{"sample_id":21,"temperature_mC":24250,"age_ms":50,"sensor_status":0,"requested_gpio":0,"observed_gpio":0,"gpio_error":0}

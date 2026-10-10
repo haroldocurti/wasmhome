@@ -1,0 +1,52 @@
+47512c48-88a6-4882-b9cd-85db57f74f33
+status: running
+running
+a7d85f54-eaa0-4fc2-b0f8-a03d7daf8db7
+192.168.0.171 
+wasmhome-initial-state-v1
+HTTP/2 200 
+ca-certificates	20250419
+curl	8.14.1-2+deb13u5
+openssh-server	1:10.0p1-7+deb13u4
+lease {
+  interface "eth0";
+  fixed-address 192.168.0.171;
+  option subnet-mask 255.255.255.0;
+  option dhcp-lease-time 7200;
+  option routers 192.168.0.1;
+  option dhcp-message-type 5;
+  option dhcp-server-identifier 192.168.0.1;
+  option domain-name-servers 192.168.0.2,8.8.4.4;
+  option dhcp-renewal-time 3600;
+  option dhcp-rebinding-time 6300;
+  option ntp-servers 168.181.126.28;
+  option broadcast-address 192.168.0.255;
+  option host-name "wasmhome-bench-rebuild";
+  renew 5 2026/10/09 16:21:48;
+  rebind 5 2026/10/09 17:15:25;
+  expire 5 2026/10/09 17:30:25;
+}
+lease {
+  interface "eth0";
+  fixed-address 192.168.0.171;
+  option subnet-mask 255.255.255.0;
+  option routers 192.168.0.1;
+  option dhcp-lease-time 7200;
+  option dhcp-message-type 5;
+  option domain-name-servers 192.168.0.2,8.8.4.4;
+  option dhcp-server-identifier 192.168.0.1;
+  option dhcp-renewal-time 3600;
+  option broadcast-address 192.168.0.255;
+  option ntp-servers 168.181.126.28;
+  option dhcp-rebinding-time 6300;
+  option host-name "wasmhome-bench-rebuild";
+  renew 5 2026/10/09 16:31:05;
+  rebind 5 2026/10/09 17:19:50;
+  expire 5 2026/10/09 17:34:50;
+}
+status: running
+               total        used        free      shared  buff/cache   available
+Mem:           15861       14402         825          57        1026        1459
+Swap:           8191        4088        4103
+some avg10=0.00 avg60=0.00 avg300=0.00 total=53902079
+full avg10=0.00 avg60=0.00 avg300=0.00 total=48035577

@@ -1,0 +1,63 @@
+esptool.py v4.12.0
+Serial port COM12
+Connecting....
+Chip is ESP32-S3 (QFN56) (revision v0.2)
+Features: WiFi, BLE, Embedded PSRAM 8MB (AP_3v3)
+Crystal is 40MHz
+MAC: dc:b4:d9:0b:22:e4
+Uploading stub...
+Running stub...
+Stub running...
+Changing baud rate to 460800
+Changed.
+Configuring flash size...
+Flash will be erased from 0x00020000 to 0x0011ffff...
+Compressed 1048576 bytes to 697425...
+Writing at 0x00020000... (2 %)
+Writing at 0x0002d86e... (4 %)
+Writing at 0x00036edc... (6 %)
+Writing at 0x00041ea4... (9 %)
+Writing at 0x0004798a... (11 %)
+Writing at 0x0004d37b... (13 %)
+Writing at 0x00052edb... (16 %)
+Writing at 0x00058078... (18 %)
+Writing at 0x0005d143... (20 %)
+Writing at 0x000624bd... (23 %)
+Writing at 0x0006767d... (25 %)
+Writing at 0x0006cc63... (27 %)
+Writing at 0x000722f6... (30 %)
+Writing at 0x00077985... (32 %)
+Writing at 0x0007cb02... (34 %)
+Writing at 0x00081d18... (37 %)
+Writing at 0x00087669... (39 %)
+Writing at 0x0008ccc6... (41 %)
+Writing at 0x00091fa7... (44 %)
+Writing at 0x00097655... (46 %)
+Writing at 0x0009d381... (48 %)
+Writing at 0x000a238b... (51 %)
+Writing at 0x000a74af... (53 %)
+Writing at 0x000ac769... (55 %)
+Writing at 0x000b1e0e... (58 %)
+Writing at 0x000ba86e... (60 %)
+Writing at 0x000bfe60... (62 %)
+Writing at 0x000c61c7... (65 %)
+Writing at 0x000cba73... (67 %)
+Writing at 0x000d1556... (69 %)
+Writing at 0x000d6d23... (72 %)
+Writing at 0x000dd1c9... (74 %)
+Writing at 0x000e5f30... (76 %)
+Writing at 0x000eb12f... (79 %)
+Writing at 0x000f08a8... (81 %)
+Writing at 0x000f6567... (83 %)
+Writing at 0x000fc12e... (86 %)
+Writing at 0x00102180... (88 %)
+Writing at 0x00107b4f... (90 %)
+Writing at 0x0010cbbb... (93 %)
+Writing at 0x00111e3b... (95 %)
+Writing at 0x001171d9... (97 %)
+Writing at 0x0011c596... (100 %)
+Wrote 1048576 bytes (697425 compressed) at 0x00020000 in 15.9 seconds (effective 528.4 kbit/s)...
+Hash of data verified.
+
+Leaving...
+Hard resetting via RTS pin...

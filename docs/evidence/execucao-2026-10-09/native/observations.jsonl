@@ -1,0 +1,12 @@
+{"host_monotonic_ns": 13847968000000, "kind": "WASMHOME_EVENT", "value": {"event": "boot_observed", "scenario": "native", "boot_id": "46da5751fa67bcfc", "monotonic_us": 898724, "status": 1, "heap_internal": 328719}}
+{"host_monotonic_ns": 13848031000000, "kind": "WASMHOME_EVENT", "value": {"event": "sensor_acquisition_failed", "scenario": "native", "boot_id": "46da5751fa67bcfc", "monotonic_us": 953176, "status": 261, "heap_internal": 321899}}
+{"host_monotonic_ns": 13848187000000, "kind": "WASMHOME_EVENT", "value": {"event": "udp_disabled_no_observer", "scenario": "native", "boot_id": "46da5751fa67bcfc", "monotonic_us": 1115986, "status": 259, "heap_internal": 273843}}
+{"host_monotonic_ns": 13848203000000, "kind": "WASMHOME_EVENT", "value": {"event": "platform_initialized", "scenario": "native", "boot_id": "46da5751fa67bcfc", "monotonic_us": 1125001, "status": 0, "heap_internal": 274023}}
+{"host_monotonic_ns": 13850578000000, "kind": "WASMHOME_WIFI", "value": {"reason": 210}}
+{"host_monotonic_ns": 13850578000000, "kind": "WASMHOME_EVENT", "value": {"event": "wifi_disconnected", "scenario": "native", "boot_id": "46da5751fa67bcfc", "monotonic_us": 3525028, "status": -1, "heap_internal": 278595}}
+{"host_monotonic_ns": 13852984000000, "kind": "WASMHOME_WIFI", "value": {"reason": 210}}
+{"host_monotonic_ns": 13853000000000, "kind": "WASMHOME_EVENT", "value": {"event": "wifi_disconnected", "scenario": "native", "boot_id": "46da5751fa67bcfc", "monotonic_us": 5940022, "status": -1, "heap_internal": 278595}}
+{"host_monotonic_ns": 13855406000000, "kind": "WASMHOME_WIFI", "value": {"reason": 210}}
+{"host_monotonic_ns": 13855421000000, "kind": "WASMHOME_EVENT", "value": {"event": "wifi_disconnected", "scenario": "native", "boot_id": "46da5751fa67bcfc", "monotonic_us": 8354761, "status": -1, "heap_internal": 278591}}
+{"host_monotonic_ns": 13857828000000, "kind": "WASMHOME_WIFI", "value": {"reason": 210}}
+{"host_monotonic_ns": 13857828000000, "kind": "WASMHOME_EVENT", "value": {"event": "wifi_disconnected", "scenario": "native", "boot_id": "46da5751fa67bcfc", "monotonic_us": 10769608, "status": -1, "heap_internal": 278583}}

@@ -1,0 +1,5 @@
+uid=1000(wasmhome) gid=1000(wasmhome) groups=1000(wasmhome)
+wasmhome-bench-rebuild
+wasmhome-initial-state-v1
+writable_work_directories
+HTTP/2 200 

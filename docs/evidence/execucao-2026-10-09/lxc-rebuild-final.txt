@@ -1,0 +1,20 @@
+status: stopped
+arch: amd64
+cores: 1
+cpulimit: 1
+features: nesting=1
+hostname: wasmhome-bench-rebuild
+memory: 1024
+net0: name=eth0,bridge=vmbr0,firewall=1,hwaddr=BC:24:11:73:7F:32,ip=dhcp,ip6=manual,type=veth
+onboot: 0
+ostype: debian
+rootfs: DevServer:vm-109-disk-0,size=24G
+swap: 0
+timezone: America/Sao_Paulo
+unprivileged: 1
+status: running
+               total        used        free      shared  buff/cache   available
+Mem:           15861       14414         885          56         952        1446
+Swap:           8191        4088        4103
+some avg10=0.00 avg60=0.00 avg300=0.00 total=53903540
+full avg10=0.00 avg60=0.00 avg300=0.00 total=48036509

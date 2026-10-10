@@ -1,0 +1,33 @@
+{
+  "purpose": "platform TCP diagnostics, not campaign service evidence",
+  "host_clock": "time.perf_counter_ns, monotonic high-resolution counter; Windows QPC",
+  "host_clock_resolution_seconds": 1e-07,
+  "expected": "failure",
+  "instrumental_transcript_checked": true,
+  "local_capture_checked": false,
+  "classification": "inconclusive",
+  "expected_result_confirmed": false,
+  "negative_condition_confirmed": false,
+  "negative_condition_note": "socket_error/timeout do not prove reader absence; errno is unavailable",
+  "server_correlation": "pending paired LXC log verification",
+  "explicit_resets": 1,
+  "serial_boot_events": 1,
+  "serial_boot_id": 6287236521768356468,
+  "udp_packets": 168,
+  "udp_before_command": 3,
+  "udp_after_result": 164,
+  "boot_continuity_checked": true,
+  "boot_ids": [
+    6287236521768356468
+  ],
+  "probe_results": [
+    {
+      "result": "response_mismatch",
+      "server_ipv4": "192.168.0.138",
+      "server_port": 18080,
+      "local_ipv4": "192.168.0.145",
+      "nonce": "5144c1c886d50f91884f6371cb4b27e2097db4246bd60d7ddf2da360f47f361b",
+      "elapsed_ms": 38
+    }
+  ]
+}

@@ -1,9 +1,11 @@
 # Provisionamento do servidor da bancada
 
-Status: CT 107 criado em 01/10/2026 com autorização do usuário. Sistema-base,
-acesso por chave e persistência após reboot comprovados. Rede com o ESP32 e
-reconstrução em segundo CT permanecem pendentes. Capacidade e configuração de
-rede devem ser reconfirmadas antes de ampliar o ambiente.
+Status em 09/10/2026: CT 107 criado em 01/10 com autorização do usuário.
+Sistema-base, acesso por chave, persistência, transporte diagnóstico com o
+ESP32 e reconstrução separada no CT 109 comprovados localmente. O complemento
+ao final registra as evidências novas. Capacidade e configuração de rede devem
+ser reconfirmadas antes de ampliar o ambiente; publicação e aceite formal
+permanecem etapas próprias.
 
 ## Inspeção de 01/10/2026
 
@@ -229,6 +231,27 @@ atualizar o mapa da issue #1.
 Configuração, pacotes, rede e estado após reboot foram preservados em
 [evidência do CT 107](evidence/lxc-107-2026-10-01.txt). Nenhum guest existente
 foi parado ou redimensionado. Firewall global e roteamento não foram alterados.
-O PC observador foi confirmado pelo usuário; faltam teste a partir do ESP32,
-estabilização do endpoint e demonstração de reconstrução em CT separado.
-Não houve instalação da toolchain, build ou resultado experimental.
+No encerramento do registro de 01/10, o PC observador estava confirmado pelo
+usuário, mas ainda faltavam teste a partir do ESP32, estabilização do endpoint
+e demonstração de reconstrução em CT separado. Não houve instalação da
+toolchain, build ou resultado experimental nessa etapa.
+
+## Complemento de 09/10/2026
+
+O [registro da sessão](evidence/execucao-2026-10-09/README.md) preserva a prova
+diagnóstica PC↔ESP32 e ESP32→CT 107. O acesso iniciado pelo ESP32 usou TCP/HTTP
+temporário em `192.168.0.138:18080`, com nonce e origem conferidos nos dois
+lados. O negativo com origem esperada divergente produziu recusa no servidor
+e `response_mismatch` no dispositivo, sem interromper o UDP no mesmo boot.
+Isso comprova transporte; HTTPS/COSE e serviços da campanha têm critérios
+próprios nas issues posteriores.
+
+O usuário confirmou a reserva DHCP de `192.168.0.138` para a MAC
+`BC:24:11:B6:36:F7`; o painel DHCP não foi inspecionado. A reconstrução
+autorizada foi executada no CT 109, `wasmhome-bench-rebuild`, com IP distinto
+`192.168.0.171`, 1 CPU, 1.024 MiB RAM, swap 0 e disco de 24 GiB em DevServer.
+Sistema-base, SSH e persistência após reboot passaram. A
+[proposta e o resultado](proposta-reconstrucao-lxc.md) registram a configuração,
+os logs e as divergências do instrumento e do ifupdown2. O CT 109 ficou parado
+e o CT 107 permaneceu em execução. Revisão final, publicação e aceite formal
+da issue #6 seguem como etapas próprias. A toolchain no LXC pertence à #7.

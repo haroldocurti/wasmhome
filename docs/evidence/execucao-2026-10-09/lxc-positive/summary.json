@@ -1,0 +1,31 @@
+{
+  "purpose": "platform TCP diagnostics, not campaign service evidence",
+  "expected": "success",
+  "instrumental_transcript_checked": false,
+  "local_capture_checked": false,
+  "classification": "inconclusive",
+  "expected_result_confirmed": false,
+  "negative_condition_confirmed": false,
+  "negative_condition_note": "socket_error/timeout do not prove reader absence; errno is unavailable",
+  "server_correlation": "pending paired LXC log verification",
+  "explicit_resets": 1,
+  "serial_boot_events": 1,
+  "serial_boot_id": 6346255059670662736,
+  "udp_packets": 168,
+  "udp_before_command": 2,
+  "udp_after_result": 164,
+  "boot_continuity_checked": false,
+  "boot_ids": [
+    6346255059670662736
+  ],
+  "probe_results": [
+    {
+      "result": "ok",
+      "server_ipv4": "192.168.0.138",
+      "server_port": 18080,
+      "local_ipv4": "192.168.0.145",
+      "nonce": "df1ceb32d326d4b75b0376e2efb7d5873582ebf912622f011a77463b44c76c47",
+      "elapsed_ms": 35
+    }
+  ]
+}

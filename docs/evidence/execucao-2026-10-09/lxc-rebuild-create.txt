@@ -1,0 +1,44 @@
+pve-manager/9.1.6/71482d1833ded40a (running kernel: 6.17.13-1-pve)
+               total        used        free      shared  buff/cache   available
+Mem:           15861       14390         728          56        1134        1470
+Swap:           8191        4079        4112
+some avg10=0.00 avg60=0.00 avg300=0.00 total=53656550
+full avg10=0.00 avg60=0.00 avg300=0.00 total=47794933
+Name              Type     Status     Total (KiB)      Used (KiB) Available (KiB)        %
+DevServer      lvmthin     active       229609472        29275207       200334264   12.75%
+Webserver      lvmthin     active       229609472        71569272       158040199   31.17%
+backup-hdd         dir     active       960302804       891154324        69132096   92.80%
+local              dir     active        67169672        10694788        53017044   15.92%
+local-lvm      lvmthin     active       136593408        89017923        47575484   65.17%
+109
+hostname: wasmhome-bench
+192.168.0.138 
+/var/lib/vz/template/cache/debian-13-standard_13.1-2_amd64.tar.zst: OK
+  Logical volume "vm-109-disk-0" created.
+  Logical volume DevServer/vm-109-disk-0 changed.
+Creating filesystem with 6291456 4k blocks and 1572864 inodes
+Filesystem UUID: aaedc76b-bdf4-456e-b509-57cbe9f9fba2
+Superblock backups stored on blocks: 
+	32768, 98304, 163840, 229376, 294912, 819200, 884736, 1605632, 2654208, 
+extracting archive '/var/lib/vz/template/cache/debian-13-standard_13.1-2_amd64.tar.zst'
+Total bytes read: 551505920 (526MiB, 88MiB/s)
+Creating SSH host key 'ssh_host_ed25519_key' - this may take some time ...
+done: SHA256:cM9oavKBG3RtXOuFnPcG+INsfkNK0gvZYM6Mrt9Goto root@wasmhome-bench-rebuild
+Creating SSH host key 'ssh_host_rsa_key' - this may take some time ...
+done: SHA256:xm/SFsg9k6MBJfT4w+RRAPz/sIccXcQHjRnCv4pXgL4 root@wasmhome-bench-rebuild
+Creating SSH host key 'ssh_host_ecdsa_key' - this may take some time ...
+done: SHA256:1NVOguL17EXhE4mnXTRxSMpVXpcgX97415egk+70VlU root@wasmhome-bench-rebuild
+arch: amd64
+cores: 1
+cpulimit: 1
+features: nesting=1
+hostname: wasmhome-bench-rebuild
+memory: 1024
+net0: name=eth0,bridge=vmbr0,firewall=1,hwaddr=BC:24:11:73:7F:32,ip=dhcp,ip6=manual,type=veth
+onboot: 0
+ostype: debian
+rootfs: DevServer:vm-109-disk-0,size=24G
+swap: 0
+timezone: America/Sao_Paulo
+unprivileged: 1
+wasmhome-bench-rebuild

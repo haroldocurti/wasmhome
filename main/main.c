@@ -15,6 +15,17 @@
 #if !defined(WASMHOME_SCENARIO_NATIVE)
 #include "bh_platform.h"
 #include "wasm_export.h"
+
+/* Refuse a mislabeled scenario even when sdkconfig selected a different mode. */
+#if defined(WASMHOME_SCENARIO_INTERP)
+#if !defined(CONFIG_WAMR_ENABLE_INTERP) || !defined(CONFIG_WAMR_INTERP_CLASSIC) || defined(CONFIG_WAMR_INTERP_FAST) || defined(CONFIG_WAMR_ENABLE_AOT)
+#error "Scenario B requires only the WAMR classic interpreter"
+#endif
+#elif defined(WASMHOME_SCENARIO_AOT)
+#if !defined(CONFIG_WAMR_ENABLE_AOT) || defined(CONFIG_WAMR_ENABLE_INTERP)
+#error "Scenario C requires only the WAMR AOT runtime"
+#endif
+#endif
 #endif
 
 #define WARMUP_RUNS 5
@@ -47,6 +58,7 @@ typedef struct {
     wasm_module_inst_t instance;
     wasm_exec_env_t exec_env;
     wasm_function_inst_t function;
+    uint8_t *artifact_buffer;
 #endif
 } runner_t;
 
@@ -62,7 +74,7 @@ static bool runner_open(runner_t *runner)
 #else
     const uint8_t *artifact_start;
     uint32_t artifact_len;
-    char error[192];
+    char error[192] = {0};
 
 #if defined(WASMHOME_SCENARIO_INTERP)
     artifact_start = benchmark_wasm;
@@ -72,8 +84,20 @@ static bool runner_open(runner_t *runner)
     artifact_len = benchmark_aot_len;
 #endif
 
+    /* WAMR may modify the bytes and retains them until unload. os_malloc in
+     * the ESP-IDF port provides 8-byte alignment, including AOT's 4-byte need. */
+    if (!artifact_len) {
+        ESP_LOGE(TAG, "empty artifact");
+        return false;
+    }
+    runner->artifact_buffer = os_malloc(artifact_len);
+    if (!runner->artifact_buffer) {
+        ESP_LOGE(TAG, "artifact buffer allocation failed");
+        return false;
+    }
+    memcpy(runner->artifact_buffer, artifact_start, artifact_len);
     int64_t started = esp_timer_get_time();
-    runner->module = wasm_runtime_load((uint8_t *)artifact_start, artifact_len,
+    runner->module = wasm_runtime_load(runner->artifact_buffer, artifact_len,
                                        error, sizeof(error));
     runner->load_us = esp_timer_get_time() - started;
     runner->heap_after_load = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
@@ -104,6 +128,7 @@ static bool runner_open(runner_t *runner)
 
 static bool runner_call(runner_t *runner, uint32_t *checksum)
 {
+    *checksum = 0;
 #if defined(WASMHOME_SCENARIO_NATIVE)
     (void)runner;
     *checksum = benchmark_run();
@@ -126,9 +151,11 @@ static void runner_close(runner_t *runner)
     if (runner->exec_env) wasm_runtime_destroy_exec_env(runner->exec_env);
     if (runner->instance) wasm_runtime_deinstantiate(runner->instance);
     if (runner->module) wasm_runtime_unload(runner->module);
+    if (runner->artifact_buffer) os_free(runner->artifact_buffer);
 #else
     (void)runner;
 #endif
+    memset(runner, 0, sizeof(*runner));
 }
 
 void app_main(void)
@@ -145,6 +172,7 @@ void app_main(void)
 #if !defined(CONFIG_WASMHOME_RUN_BENCHMARK)
     return;
 #endif
+    const size_t heap_before_runtime = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
 #if !defined(WASMHOME_SCENARIO_NATIVE)
     RuntimeInitArgs args;
     memset(&args, 0, sizeof(args));
@@ -168,16 +196,24 @@ void app_main(void)
     }
 
     uint32_t checksum = 0;
+    bool valid = false;
     for (int i = 0; i < WARMUP_RUNS; ++i) {
-        if (!runner_call(&runner, &checksum)) return;
+        if (!runner_call(&runner, &checksum) || checksum != WASMHOME_EXPECTED_CHECKSUM) {
+            ESP_LOGE(TAG, "warmup checksum/execution failed");
+            goto cleanup;
+        }
     }
 
+    valid = true;
+    ESP_LOGI(TAG, "E1 preliminary calls: scenario=%s warmup=%d measured=%d; one load, not independent updates",
+             scenario_name, WARMUP_RUNS, MEASURED_RUNS);
     printf("WASMHOME_CSV,scenario,repetition,load_us,instantiate_us,execute_us,heap_before,heap_after_load,heap_after_instantiate,heap_min,checksum,status\n");
     for (int repetition = 1; repetition <= MEASURED_RUNS; ++repetition) {
         int64_t started = esp_timer_get_time();
         bool called = runner_call(&runner, &checksum);
         int64_t execute_us = esp_timer_get_time() - started;
         const char *status = called && checksum == WASMHOME_EXPECTED_CHECKSUM ? "ok" : "invalid";
+        if (!called || checksum != WASMHOME_EXPECTED_CHECKSUM) valid = false;
         printf("WASMHOME_CSV,%s,%d,%" PRId64 ",%" PRId64 ",%" PRId64
                ",%u,%u,%u,%u,0x%08" PRIX32 ",%s\n",
                scenario_name, repetition, runner.load_us, runner.instantiate_us,
@@ -188,9 +224,12 @@ void app_main(void)
                checksum, status);
     }
 
+cleanup:
     runner_close(&runner);
 #if !defined(WASMHOME_SCENARIO_NATIVE)
     wasm_runtime_destroy();
 #endif
-    ESP_LOGI(TAG, "scenario %s complete", scenario_name);
+    ESP_LOGI(TAG, "E1 scenario=%s status=%s heap_before_runtime=%u heap_after_release=%u",
+             scenario_name, valid ? "ok" : "invalid", (unsigned)heap_before_runtime,
+             (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
 }

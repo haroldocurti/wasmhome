@@ -1,0 +1,66 @@
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+
+iface eth0 inet6 manual
+
+net.ipv6.conf.all.disable_ipv6=1
+net.ipv6.conf.default.disable_ipv6=1
+1
+1
+1
+● networking.service - Network initialization
+     Loaded: loaded (/usr/lib/systemd/system/networking.service; enabled; preset: enabled)
+     Active: active (exited) since Fri 2026-10-09 12:30:27 -03; 2min 47s ago
+ Invocation: e729bcfd4bc949a484ac5aa979a8ef22
+       Docs: man:interfaces(5)
+             man:ifup(8)
+             man:ifdown(8)
+    Process: 42 ExecStart=/usr/share/ifupdown2/sbin/start-networking start (code=exited, status=0/SUCCESS)
+   Main PID: 42 (code=exited, status=0/SUCCESS)
+      Tasks: 1 (limit: 18840)
+     Memory: 17.4M (peak: 33.2M)
+        CPU: 941ms
+     CGroup: /system.slice/networking.service
+             └─196 /sbin/dhclient -pf /run/dhclient.eth0.pid -lf /var/lib/dhcp/dhclient.eth0.leases eth0
+
+Oct 09 12:30:25 wasmhome-bench-rebuild info[150]: executing /sbin/dhclient -pf /run/dhclient.eth0.pid -lf /var/lib/dhcp/dhclient.eth0.leases eth0
+Oct 09 12:30:25 wasmhome-bench-rebuild dhclient[196]: DHCPREQUEST for 192.168.0.171 on eth0 to 255.255.255.255 port 67
+Oct 09 12:30:25 wasmhome-bench-rebuild dhclient[196]: DHCPACK of 192.168.0.171 from 192.168.0.1
+Oct 09 12:30:26 wasmhome-bench-rebuild dhclient[196]: bound to 192.168.0.171 -- renewal in 3082 seconds.
+Oct 09 12:30:26 wasmhome-bench-rebuild info[150]: executing ip -o addr show eth0
+Oct 09 12:30:26 wasmhome-bench-rebuild info[150]: eth0: dhclient: new address detected: 192.168.0.171/24
+Oct 09 12:30:27 wasmhome-bench-rebuild info[150]: executing /bin/ip -6 addr show eth0
+Oct 09 12:30:27 wasmhome-bench-rebuild networking[150]: error: eth0: cannot use a string pattern on a bytes-like object
+Oct 09 12:30:27 wasmhome-bench-rebuild error[150]: eth0: cannot use a string pattern on a bytes-like object
+Oct 09 12:30:27 wasmhome-bench-rebuild systemd[1]: Finished networking.service - Network initialization.
+
+● systemd-sysctl.service - Apply Kernel Variables
+     Loaded: loaded (/usr/lib/systemd/system/systemd-sysctl.service; static)
+     Active: active (exited) since Fri 2026-10-09 12:30:24 -03; 2min 50s ago
+ Invocation: 728819c8408144a3bc0033a0d5d11f93
+       Docs: man:systemd-sysctl.service(8)
+             man:sysctl.d(5)
+    Process: 59 ExecStart=/usr/lib/systemd/systemd-sysctl (code=exited, status=0/SUCCESS)
+   Main PID: 59 (code=exited, status=0/SUCCESS)
+   Mem peak: 1.8M
+        CPU: 25ms
+
+Notice: journal has been rotated since unit was started, output may be incomplete.
+root         196       1  0 12:30 ?        00:00:00 /sbin/dhclient -pf /run/dhclient.eth0.pid -lf /var/lib/dhcp/dhclient.eth0.leases eth0
+root         315       0  0 12:33 ?        00:00:00 sh -lc cat /etc/network/interfaces; cat /etc/sysctl.d/90-wasmhome-ipv4.conf; cat /proc/sys/net/ipv6/conf/all/disable_ipv6 /proc/sys/net/ipv6/conf/default/disable_ipv6 /proc/sys/net/ipv6/conf/eth0/disable_ipv6; systemctl status networking systemd-sysctl --no-pager; ps -ef | grep dhclient; systemctl list-jobs --no-legend
+root         324     315  0 12:33 ?        00:00:00 grep dhclient
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+
+iface eth0 inet6 manual
+
+1
+1
+1
+running

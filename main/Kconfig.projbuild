@@ -27,6 +27,13 @@ config WASMHOME_PLATFORM_SELFTEST
     help
         Publishes diagnostic sensor telemetry and alternates the loopback output.
         Use only on the documented bench; it is not campaign service evidence.
+config WASMHOME_LXC_PROBE_IPV4
+    string "Temporary LXC transport fixture IPv4 (local sdkconfig only)"
+    default ""
+    depends on WASMHOME_PLATFORM_SELFTEST
+    help
+        WH_LXC tests only this IPv4, TCP port 18080 and the fixed diagnostic path.
+        Empty disables the probe. The fixture proves HTTP transport only.
 config WASMHOME_OBSERVER_SELFTEST
     bool "Run external observer calibration fixture (no OTA or modules)"
     default n
