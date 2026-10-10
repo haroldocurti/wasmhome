@@ -61,6 +61,20 @@ class NativeEvidenceTests(unittest.TestCase):
             self.assertEqual(exit_result.exception.code, 1)
             self.assertEqual({name: (native / name).read_bytes() for name in expected}, expected)
 
+    def test_derivation_rejects_duplicate_json_keys_without_writing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            native = pathlib.Path(directory)
+            csv_data = b'preserved,verified\r\n'
+            json_data = b'{"status":"invalid","status":"ok"}\n'
+            (native / 'derived-native.csv').write_bytes(csv_data)
+            (native / 'derived-native.json').write_bytes(json_data)
+            with self.assertRaisesRegex(ValueError, 'duplicate JSON key: status'):
+                verify.check_derivation(native, {'status': 'ok'}, csv_data)
+            self.assertEqual((native / 'derived-native.csv').read_bytes(), csv_data)
+            self.assertEqual((native / 'derived-native.json').read_bytes(), json_data)
+        with self.assertRaisesRegex(ValueError, 'duplicate JSON key: boot_id'):
+            verify.load_json('{"events":[{"boot_id":"wrong","boot_id":"right"}]}')
+
 
 if __name__ == '__main__':
     unittest.main()

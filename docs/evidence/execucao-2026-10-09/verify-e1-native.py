@@ -31,13 +31,23 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def load_json(text):
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            require(key not in result, f'duplicate JSON key: {key}')
+            result[key] = value
+        return result
+    return json.loads(text, object_pairs_hook=unique_object)
+
+
 def verify_serial(text):
     lines = ANSI.sub('', text).splitlines()
     boots = []
     events = []
     for index, line in enumerate(lines):
         if 'WASMHOME_EVENT,' in line:
-            event = json.loads(line.split('WASMHOME_EVENT,', 1)[1])
+            event = load_json(line.split('WASMHOME_EVENT,', 1)[1])
             events.append(event)
             if event.get('event') == 'boot_observed':
                 boots.append((index, event))
@@ -80,7 +90,7 @@ def verify_serial(text):
 def prepare(build, native, artifact):
     native.mkdir(parents=True, exist_ok=True)
     report_path = build / 'e1-build.json'
-    report = json.loads(report_path.read_text())
+    report = load_json(report_path.read_text())
     allowed = {'schema', 'scenario', 'status', 'elf_sha256', 'effective_config_sha256', 'compile_commands_sha256', 'pending', 'runtime_resolved', 'workload_optimization'}
     require(set(report) <= allowed, 'unexpected build report fields; review before publishing')
     require(report.get('scenario') == 'native' and report.get('workload_optimization') == '-O3', 'unexpected build scenario/optimization')
@@ -88,7 +98,7 @@ def prepare(build, native, artifact):
     require(report.get('effective_config_sha256') == EXPECTED_CONFIG and sha(build / 'config/sdkconfig.json') == EXPECTED_CONFIG, 'effective configuration changed')
     require(sha(artifact) == EXPECTED_BIN, 'application artifact differs from approved image')
     require(sha(build / 'compile_commands.json') == report.get('compile_commands_sha256'), 'compile commands changed')
-    entries = json.loads((build / 'compile_commands.json').read_text())
+    entries = load_json((build / 'compile_commands.json').read_text())
     benchmark = [entry for entry in entries if pathlib.Path(entry['file']).resolve() == (ROOT / 'workload/benchmark.c').resolve()]
     require(len(benchmark) == 1, 'benchmark compile command missing/ambiguous')
     command = json.dumps(benchmark[0], indent=2) + '\n'
@@ -111,20 +121,20 @@ def prepare(build, native, artifact):
 
 
 def verify(native, artifact):
-    inventory = json.loads((native / 'build-inventory.json').read_text())
+    inventory = load_json((native / 'build-inventory.json').read_text())
     require(inventory.get('schema') == 'wasmhome-native-e1-evidence-v1', 'invalid evidence inventory')
     require(sha(artifact) == inventory.get('app_bin_sha256') == EXPECTED_BIN, 'application hash mismatch')
     require(inventory.get('elf_sha256') == EXPECTED_ELF and inventory.get('effective_config_sha256') == EXPECTED_CONFIG, 'build identity mismatch')
     for name in ('e1-build.json', 'benchmark-compile-command.json', 'benchmark.disassembly.txt', 'build-result-excerpt.txt'):
         require(sha(native / name) == inventory.get('files_sha256', {}).get(name), f'preserved build evidence changed: {name}')
-    report = json.loads((native / 'e1-build.json').read_text())
+    report = load_json((native / 'e1-build.json').read_text())
     require(report.get('elf_sha256') == EXPECTED_ELF and report.get('effective_config_sha256') == EXPECTED_CONFIG and report.get('workload_optimization') == '-O3', 'preserved build report differs')
     flash_path = SESSION / 'native-app-flash.txt'
     flash = flash_path.read_text(encoding='utf-8-sig')
     require('Hash of data verified.' in flash and re.search(rf'Wrote {inventory["app_bin_bytes"]} bytes .* at 0x00020000', flash), 'application-only transfer evidence missing')
     raw = native / 'serial.log'
     rows, result = verify_serial(raw.read_text(encoding='utf-8'))
-    generic = json.loads((native / 'summary.json').read_text())
+    generic = load_json((native / 'summary.json').read_text())
     require(generic.get('boot_ids') == [result['boot_id']], 'capture summary boot differs from raw serial')
     result.update(schema='wasmhome-native-e1-physical-v1', status='preparatory_local_A_checksum_pass',
                   scope='local native computation; not three-mode E1, functional transport or campaign',
@@ -147,7 +157,7 @@ def verify(native, artifact):
 
 def check_derivation(native, result, csv_data):
     require((native / 'derived-native.csv').read_bytes() == csv_data, 'preserved CSV differs from verified raw records')
-    saved = json.loads((native / 'derived-native.json').read_text(encoding='utf-8'))
+    saved = load_json((native / 'derived-native.json').read_text(encoding='utf-8'))
     require(saved == result, 'preserved JSON differs from verified evidence')
 
 
