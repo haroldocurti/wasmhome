@@ -2,6 +2,7 @@ tools/bootstrap-lxc-base.sh text eol=lf
 docs/evidence/lxc-107-2026-10-01.txt -text whitespace=-blank-at-eol,-blank-at-eof
 # Preserve byte-identical captures and inputs used by the session hash inventory.
 docs/evidence/execucao-2026-10-09/** -text whitespace=-blank-at-eol,-blank-at-eof
+docs/evidence/observer-revalidation-2026-10-10/** -text whitespace=-blank-at-eol,-blank-at-eof
 main/platform_selftest.c -text
 main/Kconfig.projbuild -text
 tools/probe_lxc_network.py -text
