@@ -4,8 +4,8 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $artifacts = [IO.Path]::GetFullPath((Join-Path $root 'artifacts'))
 if (-not $env:WASI_SDK_PATH) { throw 'Set WASI_SDK_PATH to the extracted WASI-SDK directory.' }
-if (-not $env:WAMRC) { throw 'Set WAMRC to a WAMR 2.4.0 compiler built with the Xtensa LLVM backend.' }
-if ($WamrcSourceRevision -notmatch '^[0-9a-fA-F]{40}$') { throw 'Supply -WamrcSourceRevision with the full compiler source Git SHA.' }
+if (-not $env:WAMRC) { throw 'Set WAMRC to a WAMR 2.4.5 compiler built with the Xtensa LLVM backend.' }
+if ($WamrcSourceRevision -cne '25bd7eb63e828e4bd242cc9b38d260b4b31c6605') { throw 'Compiler source must match upstream WAMR 2.4.5 SHA 25bd7eb63e828e4bd242cc9b38d260b4b31c6605.' }
 $clang = Join-Path $env:WASI_SDK_PATH 'bin\clang.exe'
 if (-not (Test-Path -LiteralPath $clang)) { $clang = Join-Path $env:WASI_SDK_PATH 'bin\clang' }
 foreach ($tool in @($clang, $env:WAMRC)) {
@@ -15,12 +15,15 @@ $python = (Get-Command python -ErrorAction Stop).Source
 $runtimeJson = (& $python (Join-Path $PSScriptRoot 'validate_build_config.py') --runtime-identity | Out-String).Trim()
 if ($LASTEXITCODE -ne 0) { throw 'Resolved runtime identity/checksums could not be verified.' }
 $runtimeIdentity = $runtimeJson | ConvertFrom-Json -AsHashtable
-if ($runtimeIdentity.version -ne '2.4.0~1') { throw 'Resolved runtime differs from the 2.4.0~1 candidate.' }
+if ($runtimeIdentity.component -ne 'wasmhome/wasm-micro-runtime' -or
+    $runtimeIdentity.version -ne '2.4.5-wasmhome.1' -or
+    $runtimeIdentity.repository_revision -cne '25bd7eb63e828e4bd242cc9b38d260b4b31c6605' -or
+    $runtimeIdentity.aot_version -ne 5) { throw 'Resolved runtime differs from the independent WAMR 2.4.5 candidate.' }
 $clangVersion = (& $clang --version 2>&1 | Out-String).Trim()
 if ($LASTEXITCODE -ne 0) { throw 'clang version query failed.' }
 $wamrcVersion = (& $env:WAMRC --version 2>&1 | Out-String).Trim()
-if ($LASTEXITCODE -ne 0 -or $wamrcVersion -notmatch '^wamrc\s+2\.4\.0$') {
-    throw 'wamrc version must be 2.4.0 to match the candidate runtime pin.'
+if ($LASTEXITCODE -ne 0 -or $wamrcVersion -notmatch '^wamrc\s+2\.4\.5$') {
+    throw 'wamrc version must be 2.4.5 to match the candidate runtime pin.'
 }
 New-Item -ItemType Directory -Force -Path $artifacts | Out-Null
 $manifestPath = Join-Path $artifacts 'build-manifest.json'
@@ -56,7 +59,8 @@ try {
         $files[$file.Name] = @{ sha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant(); bytes = $file.Length }
     }
     $manifest = @{
-        schema = 'wasmhome-e1-artifacts-v1'; status = 'generated_not_device_validated'
+        aot_format_version = 5
+        schema = 'wasmhome-e1-artifacts-v2'; status = 'generated_not_device_validated'
         runtime_identity = $runtimeIdentity
         wamrc_source_revision_declared = $WamrcSourceRevision
         wamrc_source_provenance = 'operator_declaration_not_binary_origin_proof'

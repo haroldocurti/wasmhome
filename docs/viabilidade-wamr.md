@@ -6,7 +6,7 @@ dependência nem constituem dados da campanha.
 
 ## Versão candidata e fontes
 
-O manifesto atual fixa `espressif/wasm-micro-runtime` em `2.4.0~1`. O
+O manifesto do snapshot de 09/10 fixava `espressif/wasm-micro-runtime` em `2.4.0~1`. O
 [registro oficial da Espressif](https://components.espressif.com/components/espressif/wasm-micro-runtime/versions/2.4.0~1/readme)
 lista ESP32-S3 e Xtensa. O componente local foi resolvido com hash
 `04f25aad2896b5e906397a061d35cce560609bebd3913a4be7e365ecbf2dd9d6` e ESP-IDF
@@ -29,6 +29,18 @@ Windows/x86-64 não comprova esse backend. O comando usa `--target=xtensa` e
 `--bounds-checks=1`, presentes no
 [CLI oficial 2.4.0](https://github.com/wasm-micro-runtime/wasm-micro-runtime/blob/WAMR-2.4.0/wamr-compiler/main.c).
 Não há pressuposto de suporte a `--cpu=esp32s3`.
+
+### Candidato implementado em 10/10
+
+A #6 foi encerrada após integração e revisão. O worktree de preparo de #7
+agora contém o [port candidato 2.4.5](runtime-port-candidato.md), identidade
+`wasmhome/wasm-micro-runtime` `2.4.5-wasmhome.1`, upstream
+`25bd7eb63e828e4bd242cc9b38d260b4b31c6605` e framework fixo. O core completo
+2.4.5 é preservado, com cinco arquivos alterados pelo patch Espressif.
+O gate exige `wamrc 2.4.5`, o mesmo SHA declarado, manifesto v2 e AOT v5.
+A fonte foi adquirida e verificada localmente; compilador binário, builds B/C,
+ABI física e aceite do pin continuam pendentes. Os testes e registros de
+09/10 abaixo permanecem evidência da árvore anterior.
 
 ## Correções preparatórias
 

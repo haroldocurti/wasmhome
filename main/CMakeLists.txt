@@ -27,9 +27,10 @@ if(NOT EXPERIMENT_SCENARIO STREQUAL "native" AND NOT CMAKE_BUILD_EARLY_EXPANSION
         "${CMAKE_SOURCE_DIR}/workload/benchmark.h"
         "${CMAKE_SOURCE_DIR}/tools/validate_build_config.py"
         "${CMAKE_SOURCE_DIR}/tools/embed_artifact.py"
-        "${CMAKE_SOURCE_DIR}/dependencies.lock"
-        "${CMAKE_SOURCE_DIR}/managed_components/espressif__wasm-micro-runtime/.component_hash"
-        "${CMAKE_SOURCE_DIR}/managed_components/espressif__wasm-micro-runtime/CHECKSUMS.json"
+        "${CMAKE_SOURCE_DIR}/runtime-port/lock.json"
+        "${CMAKE_SOURCE_DIR}/runtime-port/esp-idf.patch"
+        "${CMAKE_SOURCE_DIR}/tools/runtime_package.py"
+        "${CMAKE_SOURCE_DIR}/build-runtime-port/component/wasm-micro-runtime/.wasmhome-runtime.json"
     )
 endif()
 

@@ -40,19 +40,22 @@ and the LXC toolchain remain to be validated in their respective stages.
 - ESP-IDF 5.2.x environment
 - Python 3.10 or newer
 - WASI-SDK with `clang`
-- `wamrc` built from WAMR 2.4.0, matching the pinned ESP-IDF component
+- Candidate `wamrc` built from upstream WAMR 2.4.5 SHA `25bd7eb63e828e4bd242cc9b38d260b4b31c6605` with Xtensa LLVM
+- Independent candidate runtime `wasmhome/wasm-micro-runtime` 2.4.5-wasmhome.1; see [candidate port and reproduction](docs/runtime-port-candidato.md)
 
 ## Build
 
 These commands are provisional. Stage E1 must validate component/compiler
 versions and isolate SDKCONFIG files per scenario before experimental use.
 
-First generate the two modular artifacts:
+First acquire and check the candidate source, then generate both modular artifacts.
+This candidate still requires independent review and physical B/C validation:
 
 ```powershell
+python tools/runtime_package.py --acquire
 $env:WASI_SDK_PATH = 'C:\tools\wasi-sdk'
 $env:WAMRC = 'C:\tools\wamrc.exe'
-.\tools\build-artifacts.ps1
+.\tools\build-artifacts.ps1 -WamrcSourceRevision 25bd7eb63e828e4bd242cc9b38d260b4b31c6605
 ```
 
 Then build each firmware from an ESP-IDF PowerShell prompt:

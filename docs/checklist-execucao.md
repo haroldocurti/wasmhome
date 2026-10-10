@@ -18,6 +18,12 @@ As caixas refletem somente o snapshot indicado. Registros posteriores podem alte
 - A árvore conjunta E0/preparo E1 passou por 68 testes locais sem skips e pelos verificadores offline de transporte e cálculo. A [revisão adversarial Luna xhigh](evidence/execucao-2026-10-09/revisao-adversarial.md) concluiu sem bloqueadores técnicos remanescentes; publicação, integração e aceite do rastreador permanecem pendentes.
 - A #7 tem [receita candidata](proposta-toolchain.md) e [decisões de preparação](proposta-toolchain-decisoes.md). Não houve instalação nem geração Wasm/AOT. A combinação runtime/compilador 2.4.5 exige port explícito, novos pins, revisão e prova E1; não misturar AOT v5 com runtime 2.4.0.
 
+### Integração confirmada em 10/10
+
+- A #10 foi integrada pela [PR #28](https://github.com/haroldocurti/wasmhome/pull/28), merge `6c94ab505672e4056c1a87932403853fe9aa06e7`. A [PR #29](https://github.com/haroldocurti/wasmhome/pull/29), merge `8b372147e739e46c8952ab8c7907b6c76a76345b`, integrou E0/preparo E1. A árvore `main` resultante é `56a6f161277d16ba725a536b76230aecf1e120d6`.
+- A #6 foi encerrada com seus sete critérios marcados e `ready-for-agent` removido; os vínculos da #10 e o mapa #1 foram atualizados e relidos. Isso supera a pendência formal descrita no snapshot de 09/10, sem ampliar a prova física para os serviços ou campanhas posteriores.
+- A #7 recebeu um [port candidato local 2.4.5](runtime-port-candidato.md), com patches, fontes por SHA e identidade própria. Instalação, origem do compilador binário, builds B/C, execução física e aceite de #7/#9 continuam pendentes. Os snapshots e inventários abaixo preservam o histórico anterior.
+
 ## Decisões que orientam todas as etapas
 
 - FreeRTOS é comum aos cenários A, B e C. A variável comparada é a estratégia de execução e atualização: imagem da aplicação C nativa por OTA com reboot; módulo Wasm no interpretador clássico WAMR; módulo AOT no WAMR para ESP32-S3.
