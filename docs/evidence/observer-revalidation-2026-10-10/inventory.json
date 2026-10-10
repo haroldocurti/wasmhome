@@ -43,6 +43,46 @@
     "simulated-reboot/summary.json": {
       "sha256": "6e7873db9ca8363574e2f70087e17714052497ee5cd406e859dbcfafbc54c23f",
       "bytes": 1206
+    },
+    "fixed-same-boot/calibration.json": {
+      "sha256": "ec76962384e6bfcde5e04d1bae8bb9da0d3404499e267fd85c271e2d168531dc",
+      "bytes": 256
+    },
+    "fixed-same-boot/fixture.jsonl": {
+      "sha256": "70f6dbfbc14834b2dfe5172e0479ed5f288f7760e5feec9431867da702ab794e",
+      "bytes": 20620
+    },
+    "fixed-same-boot/observations.jsonl": {
+      "sha256": "f63a69c64f5c21a8fff95c221db30bd2cb231ed6ed05bd4d4b98be4bedb10a01",
+      "bytes": 67905
+    },
+    "fixed-same-boot/summary.json": {
+      "sha256": "f28221f0eaf3766403b70e2335cb9f5ad88f51e66f5b25630b900f861132b15a",
+      "bytes": 1125
+    },
+    "fixed-simulated-reboot/calibration.json": {
+      "sha256": "9faab619b62a170a7262960ff512cd8e04912efdcf99a4616048a93252717379",
+      "bytes": 257
+    },
+    "fixed-simulated-reboot/fixture.jsonl": {
+      "sha256": "fcf495ee3ebc63fcd2019276926127fb2e385e9fa2e0c8719696615f508f9604",
+      "bytes": 20773
+    },
+    "fixed-simulated-reboot/observations.jsonl": {
+      "sha256": "bfd626acacd8cb8499c8b96454d1ffcfc825f4d6f54e9071af67d306e247cd29",
+      "bytes": 68028
+    },
+    "fixed-simulated-reboot/summary.json": {
+      "sha256": "de0ac24b9a45249c944da6031d20424788106868d76d8f931a0157351e48e4c6",
+      "bytes": 1206
     }
+  },
+  "output_preservation_fix": {
+    "source_commit": "7b8e47025adaee8600af22e2c51d91a96a4257c3",
+    "source_tree": "3359bc585623d27a5d00db7ede6e5890418f7f5b",
+    "tests": 30,
+    "skips": 0,
+    "passed": true,
+    "scope": "exclusive output creation; no change to measurement or MCU fixture logic"
   }
 }

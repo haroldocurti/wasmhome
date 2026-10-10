@@ -1,0 +1,41 @@
+{
+  "attempt_id": "0a02f300-34a2-4de8-9165-68dde8582774",
+  "boot_ids": [
+    101
+  ],
+  "period_ns": 100000000,
+  "timeout_ns": 300000000,
+  "max_sample_age_ms": 1000,
+  "sent_controls": 38,
+  "valid_controls_by_boot": {
+    "101": 28
+  },
+  "lost_controls": 10,
+  "counters": {
+    "awaiting_boot": 2,
+    "boot_observed": 1,
+    "telemetry_valid": 29,
+    "control_valid": 28,
+    "update_accepted": 1,
+    "v2_observed": 1,
+    "control_timeout": 10
+  },
+  "control_max_gap_ns": 1079000000,
+  "control_unavailability_estimate_ns": 979000000,
+  "telemetry_max_gap_ns": 1203000000,
+  "first_control_valid_ns": 2261703000000,
+  "last_control_valid_ns": 2265406000000,
+  "last_telemetry_valid_ns": 2265781000000,
+  "unresolved_sequence_gaps": {
+    "101:TELEMETRY": 0,
+    "101:CONTROL_RESULT": 0,
+    "101:UPDATE_ACCEPTANCE": 0
+  },
+  "accepted_ns": 2262000000000,
+  "activated_ns": 2262109000000,
+  "update_state": "activated",
+  "update_total_ns": 109000000,
+  "observation_start_ns": 2261500000000,
+  "observation_end_ns": 2265812000000,
+  "control_tail_censored_ns": 406000000
+}

@@ -29,3 +29,19 @@ a saída do pin exato, sem atribuir retroativamente campos aos dados anteriores.
 Os ensaios físicos de 02/10 mantêm seu registro próprio.
 
 Integração na `main`, publicação e aceite de dependências são etapas separadas.
+
+## Repetição após proteger as saídas
+
+O commit `7b8e47025adaee8600af22e2c51d91a96a4257c3` corrigiu abertura exclusiva
+dos resumos e recusa de diretórios anteriores nos calibradores. A suíte passou
+com 30 testes sem skips. A mesma fonte foi recalibrada:
+
+| Ensaio local UDP | Interrupção conhecida | Erro absoluto | Tolerância prévia | Resultado |
+|---|---:|---:|---:|---|
+| [Mesmo boot](fixed-same-boot/calibration.json) | 1.000 ms | 21 ms | 100 ms | Passou |
+| [Reboot simulado](fixed-simulated-reboot/calibration.json) | 1.000 ms | 103 ms | 200 ms | Passou |
+
+Os oito arquivos novos também constam do inventário. A correção não alterou
+o algoritmo de medição nem a fixture do MCU. Não houve nova execução física
+por essa mudança de abertura de arquivos; a prova física permanece vinculada
+à fonte e ao firmware registrados em 02/10.

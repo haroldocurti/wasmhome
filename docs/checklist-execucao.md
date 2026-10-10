@@ -12,6 +12,12 @@ Snapshot em 09/10/2026. Este guia segue as etapas E0–E7 de [plano-de-execucao.
 
 As caixas refletem somente o snapshot indicado. Registros posteriores podem alterar o estado.
 
+### Avanço local em 10/10
+
+- O observador da #10 recebeu proteção exclusiva dos resumos no commit local `7b8e470`. Seus 30 testes e duas recalibrações host passaram; os [registros novos](evidence/observer-revalidation-2026-10-10/README.md) preservam a fonte e os limites.
+- A árvore conjunta E0/preparo E1 passou por 67 testes locais sem skips e pelos verificadores offline de transporte e cálculo. A rechecagem adversarial final acompanha as últimas correções; publicação, integração e aceite do rastreador permanecem pendentes.
+- A #7 tem [receita candidata](proposta-toolchain.md) e [decisões de preparação](proposta-toolchain-decisoes.md). Não houve instalação nem geração Wasm/AOT. A combinação runtime/compilador 2.4.5 exige port explícito, novos pins, revisão e prova E1; não misturar AOT v5 com runtime 2.4.0.
+
 ## Decisões que orientam todas as etapas
 
 - FreeRTOS é comum aos cenários A, B e C. A variável comparada é a estratégia de execução e atualização: imagem da aplicação C nativa por OTA com reboot; módulo Wasm no interpretador clássico WAMR; módulo AOT no WAMR para ESP32-S3.

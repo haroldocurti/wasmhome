@@ -1,11 +1,11 @@
 # Validação local e revalidação em 10/10/2026
 
 O Python 3.11.2 do ESP-IDF executou 63 testes sem skips em 09/10. A revalidação
-de 10/10, após os ajustes de revisão, executou 65 testes sem skips:
+de 10/10, após os ajustes de revisão, executou 67 testes sem skips:
 
 | Comando | Testes | Resultado |
 |---|---:|---|
-| `tools/test-platform.ps1` | 45 | Passou; codec C e runner de falhas compilados com MSVC. |
+| `tools/test-platform.ps1` | 47 | Passou; codec C e runner de falhas compilados com MSVC; inclui recusa de saídas anteriores do observador antes de abrir rede ou serial. |
 | `test_capture_lxc_probe.py` | 9 | Passou; mantém empate de timestamps inconclusivo. |
 | `test_verify_lxc_pair.py` | 6 | Passou; recusa nonce divergente, sequência UDP inconsistente, múltiplos pedidos e a captura com empate de timestamps. |
 | `test_verify_e1_native.py` | 5 | Passou; recusa vazio, checksum errado, repetição, ordem/boot, status divergentes e chaves JSON duplicadas; falha preserva os derivados anteriores. |
