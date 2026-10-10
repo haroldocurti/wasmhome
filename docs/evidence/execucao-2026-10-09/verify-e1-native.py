@@ -87,8 +87,8 @@ def verify_serial(text):
                      heap_before_runtime=int(finals[0][1][1]), heap_after_release=int(finals[0][1][2]))
 
 
-def prepare(build, native, artifact):
-    native.mkdir(parents=True, exist_ok=True)
+def prepare(build, output, artifact):
+    require(not output.exists() and not output.is_symlink(), 'build metadata output must be a new directory')
     report_path = build / 'e1-build.json'
     report = load_json(report_path.read_text())
     allowed = {'schema', 'scenario', 'status', 'elf_sha256', 'effective_config_sha256', 'compile_commands_sha256', 'pending', 'runtime_resolved', 'workload_optimization'}
@@ -103,21 +103,27 @@ def prepare(build, native, artifact):
     require(len(benchmark) == 1, 'benchmark compile command missing/ambiguous')
     command = json.dumps(benchmark[0], indent=2) + '\n'
     require(not re.search(r'(?i)(?:password|secret|token|ssid)\s*[=:]', command), 'compile command needs sanitization review')
-    (native / 'e1-build.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8', newline='\n')
-    (native / 'benchmark-compile-command.json').write_text(command, encoding='utf-8', newline='\n')
-    (native / 'benchmark.disassembly.txt').write_bytes((build / 'benchmark.disassembly.txt').read_bytes())
+    payloads = {'e1-build.json': (json.dumps(report, indent=2) + '\n').encode('utf-8'),
+                'benchmark-compile-command.json': command.encode('utf-8'),
+                'benchmark.disassembly.txt': (build / 'benchmark.disassembly.txt').read_bytes()}
     # Keep explicit build result lines only, never sdkconfig values or full logs.
     build_log = (build / 'build.log').read_text(encoding='utf-8-sig')
     require('Project build complete.' in build_log, 'build completion missing')
     excerpts = [line.strip() for line in build_log.splitlines() if line.strip() == 'Project build complete.'
                 or re.fullmatch(r'wasmhome_bench\.bin binary size 0x[0-9a-f]+ bytes\. Smallest app partition is 0x[0-9a-f]+ bytes\. 0x[0-9a-f]+ bytes \(\d+%\) free\.', line.strip())]
-    (native / 'build-result-excerpt.txt').write_text('\n'.join(excerpts) + '\n', encoding='utf-8', newline='\n')
-    files = {name: sha(native / name) for name in ('e1-build.json', 'benchmark-compile-command.json', 'benchmark.disassembly.txt', 'build-result-excerpt.txt')}
+    payloads['build-result-excerpt.txt'] = ('\n'.join(excerpts) + '\n').encode('utf-8')
+    files = {name: hashlib.sha256(data).hexdigest() for name, data in payloads.items()}
     inventory = dict(schema='wasmhome-native-e1-evidence-v1', scope='preparatory_local_A_only',
                      app_bin_sha256=EXPECTED_BIN, app_bin_bytes=artifact.stat().st_size,
                      elf_sha256=EXPECTED_ELF, effective_config_sha256=EXPECTED_CONFIG,
                      original_build_report_sha256=sha(report_path), files_sha256=files)
-    (native / 'build-inventory.json').write_text(json.dumps(inventory, indent=2) + '\n', encoding='utf-8', newline='\n')
+    payloads['build-inventory.json'] = (json.dumps(inventory, indent=2) + '\n').encode('utf-8')
+    # Complete every input check before creating any output; old evidence is never a destination.
+    output.mkdir(parents=True, exist_ok=False)
+    for name, data in payloads.items():
+        with (output / name).open('xb') as stream:
+            stream.write(data)
+    return inventory
 
 
 def verify(native, artifact):
@@ -173,14 +179,19 @@ def write_derivation(output, result, csv_data):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--prepare', action='store_true', help='preserve reviewed build identity and safe excerpts first')
+    parser.add_argument('--prepare-output', type=pathlib.Path, help='required with --prepare; write build metadata only to a new directory')
     parser.add_argument('--build-dir', type=pathlib.Path, default=ROOT / 'build-e1-native')
     parser.add_argument('--artifact', type=pathlib.Path, default=ROOT / 'build-e1-native/wasmhome_bench.bin')
     parser.add_argument('--derive-output', type=pathlib.Path, help='write derived files only to a new directory after verification; default is read-only')
     args = parser.parse_args()
+    if bool(args.prepare) != bool(args.prepare_output):
+        parser.error('--prepare requires --prepare-output NEW_DIRECTORY; physical verification is a separate command')
     native = SESSION / 'native'
     try:
         if args.prepare:
-            prepare(args.build_dir, native, args.artifact)
+            inventory = prepare(args.build_dir, args.prepare_output, args.artifact)
+            print(json.dumps(dict(scope='build metadata only; physical capture not assessed', inventory=inventory), indent=2))
+            return
         result, csv_data = verify(native, args.artifact)
         if args.derive_output:
             write_derivation(args.derive_output, result, csv_data)

@@ -75,6 +75,26 @@ class NativeEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'duplicate JSON key: boot_id'):
             verify.load_json('{"events":[{"boot_id":"wrong","boot_id":"right"}]}')
 
+    def test_prepare_requires_new_destination_and_valid_inputs_before_writes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            old = root / 'previous'
+            old.mkdir()
+            saved = b'{"previous":"verified"}\n'
+            (old / 'build-inventory.json').write_bytes(saved)
+            with self.assertRaisesRegex(ValueError, 'new directory'):
+                verify.prepare(root / 'missing-build', old, root / 'missing.bin')
+            self.assertEqual((old / 'build-inventory.json').read_bytes(), saved)
+            fresh = root / 'new-output'
+            with self.assertRaises(FileNotFoundError):
+                verify.prepare(root / 'missing-build', fresh, root / 'missing.bin')
+            self.assertFalse(fresh.exists())
+            with mock.patch.object(sys, 'argv', ['verify-e1-native.py', '--prepare']):
+                with self.assertRaises(SystemExit) as rejected:
+                    verify.main()
+            self.assertEqual(rejected.exception.code, 2)
+            self.assertEqual((old / 'build-inventory.json').read_bytes(), saved)
+
 
 if __name__ == '__main__':
     unittest.main()

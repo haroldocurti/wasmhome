@@ -105,7 +105,7 @@ O [arquivo daquela tentativa](lxc-session-final.txt) contém somente os status
 dos CTs, pois a saída da consulta SSH não entrou no pipe. Essa tentativa não
 foi tratada como prova do endereço.
 
-A [validação local](validacao-local.md) registra 67 testes sem skips na revalidação de 10/10 e a
+A [validação local](validacao-local.md) registra 68 testes sem skips na revalidação de 10/10 e a
 reexecução dos verificadores contra os dados físicos. `.gitattributes` preserva
 os bytes dos registros e das fontes usados pelo inventário da sessão para que
 o checkout não altere os SHA-256 por conversão automática de finais de linha.

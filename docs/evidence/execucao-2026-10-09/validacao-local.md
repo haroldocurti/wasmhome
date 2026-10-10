@@ -1,14 +1,14 @@
 # Validação local e revalidação em 10/10/2026
 
 O Python 3.11.2 do ESP-IDF executou 63 testes sem skips em 09/10. A revalidação
-de 10/10, após os ajustes de revisão, executou 67 testes sem skips:
+de 10/10, após os ajustes de revisão, executou 68 testes sem skips:
 
 | Comando | Testes | Resultado |
 |---|---:|---|
 | `tools/test-platform.ps1` | 47 | Passou; codec C e runner de falhas compilados com MSVC; inclui recusa de saídas anteriores do observador antes de abrir rede ou serial. |
 | `test_capture_lxc_probe.py` | 9 | Passou; mantém empate de timestamps inconclusivo. |
 | `test_verify_lxc_pair.py` | 6 | Passou; recusa nonce divergente, sequência UDP inconsistente, múltiplos pedidos e a captura com empate de timestamps. |
-| `test_verify_e1_native.py` | 5 | Passou; recusa vazio, checksum errado, repetição, ordem/boot, status divergentes e chaves JSON duplicadas; falha preserva os derivados anteriores. |
+| `test_verify_e1_native.py` | 6 | Passou; recusa vazio, checksum errado, repetição, ordem/boot, status divergentes, chaves JSON duplicadas e preparo sem pasta nova; falha preserva os arquivos anteriores. |
 
 Os três últimos scripts ficam nesta pasta. A suíte principal está em `tests/`.
 O log local da suíte principal é `build-session-e0/final-tests.log`, ignorado no
@@ -22,6 +22,10 @@ A conferência nativa padrão é somente leitura. A geração de derivados exige
 `--derive-output` com pasta nova e acontece após validar os insumos. O gate de
 artefatos AOT agora também exige `--disable-llvm-lto` explícito; o teste negativo
 recusa sua ausência. Não houve geração nem execução AOT nesta revalidação.
+
+O preparo de metadados exige `--prepare --prepare-output NOVA_PASTA` e valida
+todos os insumos antes de criar o destino. Não altera `native/` preservado.
+Seu resultado é apenas de build; a conferência dos registros físicos é separada.
 
 O build nativo e o build diagnóstico de rede passaram com ESP-IDF 5.2.6. As
 evidências de build e de execução na placa estão nos registros próprios, com
