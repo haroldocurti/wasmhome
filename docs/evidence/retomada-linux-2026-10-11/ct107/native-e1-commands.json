@@ -1,0 +1,26 @@
+{
+  "configure": [
+    "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf526-py313/bin/python",
+    "-B",
+    "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/esp-idf/tools/idf.py",
+    "--no-ccache",
+    "-B",
+    "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/build-e1-native-ct107",
+    "-DEXPERIMENT_SCENARIO=native",
+    "-DIDF_TARGET=esp32s3",
+    "-DSDKCONFIG=/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/native-e1.sdkconfig",
+    "-DSDKCONFIG_DEFAULTS=/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/project/sdkconfig.defaults;/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/native-e1.defaults",
+    "reconfigure"
+  ],
+  "build": [
+    "/usr/bin/cmake",
+    "--build",
+    "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/build-e1-native-ct107",
+    "--parallel",
+    "1"
+  ],
+  "idf_path": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/esp-idf",
+  "tools_path": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-tools",
+  "python": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf526-py313/bin/python",
+  "bytecode_disabled": true
+}

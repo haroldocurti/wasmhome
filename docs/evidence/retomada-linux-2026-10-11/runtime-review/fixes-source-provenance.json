@@ -1,0 +1,17 @@
+{
+  "revision": "187ff96279ed8e6d3da14b7663ce5b5e856dff49",
+  "tree": "70580c660a5642e9f7226c0d9813b805ee8b3c64",
+  "generator_sha256": {
+    "tools/build-artifacts.ps1": "bf495832803c24255e82b97da49f83c9e2a9ea449970be59f7eb0decb15080d0",
+    "tools/generate_artifacts.py": "302dc6101e98e3c047555c4f05ad46f90bcd0165bd0f108d32ba863c4d237654",
+    "tools/toolchain_provenance.py": "041c22261b6a904b6903341d37301c6f8b3819cae262e5ae120575c2c20328d8",
+    "tools/validate_build_config.py": "fababbee861b9d9bd77045d07ab9f80ab7b113dea7d7186b31836878b6275bb5",
+    "tools/embed_artifact.py": "dc5dcc32f133e6b22684c2d96f60e67bcd3f8397bccf9b8a1ce37acd8ca800b9",
+    "tools/runtime_package.py": "c9fb76f416779c1f76f3f2080e9776d1932069752c7f7e9254d66c20ccd79906",
+    "tools/evidence_json.py": "5acde388a8c8cebf313202f78d78aec8b88dea1494598fd6f1229d7650fd3649",
+    "tools/record_wamrc_build.py": "eff2fd2c0bb248d51655ccffd19e722b97450720cc0f83733015b0a567da625e",
+    "runtime-port/lock.json": "348a5addf014587b24468fe55b44444284ee5d212d7f206c394a9659cf6f9669",
+    "runtime-port/esp-idf.patch": "baf820ac38452498f5857a1c4dd593558e17c3f3bf478b41425900eea1a0e246",
+    "runtime-port/idf_component.yml": "b0634bee7c6ad144daadf9a0ad209e4ce5d80243d5f2746b5de46a4dd964b7ce"
+  }
+}

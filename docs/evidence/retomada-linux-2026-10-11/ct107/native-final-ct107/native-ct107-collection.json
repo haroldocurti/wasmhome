@@ -1,0 +1,157 @@
+{
+  "schema": "wasmhome-native-ct107-collection-v1",
+  "revision": "187ff96279ed8e6d3da14b7663ce5b5e856dff49",
+  "lock_sha256": "aa459686d7f8cb76b051bfae72d2cd1c7005f2a3f2460937ccb567b0e4af94ad",
+  "managed_components": [
+    {
+      "path": "managed_components/espressif__onewire_bus/.component_hash",
+      "bytes": 64,
+      "sha256": "b1f4b0218a54ffc5d96fa075a801fa7cd48f29df5b591b10a92f712ebc879e70"
+    },
+    {
+      "path": "managed_components/espressif__onewire_bus/CHANGELOG.md",
+      "bytes": 159,
+      "sha256": "9169fa8df1a7d26fbfe58b807dc6984954d8d0c6a824f75d8f2ee4d3e2e0dc81"
+    },
+    {
+      "path": "managed_components/espressif__onewire_bus/CHECKSUMS.json",
+      "bytes": 2077,
+      "sha256": "57b6816a60490436eab60c9d24894e0622f5e1d771a510d1eae68622749e0c51"
+    },
+    {
+      "path": "managed_components/espressif__onewire_bus/CMakeLists.txt",
+      "bytes": 311,
+      "sha256": "169de09c80f40550316b10c5e98ccb55e16fb4be7e12c478e106a4c58bca6efa"
+    },
+    {
+      "path": "managed_components/espressif__onewire_bus/LICENSE",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "managed_components/espressif__onewire_bus/README.md",
+      "bytes": 335,
+      "sha256": "ddb0617d78e34ff9477a50a7a72ce77477e8c9f98d0552d7f971fe1e867d4568"
+    },
+    {
+      "path": "managed_components/espressif__onewire_bus/idf_component.yml",
+      "bytes": 398,
+      "sha256": "7abfa0627fd38abbc136e0e0b3d09189e86ddc7d6627caf53fb52efa2b7d123b"
+    },
+    {
+      "path": "managed_components/espressif__onewire_bus/include/onewire_bus.h",
+      "bytes": 2873,
+      "sha256": "fbc16a8a522b306f5f7b65fcc3193c4c1ee6ee831f5030d195f6511904d41ab5"
+    },
+    {
+      "path": "managed_components/espressif__onewire_bus/include/onewire_bus_impl_rmt.h",
+      "bytes": 1322,
+      "sha256": "c893a4d59b961af76dd612919778e7d55f9e3bda50a950793f6ec1294f31933a"
+    },
+    {
+      "path": "managed_components/espressif__onewire_bus/include/onewire_cmd.h",
+      "bytes": 356,
+      "sha256": "f0de787a3337b59e6a85c8a245ef5b56710830233ceeabf5fe59d1c0a0c50b38"
+    },
+    {
+      "path": "managed_components/espressif__onewire_bus/include/onewire_crc.h",
+      "bytes": 584,
+      "sha256": "9db2a7b437a6f72a0711698c9fad5ceca60458e828557cc38a3c8fc217fd5e06"
+    },
+    {
+      "path": "managed_components/espressif__onewire_bus/include/onewire_device.h",
+      "bytes": 1799,
+      "sha256": "f6b8202100de34d4b102953839e10df33b7850c35c599fb1d5bcf33ec1305773"
+    },
+    {
+      "path": "managed_components/espressif__onewire_bus/include/onewire_types.h",
+      "bytes": 715,
+      "sha256": "c14f0bb087d2d97715ad6249d419b097e6f698670195a41144e3106f2565d010"
+    },
+    {
+      "path": "managed_components/espressif__onewire_bus/interface/onewire_bus_interface.h",
+      "bytes": 3196,
+      "sha256": "b03cea2218f99845b4486b7112760e08e4b7eb6b6dcc238f8d745afc593eae19"
+    },
+    {
+      "path": "managed_components/espressif__onewire_bus/src/onewire_bus_api.c",
+      "bytes": 1512,
+      "sha256": "894fdc649d552fe090c19bd3eb9e1433db71f95b8455b86faf5463636905ab3e"
+    },
+    {
+      "path": "managed_components/espressif__onewire_bus/src/onewire_bus_impl_rmt.c",
+      "bytes": 20587,
+      "sha256": "00637660137dd508d6b41a5b2ec6c7eb927b71eee58d2ffddf5e0d05df921db6"
+    },
+    {
+      "path": "managed_components/espressif__onewire_bus/src/onewire_crc.c",
+      "bytes": 2193,
+      "sha256": "06a7ce5ffffbd1cbf4de35155cba2d5b903f718a0fbc3478265c09a4458a4ce0"
+    },
+    {
+      "path": "managed_components/espressif__onewire_bus/src/onewire_device.c",
+      "bytes": 4933,
+      "sha256": "aa651162c3b5e13f94ff736f4c8026fa2491d0b2f7557080882008d213abb56c"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/build-e1-native-ct107/wasmhome_bench.bin",
+      "bytes": 737088,
+      "sha256": "bef4b0b0ce7061d3f2cb693a8d3f0240a95d84a80fa31b5379aaa3bb2e74f73c"
+    },
+    {
+      "path": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/build-e1-native-ct107/wasmhome_bench.elf",
+      "bytes": 9196308,
+      "sha256": "3ffca7b09a450e0ac63f5e0d1ea67fb3d672eb55684ad9b6d7953898f90df500"
+    },
+    {
+      "path": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/build-e1-native-ct107/compile_commands.json",
+      "bytes": 7312459,
+      "sha256": "99eb38926103ec6828155be728fcab761bddc3f5084791f22d23816e756d84c6"
+    },
+    {
+      "path": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/native-e1.sdkconfig",
+      "bytes": 65106,
+      "sha256": "8e3da3a214d149c3ce6a0d94de4693f1d685d4c24c2402a50acc08610ba15ac2"
+    },
+    {
+      "path": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/build-e1-native-ct107/partition_table/partition-table.bin",
+      "bytes": 3072,
+      "sha256": "f1e567915e11bc9c49e65fe894f631ff59ef8c971da2aee4437bb8e70a262300"
+    }
+  ],
+  "objdump": {
+    "path": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-tools/tools/xtensa-esp-elf/esp-13.2.0_20250707/xtensa-esp-elf/bin/xtensa-esp-elf-objdump",
+    "sha256": "4d810046edde877494b73ea699eae68ca94fabe26d7be6fe43f119ebe54ee12f"
+  },
+  "python_package": "3.13.5-2",
+  "python_sha256": "e59d0124ff06c248546876e01fcfb1ea3cda63534949f94a9372bfcfe3bfc3f5",
+  "files": {
+    "native-e1-build-check.json": {
+      "bytes": 4182,
+      "sha256": "6c01fe758aa8e950abe41f3e8ca60893c617a91fe73d036d7401f881c02df4ff"
+    },
+    "native-e1-commands.json": {
+      "bytes": 1208,
+      "sha256": "40024339af60b2349c78fd949c9914d181436b9b99bbf646be5b251443b2a1fb"
+    },
+    "native-dependencies.lock": {
+      "bytes": 525,
+      "sha256": "aa459686d7f8cb76b051bfae72d2cd1c7005f2a3f2460937ccb567b0e4af94ad"
+    },
+    "native-managed-components.tar.gz": {
+      "bytes": 14924,
+      "sha256": "8f81ba04c91c8531cd2c8ec04ec62be410ceadf779d0a727665b389ff45e8dea"
+    },
+    "native-benchmark-disassembly.txt": {
+      "bytes": 1955,
+      "sha256": "f4e50ee8b9113114b9689dad90585de2f83b0b0c1ca17b1bc2f859e934ea93d0"
+    }
+  },
+  "pending": [
+    "independent review of native build and component evidence",
+    "native checksum on ESP32-S3",
+    "real wamrc and B/C builds"
+  ]
+}

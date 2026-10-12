@@ -1,0 +1,37 @@
+
+build-session-e1\native-final-ct107\elf-r4\wasmhome_bench.elf:     file format elf32-xtensa-le
+
+
+Disassembly of section .iram0.vectors:
+
+Disassembly of section .iram0.text:
+
+Disassembly of section .flash.text:
+
+42009344 <benchmark_run>:
+42009344:	004136        	entry	a1, 32
+42009347:	ddeb91        	l32r	a9, 42000af4 <_stext+0xad4> (12345678 <_esp_mmu_block_size+0x12335678>)
+4200934a:	ddeb21        	l32r	a2, 42000af8 <_stext+0xad8> (c001d00d <_rtc_reserved_end+0x5ff1d00d>)
+4200934d:	ddeb71        	l32r	a7, 42000afc <_stext+0xadc> (41c64e6d <_coredump_iram_end+0x18da46d>)
+42009350:	ddecf1        	l32r	a15, 42000b00 <_stext+0xae0> (3039 <_esp_memprot_align_size+0x2f39>)
+42009353:	ddece1        	l32r	a14, 42000b04 <_stext+0xae4> (9e3779b9 <_rtc_reserved_end+0x3e2779b9>)
+42009356:	ddecd1        	l32r	a13, 42000b08 <_stext+0xae8> (19660d <_esp_mmu_block_size+0x18660d>)
+42009359:	ddecc1        	l32r	a12, 42000b0c <_stext+0xaec> (3c6ef35f <_esp_system_init_fn_array_end+0x654b2b>)
+4200935c:	0b0c      	movi.n	a11, 0
+4200935e:	d0a7a2        	movi	a10, 0x7d0
+42009361:	238a76        	loop	a10, 42009388 <benchmark_run+0x44>
+42009364:	829970        	mull	a9, a9, a7
+42009367:	416220        	srli	a6, a2, 2
+4200936a:	1182a0        	slli	a8, a2, 6
+4200936d:	886a      	add.n	a8, a8, a6
+4200936f:	99fa      	add.n	a9, a9, a15
+42009371:	3069b0        	xor	a6, a9, a11
+42009374:	88ea      	add.n	a8, a8, a14
+42009376:	886a      	add.n	a8, a8, a6
+42009378:	308820        	xor	a8, a8, a2
+4200937b:	404910        	ssai	25
+4200937e:	818880        	src	a8, a8, a8
+42009381:	8288d0        	mull	a8, a8, a13
+42009384:	bb1b      	addi.n	a11, a11, 1
+42009386:	28ca      	add.n	a2, a8, a12
+42009388:	f01d      	retw.n

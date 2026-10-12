@@ -10,11 +10,17 @@ scope, dependencies and acceptance criteria.
 | B | WAMR interpreter | `benchmark.wasm` | Wasm module |
 | C | WAMR AOT | `benchmark.aot` | WAMR AOT module for Xtensa |
 
-All scenarios execute the same deterministic integer workload from
-`workload/benchmark.c`. Keeping one implementation avoids comparing three
-different algorithms by accident.
+The deterministic integer workload in `workload/benchmark.c` is a preliminary
+execution harness. It is not the final campaign application or Embench. The
+campaign compares the common telemetry and GPIO-control services defined in
+`CONTEXT.md` and the [staged execution plan](docs/plano-de-execucao.md).
 
 ## Current state
+
+The [Linux handoff record](docs/retomada-linux.md), updated on 2026-10-11,
+records the integrated observer/LXC deliveries, the CT107 SDK preparation and
+real native build, the candidate runtime, preserved reviews and remaining work.
+LLVM/wamrc, modular firmware and campaign execution are still pending.
 
 The UDP observation contract, host-side reference codec, firmware harness,
 workload, artifact builder, log collector and automated local tests are present.
@@ -31,28 +37,36 @@ be validated in their respective stages.
 Thirty current calls are not thirty updates; loading occurs once per boot.
 The common platform built locally with ESP-IDF 5.2.6 on 2026-10-02; the
 [verification record](docs/evidence/plataforma-comum-2026-10-02.md) identifies
-the tool versions and image hashes. WASI-SDK, `wamrc`, interpreted/AOT execution
-and the LXC toolchain remain to be validated in their respective stages.
+the tool versions and image hashes. CT107 now has verified SDKs and a real native build. `wamrc`, interpreted/AOT
+execution and complete artifact reproduction remain to be validated.
 
 ## Prerequisites
 
 - ESP32-S3 development board
-- ESP-IDF 5.2.x environment
-- Python 3.10 or newer
-- WASI-SDK with `clang`
-- `wamrc` built from WAMR 2.4.0, matching the pinned ESP-IDF component
+- ESP-IDF 5.2.6 at Git SHA `9ef24e3e2a2c96e720d83c574a3f8699177573da`
+- Python 3.11 or newer
+- Official WASI-SDK 27.0 Linux x86_64 package and its verified extraction
+- Candidate `wamrc` built from upstream WAMR 2.4.5 SHA `25bd7eb63e828e4bd242cc9b38d260b4b31c6605` with Xtensa LLVM
+- Independent candidate runtime `wasmhome/wasm-micro-runtime` 2.4.5-wasmhome.1; see [candidate port and reproduction](docs/runtime-port-candidato.md)
 
 ## Build
 
 These commands are provisional. Stage E1 must validate component/compiler
 versions and isolate SDKCONFIG files per scenario before experimental use.
 
-First generate the two modular artifacts:
+First acquire and check the candidate source, then generate both modular artifacts.
+Generation runs in PowerShell Linux and requires a clean WasmHome revision plus
+the real donor build receipt described in the candidate document. Missing proof
+blocks generation before writes. Independent review and physical B/C validation
+remain pending:
 
 ```powershell
-$env:WASI_SDK_PATH = 'C:\tools\wasi-sdk'
-$env:WAMRC = 'C:\tools\wamrc.exe'
-.\tools\build-artifacts.ps1
+python tools/runtime_package.py --acquire
+$env:WASI_SDK_PATH = '/tools/wasi-sdk-27.0-x86_64-linux'
+$env:WAMRC = '/tools/wamrc'
+$env:IDF_PATH = '/tools/esp-idf'
+./tools/build-artifacts.ps1 -WasiSdkPackage /receipts/wasi-sdk-27.0-x86_64-linux.tar.gz `
+  -WamrcBuildReceipt /receipts/wamrc-build-receipt.json
 ```
 
 Then build each firmware from an ESP-IDF PowerShell prompt:

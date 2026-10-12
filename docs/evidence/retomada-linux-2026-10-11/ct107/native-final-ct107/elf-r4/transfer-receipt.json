@@ -1,0 +1,12 @@
+{
+  "elf": {
+    "path": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/build-e1-native-ct107/wasmhome_bench.elf",
+    "bytes": 9196308,
+    "sha256": "3ffca7b09a450e0ac63f5e0d1ea67fb3d672eb55684ad9b6d7953898f90df500"
+  },
+  "compressed": {
+    "bytes": 3592843,
+    "sha256": "377a776d6082408e7cd9a3dc460b9141825b50e8820d84bb2334782f1bbc9db0"
+  },
+  "transport": "LF stdin and ASCII chunks16KiB"
+}

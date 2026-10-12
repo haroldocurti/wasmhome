@@ -1,0 +1,44 @@
+[
+  {
+    "number": 1,
+    "state": "OPEN",
+    "labels": [
+      "wayfinder:map"
+    ],
+    "url": "https://github.com/haroldocurti/wasmhome/issues/1"
+  },
+  {
+    "number": 6,
+    "state": "CLOSED",
+    "labels": [
+      "wayfinder:task"
+    ],
+    "url": "https://github.com/haroldocurti/wasmhome/issues/6"
+  },
+  {
+    "number": 7,
+    "state": "OPEN",
+    "labels": [
+      "wayfinder:task",
+      "ready-for-agent"
+    ],
+    "url": "https://github.com/haroldocurti/wasmhome/issues/7"
+  },
+  {
+    "number": 9,
+    "state": "OPEN",
+    "labels": [
+      "wayfinder:prototype",
+      "ready-for-human"
+    ],
+    "url": "https://github.com/haroldocurti/wasmhome/issues/9"
+  },
+  {
+    "number": 10,
+    "state": "CLOSED",
+    "labels": [
+      "wayfinder:task"
+    ],
+    "url": "https://github.com/haroldocurti/wasmhome/issues/10"
+  }
+]

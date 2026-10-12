@@ -1,0 +1,1056 @@
+{
+  "schema": "wasmhome-handoff-source-map-v1",
+  "copied": [
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\acquire-idf-ct107.log",
+      "archive": "ct107/acquire-idf-ct107.log",
+      "bytes": 173382,
+      "sha256": "10bc91e9d67f8bfc9bdcbcdc39afe1ac209ac90ae7d592dbc3c6aa2a927bd0a1"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\acquire-idf-ct107.py",
+      "archive": "ct107/acquire-idf-ct107.py",
+      "bytes": 4171,
+      "sha256": "e7699792e5d9af85985d1747021ce921c8a0d5fb7187449857a5bc9b26fed1ec"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\acquire-sdk-pwsh-ct107.log",
+      "archive": "ct107/acquire-sdk-pwsh-ct107.log",
+      "bytes": 1130,
+      "sha256": "4672fe6624372eb26fa52879827d609e0725652a64f8cb8197209effada433e4"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\acquire-sdk-pwsh-ct107.py",
+      "archive": "ct107/acquire-sdk-pwsh-ct107.py",
+      "bytes": 2286,
+      "sha256": "dd951b7befab75f45490ea7d7938f6dc4f207ff9a08c5a6d7d8b69140fb8699f"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\apt-delta-verification.json",
+      "archive": "ct107/apt-delta-verification.json",
+      "bytes": 968,
+      "sha256": "d48c05aea5dd6699a9c19321a4824d97368db475dfad49d190005961573964e4"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\apt-dpkg-after.txt",
+      "archive": "ct107/apt-dpkg-after.txt",
+      "bytes": 8007,
+      "sha256": "95375b52ace62034285f901864cf7ba5cbd4082f1985b2edfbca559d89773ec4"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\apt-dpkg-before.txt",
+      "archive": "ct107/apt-dpkg-before.txt",
+      "bytes": 7376,
+      "sha256": "53c153a1723a3d07233cf600073bb4c1dc0e7596dec5a9f8d872a4a2a913ca7a"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\apt-plan.json",
+      "archive": "ct107/apt-plan.json",
+      "bytes": 853,
+      "sha256": "2d3c0d0beb3f3881ca1fc338bdffe89589129c0d053026ceaf5d6dcfa6a475b3"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\apt-receipt.json",
+      "archive": "ct107/apt-receipt.json",
+      "bytes": 2206,
+      "sha256": "8946b2066f999d04933e4f2b65668c077e7bc34cf5b71c81dd0c41e7e78f0b2b"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\apt-simulation.txt",
+      "archive": "ct107/apt-simulation.txt",
+      "bytes": 3224,
+      "sha256": "b91517d01456017e075b1d5fcb4a9759957539527803c38f6469e49e67f547ff"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\bootstrap-ct107-execution.log",
+      "archive": "ct107/bootstrap-ct107-execution.log",
+      "bytes": 1502,
+      "sha256": "c0946a646a2bb7b618d3833925afc3d7aabf043281612c184b977bad3577a989"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\bootstrap-ct107.py",
+      "archive": "ct107/bootstrap-ct107.py",
+      "bytes": 4556,
+      "sha256": "54bdee13e08db558955635703920cdade48f6c9d799f523125372cc71b04e80b"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\bootstrap-receipt.json",
+      "archive": "ct107/bootstrap-receipt.json",
+      "bytes": 1418,
+      "sha256": "b7a58f714e79d4bc0c53e6d86a2d7dd9943a31bbc608b1720c31f86360b06334"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\build-native-ct107.log",
+      "archive": "ct107/build-native-ct107.log",
+      "bytes": 136258,
+      "sha256": "0c6c7631fe25c8a835c1719a742566f755a2a90d125628cdea1669e44b62122c"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\build-native-ct107.py",
+      "archive": "ct107/build-native-ct107.py",
+      "bytes": 3724,
+      "sha256": "5dbf5fcfb62a6627dd63d0d9b65b64be01224bfbd8e5bebe00ac0764c4f9b3c3"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\check-donor-final-index.py",
+      "archive": "ct107/check-donor-final-index.py",
+      "bytes": 1596,
+      "sha256": "27d9022d5e7cdc35948e84c531f50a4629540a726e8506eeb472c0af8e0094d4"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\check-native-collected.py",
+      "archive": "ct107/check-native-collected.py",
+      "bytes": 2704,
+      "sha256": "1d727148f75694904e0fac5ef5456df1aa54566023985899f48f0a71858303f0"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\check-native-local-elf.py",
+      "archive": "ct107/check-native-local-elf.py",
+      "bytes": 1648,
+      "sha256": "e2a30b6bb2e39551f207f169eb05ca00c45d1bab93b4c93a6f0f6a1389b94d4c"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\collect-native-ct107-stderr.log",
+      "archive": "ct107/collect-native-ct107-stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\collect-native-ct107.py",
+      "archive": "ct107/collect-native-ct107.py",
+      "bytes": 4250,
+      "sha256": "83b5c407ec9ee7e1dee8e8a8f6256d9f1aa96374493f8217b08bf9efaa8bcffc"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\core-freeze.txt",
+      "archive": "ct107/core-freeze.txt",
+      "bytes": 1234,
+      "sha256": "b94ef372378057055e676639d74224c85820479787eb727204c3374784c1aac6"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\core-resolution-first.json",
+      "archive": "ct107/core-resolution-first.json",
+      "bytes": 895237,
+      "sha256": "535820edadaa9a577df7483416b64a15183cd625b70b0d9ff5e273afb9cd69f0"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\core-source-inventory.json",
+      "archive": "ct107/core-source-inventory.json",
+      "bytes": 21913,
+      "sha256": "e8a96cd52ccd1fd09fdd222df3674e13f2bf6d4318625e01ba194e2d550a282e"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\core-wheel-inventory.json",
+      "archive": "ct107/core-wheel-inventory.json",
+      "bytes": 23607,
+      "sha256": "1a82569cd1010a0f097140727808251024ef5858cb7ef9126dba02133423da22"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\ct107-dependency-pins.json",
+      "archive": "ct107/ct107-dependency-pins.json",
+      "bytes": 880,
+      "sha256": "27e16a16bde3badb08000b942877d8817e77609b859dba6c7bdb6edd9ce0723c"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\doador-readiness-final.md",
+      "archive": "ct107/doador-readiness-final.md",
+      "bytes": 3998,
+      "sha256": "2f8258109287c4073db085dde436985c4e66b1625cdba9b6e2308c818db3f0d0"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\fetch-native-build-files-r2.py",
+      "archive": "ct107/fetch-native-build-files-r2.py",
+      "bytes": 1691,
+      "sha256": "8de82b00d1779da182a1fd3fd951500ae04ee76d55353f67f96016c6a7e6015c"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\fetch-native-build-files.py",
+      "archive": "ct107/fetch-native-build-files.py",
+      "bytes": 971,
+      "sha256": "6f5954e33ae4507d2c5453d7afe2d672f2cd7f0248a1683a1558d39b8b93d716"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\fetch-native-elf-r4.py",
+      "archive": "ct107/fetch-native-elf-r4.py",
+      "bytes": 2298,
+      "sha256": "c03d91ab1af39e3f4718a7b526fbbdb46039204befad66c2f76423514e5f6e1a"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\fetch-native-metadata-r3.py",
+      "archive": "ct107/fetch-native-metadata-r3.py",
+      "bytes": 1780,
+      "sha256": "6b735fe3d419da1736976ad9ca3c8955360372d0007f11e38733e7baa48ec5de"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\idf-acquisition.json",
+      "archive": "ct107/idf-acquisition.json",
+      "bytes": 3667,
+      "sha256": "8877bcb9b3f2288e850424e94779935cf3c8f1f0264d2be30c75a99c06959da4"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\idf-core-frozen.lock",
+      "archive": "ct107/idf-core-frozen.lock",
+      "bytes": 5551,
+      "sha256": "914495b5323e322cb0da50b0e0f419175d8d5be3cf885100731da55620bdf30f"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\install-core-ct107.log",
+      "archive": "ct107/install-core-ct107.log",
+      "bytes": 19437,
+      "sha256": "3145b4622306ff0da6139a9be4ec1dac65fbb6ec0e9843f03d14cbfe9f2bb3c6"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\install-core-ct107.py",
+      "archive": "ct107/install-core-ct107.py",
+      "bytes": 6716,
+      "sha256": "d0546c3388f66e5c5e90447738d8d91c4a82fd004d1b705e49f259acde3110ef"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\install-ct107-deps-execution.log",
+      "archive": "ct107/install-ct107-deps-execution.log",
+      "bytes": 12903,
+      "sha256": "1be64f824b3eeb0100936f9a0488be3bbb2f80b980079f79e24f7039829bee80"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\install-ct107-deps-payload.py",
+      "archive": "ct107/install-ct107-deps-payload.py",
+      "bytes": 5843,
+      "sha256": "161763eee11e1455939d47cc72118ccb484565b7e71e47a84dc90b2b403e67fb"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\install-ct107-deps.py",
+      "archive": "ct107/install-ct107-deps.py",
+      "bytes": 5097,
+      "sha256": "ec4b72bf5c8bdd54b45e07ea082912d8218070ae822d501b0383b56ec90b5d5f"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\inventory-proxmox-guests-20261011.py",
+      "archive": "ct107/inventory-proxmox-guests-20261011.py",
+      "bytes": 1995,
+      "sha256": "2c5c5b08a0be0a30e6498f71bc9f615fd85f0967b14f9661dd6b50f1174fd483"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\inventory-proxmox-vm-memory-20261011.py",
+      "archive": "ct107/inventory-proxmox-vm-memory-20261011.py",
+      "bytes": 1171,
+      "sha256": "5b78c6b3bd708f022f0410f6d6a630daab753f22c78508cb7c682c1c71302dda"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-e1-build-check.json",
+      "archive": "ct107/native-e1-build-check.json",
+      "bytes": 4182,
+      "sha256": "6c01fe758aa8e950abe41f3e8ca60893c617a91fe73d036d7401f881c02df4ff"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-e1-commands.json",
+      "archive": "ct107/native-e1-commands.json",
+      "bytes": 1208,
+      "sha256": "40024339af60b2349c78fd949c9914d181436b9b99bbf646be5b251443b2a1fb"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\pip-26.2.1-pypi-metadata.json",
+      "archive": "ct107/pip-26.2.1-pypi-metadata.json",
+      "bytes": 6683,
+      "sha256": "4f5abeb5acacd5eaaad5e6982f5721dee3592795e59fc5a4067fcca92eed70e1"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\plan-pending-20261011.patch",
+      "archive": "ct107/plan-pending-20261011.patch",
+      "bytes": 19054,
+      "sha256": "10f396e7d3979bbf47793a3346d3fa8be8cf87c86c11b9f5e76b8c659c076d24"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\progresso-toolchain-ct107.md",
+      "archive": "ct107/progresso-toolchain-ct107.md",
+      "bytes": 4636,
+      "sha256": "b5369b68bad3dae5eee6de845bcb75fd1275a77087e5e398620c51fbe1eddf33"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\project-transfer-ct107-r2.log",
+      "archive": "ct107/project-transfer-ct107-r2.log",
+      "bytes": 1517,
+      "sha256": "4ebfd8853d5f6ba4c683e849bbe0879c685456d4ddd991a5208c3c428dee0c96"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\proxmox-donor-final-resources.json",
+      "archive": "ct107/proxmox-donor-final-resources.json",
+      "bytes": 189,
+      "sha256": "7aebe9210a7f6064ba25b5ce8d907c8765fc60d018d2a3631a4632502842c6d5"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\proxmox-donor-final-stderr-r2.log",
+      "archive": "ct107/proxmox-donor-final-stderr-r2.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\proxmox-donor-final-stderr.log",
+      "archive": "ct107/proxmox-donor-final-stderr.log",
+      "bytes": 118,
+      "sha256": "1da26c4bdc999dd7995f977fe6775059d46f15dcccce4aba47f23ce16954399a"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\proxmox-donor-preflight-20261010.txt",
+      "archive": "ct107/proxmox-donor-preflight-20261010.txt",
+      "bytes": 1366,
+      "sha256": "280e950399641bc367826f66405dbc8456621d20b7488c36c16c4ba29856cfbc"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\proxmox-guest-memory-preflight.json",
+      "archive": "ct107/proxmox-guest-memory-preflight.json",
+      "bytes": 1027,
+      "sha256": "05ed84f650e91f82c53b0a34a4e5da5a4810163490ebd6b5a0301e3cb46e22b3"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\proxmox-inventory-20261011T131737Z.json",
+      "archive": "ct107/proxmox-inventory-20261011T131737Z.json",
+      "bytes": 3099,
+      "sha256": "f6c7cb549bbcc5a8f642aab7acfa882a07d285491f90e98c0c16a95d1d3b6473"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\proxmox-inventory-20261011T131737Z.stderr.log",
+      "archive": "ct107/proxmox-inventory-20261011T131737Z.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\proxmox-vm-donor-preflight.txt",
+      "archive": "ct107/proxmox-vm-donor-preflight.txt",
+      "bytes": 383,
+      "sha256": "99e56dcb1168d98420d910f4f6a225b7fc9c560da99983e8d2b33df3ec003a68"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\proxmox-vm-resident-20261011T131811Z.json",
+      "archive": "ct107/proxmox-vm-resident-20261011T131811Z.json",
+      "bytes": 645,
+      "sha256": "47fbacbb9cdec9b5ec0906db228f87c28452231f62dbcb39151a8f45ed603235"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\resolve-core-ct107-first.log",
+      "archive": "ct107/resolve-core-ct107-first.log",
+      "bytes": 15475,
+      "sha256": "2723418917ef48cbe8a4d26eb8646e2ac14d61af4960e27dae7cafab05df0290"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\resolve-core-ct107.py",
+      "archive": "ct107/resolve-core-ct107.py",
+      "bytes": 6260,
+      "sha256": "5cfd1e377cfd3f6a745e1c2da4cc91cafe38b7b6a206cb4bb8257b6d0cdcb270"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\revisao-dependencias-userspace.md",
+      "archive": "ct107/revisao-dependencias-userspace.md",
+      "bytes": 4725,
+      "sha256": "72c05d07bb876992b3d2cbd24787959893677d40fb80ad704259c8fa58ef812b"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\revisao-instalacao-deps.md",
+      "archive": "ct107/revisao-instalacao-deps.md",
+      "bytes": 5393,
+      "sha256": "b79b362cb6dfd23fca53a6938e5f80fe1519e2cc9308d50bd4221ba214d82ffd"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\revisao-native-ct107.md",
+      "archive": "ct107/revisao-native-ct107.md",
+      "bytes": 2402,
+      "sha256": "ec7200a9848ddd2e8aa03808b45f93da65ab46c6cde316a9e8d1fa4945f93176"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\revisao-preparo-ct107.md",
+      "archive": "ct107/revisao-preparo-ct107.md",
+      "bytes": 3566,
+      "sha256": "46a6a081d3c2f0a9df4fb80a8974d79d2c43dcddba1ca2162f821a038c2c0fb9"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\root-donor-final-index-check-r2.json",
+      "archive": "ct107/root-donor-final-index-check-r2.json",
+      "bytes": 8542,
+      "sha256": "5e052bffa71ea06343c6328e8a9a7f46298b01c35a2cc4f534a50553e52042f2"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\root-donor-final-index-check-r3.json",
+      "archive": "ct107/root-donor-final-index-check-r3.json",
+      "bytes": 10371,
+      "sha256": "44519e0e0a3ca278925822d7656af78d4a12e0b334e359d9e52b6a6b9a856ffa"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\root-donor-final-index-check.json",
+      "archive": "ct107/root-donor-final-index-check.json",
+      "bytes": 7248,
+      "sha256": "50463ad5a86806f8ebf55df3153f170fcd54cf5828987e5b33a268f4e4800e7d"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\root-donor-supervisor-tests-r2.log",
+      "archive": "ct107/root-donor-supervisor-tests-r2.log",
+      "bytes": 4198,
+      "sha256": "c0956060a9499755b1a7eb9c0a4f26e57b3dc3f109ee33d8b36a136988ac00a6"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\root-donor-supervisor-tests-r3.log",
+      "archive": "ct107/root-donor-supervisor-tests-r3.log",
+      "bytes": 4594,
+      "sha256": "1efe9bd50a4b2c5063f11d4889435a2922bf54d958f1d2d2352f1182da13fabd"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\root-donor-supervisor-tests.log",
+      "archive": "ct107/root-donor-supervisor-tests.log",
+      "bytes": 3176,
+      "sha256": "debf9b003456936e2fc4b94e451f832ae1028fad3620d7c95f47657cfde7fcdf"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\runtime-acquire-ct107.log",
+      "archive": "ct107/runtime-acquire-ct107.log",
+      "bytes": 1093,
+      "sha256": "fa9207cba95b5b3ea08f28f9cb2053f1ca9138d8de14c7df0016af36ea5e0558"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\runtime-acquire-ct107.py",
+      "archive": "ct107/runtime-acquire-ct107.py",
+      "bytes": 614,
+      "sha256": "6021f1e73fece0b91bd754c6f1f23a81e848630c9f3f8b6ec5e9b5521b653902"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\sample-proxmox-donor-final.py",
+      "archive": "ct107/sample-proxmox-donor-final.py",
+      "bytes": 1244,
+      "sha256": "8fa2e3fb9977d95ed20766d558cfab11287e4da1fcbe7bdb1c1d14a87ab137bb"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\sdk-pwsh-acquisition.json",
+      "archive": "ct107/sdk-pwsh-acquisition.json",
+      "bytes": 1094,
+      "sha256": "aa87a5d64ec4955d68f90fad6685f75566dbaae6efb2683903220c5289278502"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\sdk-pwsh-validation.json",
+      "archive": "ct107/sdk-pwsh-validation.json",
+      "bytes": 680,
+      "sha256": "2e327c301f0405bda83400200bfd03d1dadbccb1bb3a7cba241729fdd683bd21"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\validate-sdk-pwsh-ct107.log",
+      "archive": "ct107/validate-sdk-pwsh-ct107.log",
+      "bytes": 2952,
+      "sha256": "b94898e9566576546334f0fc6b619628bb27b570098b9f567af488d479b5db3b"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\validate-sdk-pwsh-ct107.py",
+      "archive": "ct107/validate-sdk-pwsh-ct107.py",
+      "bytes": 1754,
+      "sha256": "e2c888200f6f07e7b7dfda490fd2a31f133ce3b0b0f30bbe73e3cdfc1caf54b3"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-final-ct107\\collect-native-ct107-stderr.log",
+      "archive": "ct107/native-final-ct107/collect-native-ct107-stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-final-ct107\\elf-r4\\local-disassembly-first.txt",
+      "archive": "ct107/native-final-ct107/elf-r4/local-disassembly-first.txt",
+      "bytes": 1744,
+      "sha256": "1f57b2bb08370b6134c2ad11cdbc1426597c5f635f2d3fd6303fbc960a0fce68"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-final-ct107\\elf-r4\\native-local-disassembly.txt",
+      "archive": "ct107/native-final-ct107/elf-r4/native-local-disassembly.txt",
+      "bytes": 1741,
+      "sha256": "2630b0ccf56b3dd1c1de70c508800a4bcddcab9172f383cb5c2240114d00087d"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-final-ct107\\elf-r4\\root-local-elf-check.json",
+      "archive": "ct107/native-final-ct107/elf-r4/root-local-elf-check.json",
+      "bytes": 918,
+      "sha256": "c561f85638da1291e3daa6aa6fef36e53a58f42fbbeb4a6c09e3c2809490d6d9"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-final-ct107\\elf-r4\\transfer-receipt.json",
+      "archive": "ct107/native-final-ct107/elf-r4/transfer-receipt.json",
+      "bytes": 426,
+      "sha256": "6941d870066db329010440e4cf13c9216fc0f8732382ed750c805a03d0dfce8b"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-final-ct107\\metadata-r3\\CMakeCache.txt",
+      "archive": "ct107/native-final-ct107/metadata-r3/CMakeCache.txt",
+      "bytes": 27496,
+      "sha256": "8b45dfb267e2290237a7d42ebb8ffcfed66e19f98db002a6252c25910b87363c"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-final-ct107\\metadata-r3\\compile_commands.json",
+      "archive": "ct107/native-final-ct107/metadata-r3/compile_commands.json",
+      "bytes": 7312459,
+      "sha256": "99eb38926103ec6828155be728fcab761bddc3f5084791f22d23816e756d84c6"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-final-ct107\\metadata-r3\\native-e1.sdkconfig",
+      "archive": "ct107/native-final-ct107/metadata-r3/native-e1.sdkconfig",
+      "bytes": 65106,
+      "sha256": "8e3da3a214d149c3ce6a0d94de4693f1d685d4c24c2402a50acc08610ba15ac2"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-final-ct107\\native-benchmark-disassembly.txt",
+      "archive": "ct107/native-final-ct107/native-benchmark-disassembly.txt",
+      "bytes": 1955,
+      "sha256": "f4e50ee8b9113114b9689dad90585de2f83b0b0c1ca17b1bc2f859e934ea93d0"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-final-ct107\\native-ct107-collection.json",
+      "archive": "ct107/native-final-ct107/native-ct107-collection.json",
+      "bytes": 6269,
+      "sha256": "db937e64b1149f2e6dd3b87e032827e364c01dc282c00228f39fe61918903fe9"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-final-ct107\\native-dependencies.lock",
+      "archive": "ct107/native-final-ct107/native-dependencies.lock",
+      "bytes": 525,
+      "sha256": "aa459686d7f8cb76b051bfae72d2cd1c7005f2a3f2460937ccb567b0e4af94ad"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-final-ct107\\native-e1-build-check.json",
+      "archive": "ct107/native-final-ct107/native-e1-build-check.json",
+      "bytes": 4182,
+      "sha256": "6c01fe758aa8e950abe41f3e8ca60893c617a91fe73d036d7401f881c02df4ff"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-final-ct107\\native-e1-commands.json",
+      "archive": "ct107/native-final-ct107/native-e1-commands.json",
+      "bytes": 1208,
+      "sha256": "40024339af60b2349c78fd949c9914d181436b9b99bbf646be5b251443b2a1fb"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-final-ct107\\native-managed-components.tar.gz",
+      "archive": "ct107/native-final-ct107/native-managed-components.tar.gz",
+      "bytes": 14924,
+      "sha256": "8f81ba04c91c8531cd2c8ec04ec62be410ceadf779d0a727665b389ff45e8dea"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-final-ct107\\root-collection-check.json",
+      "archive": "ct107/native-final-ct107/root-collection-check.json",
+      "bytes": 11004,
+      "sha256": "3c0d865126e009fb119c8632967d1106fc3be65b5fa542669cb870cf5fbac6bb"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-final-ct107\\ssh-r2\\wasmhome_bench.elf.failure.log",
+      "archive": "ct107/native-final-ct107/ssh-r2/wasmhome_bench.elf.failure.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\blob-verification-2b09fd7.json",
+      "archive": "integration/blob-verification-2b09fd7.json",
+      "bytes": 12547,
+      "sha256": "cc1d7a94564a83fe71dab379b417bb5deb1183d76e80bc4cf0a41da0e9d05b43"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\bootstrap-lxc-base.sh",
+      "archive": "integration/bootstrap-lxc-base.sh",
+      "bytes": 2021,
+      "sha256": "98f734d94057382228bea3ed5fdae9390c8b860f4f9480eb8df073fb89a7c0ca"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\espidf.constraints.v5.2.preflight.txt",
+      "archive": "integration/espidf.constraints.v5.2.preflight.txt",
+      "bytes": 3356,
+      "sha256": "082c1e98d4f950e853dc9c773dfcd21bcfe8a95cbe8cd1b0412e25150d421069"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\final-evidence-tests.log",
+      "archive": "integration/final-evidence-tests.log",
+      "bytes": 3961,
+      "sha256": "b843b300a63f7d1746de010f98422674ffc20a7b028bc5eff827a05ede632db3"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\final-native-readonly.json",
+      "archive": "integration/final-native-readonly.json",
+      "bytes": 2069,
+      "sha256": "5fbebf5b764ae85c410be8fb47a892aae9ac11d46b0fd9de9fd610f2f99151e1"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\final-tests.log",
+      "archive": "integration/final-tests.log",
+      "bytes": 7477,
+      "sha256": "570a13a575dc55efb3bccdddadd88b5f0e51c5a4ce24a10e6cfe17bf4a771905"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\integracao-proposta.md",
+      "archive": "integration/integracao-proposta.md",
+      "bytes": 4974,
+      "sha256": "c5d693e2d318d337a74eecb89ab4927029d853fd90142ca576662af95d3d5272"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\issue-1-original.md",
+      "archive": "integration/issue-1-original.md",
+      "bytes": 4593,
+      "sha256": "894ad1183ca741f04195f8aec88693f66147d001d8ab199aa71c94e22906e1e5"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\issue-1-prepublish.json",
+      "archive": "integration/issue-1-prepublish.json",
+      "bytes": 4937,
+      "sha256": "3cdae272d6391f8f76ada0e71d1aafa62c7fc3228153af480e9dad8fb6890d62"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\issue-1-proposta.md",
+      "archive": "integration/issue-1-proposta.md",
+      "bytes": 5435,
+      "sha256": "8c874a9225e318f29c109aad4534c9c4dcbbfa7adf289b54a879d556224518ef"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\issue-10-integracao-comentario.md",
+      "archive": "integration/issue-10-integracao-comentario.md",
+      "bytes": 490,
+      "sha256": "b0ed72ed510ee7a662e6421318306632d0d022a94b312704ff69003170e1b7fe"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\issue-10-integracao.md",
+      "archive": "integration/issue-10-integracao.md",
+      "bytes": 1684,
+      "sha256": "5a18ab3cb7aa6939a52376e0ffaa1b81c42a83992a8b36ac336ffc6c131ba009"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\issue-10-prepublish.json",
+      "archive": "integration/issue-10-prepublish.json",
+      "bytes": 925,
+      "sha256": "f46695ffe54306dc730c9cdebf572cbd6a1e4ca01f9af66168c614c2095310d1"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\issue-6-original.json",
+      "archive": "integration/issue-6-original.json",
+      "bytes": 3018,
+      "sha256": "bff8b565cbb3517779e514e757e0d84c9cb97a3b12d3288e1d86d8bfe1b7c796"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\issue-6-prepublish.json",
+      "archive": "integration/issue-6-prepublish.json",
+      "bytes": 3127,
+      "sha256": "42ef757607e8a8c1c945f0c23884c61baf3ed21497062cc6543d66daa7cc7d30"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\issue-6-proposta.md",
+      "archive": "integration/issue-6-proposta.md",
+      "bytes": 4179,
+      "sha256": "af946b576170bdbae8a8576c2d5abdd6f8e5851d973229b742ce2917df97a4fe"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\issue-6-resolucao.md",
+      "archive": "integration/issue-6-resolucao.md",
+      "bytes": 954,
+      "sha256": "3187ced9291bd22f5c820c212336cccab469f51a81511b25face9a3d7d344d37"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\issue7-ct107-preflight-20261010.json",
+      "archive": "integration/issue7-ct107-preflight-20261010.json",
+      "bytes": 2546,
+      "sha256": "576c7acddc3371b71eff4363bbe779f4a0d5e78ddc6f2429574c251b6a20a691"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\issue7-minimal-system-dependencies-simulation.txt",
+      "archive": "integration/issue7-minimal-system-dependencies-simulation.txt",
+      "bytes": 5680,
+      "sha256": "82b8c9003e516da2a94b274804184cfe27d636b31c8602bdab706d65ea9e453f"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\issue7-no-python-upgrade-simulation.txt",
+      "archive": "integration/issue7-no-python-upgrade-simulation.txt",
+      "bytes": 3875,
+      "sha256": "5b4b0259e7f959593b566dba610b84366bf4258f3f57ff5834e6bab54df67276"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\issue7-python-stdlib-preflight.txt",
+      "archive": "integration/issue7-python-stdlib-preflight.txt",
+      "bytes": 74,
+      "sha256": "a6ff0373dd5514e1795031685afe298c96eb3fb3e075d6752c0a80492841bee9"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\issue7-system-dependencies-pins.json",
+      "archive": "integration/issue7-system-dependencies-pins.json",
+      "bytes": 9011,
+      "sha256": "0f373a1680ad2172ff3bbc113b9c4cd5fa5a66ffcbd0ac9d1e9efdd173cb12fd"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\issue7-system-dependencies-pins.txt",
+      "archive": "integration/issue7-system-dependencies-pins.txt",
+      "bytes": 2127,
+      "sha256": "aa8066b4ec65dc1e77b1367bed51a9ee4cb8489c77b25e0419f68bdaa022b676"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\issue7-system-dependencies-simulation-lf.txt",
+      "archive": "integration/issue7-system-dependencies-simulation-lf.txt",
+      "bytes": 14024,
+      "sha256": "c9032ace3975a4868c6b1eed71c70840a5962e5e4b3c7de9681df833a92b9396"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\issue7-system-dependencies-simulation.txt",
+      "archive": "integration/issue7-system-dependencies-simulation.txt",
+      "bytes": 82,
+      "sha256": "b8d97fa5f27fa2e2463f1d83a366a93fcef8b402d7b67fc0e275cd5d1a73e505"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\native-prepared-exclusive-result.json",
+      "archive": "integration/native-prepared-exclusive-result.json",
+      "bytes": 1036,
+      "sha256": "9ad881286e3d02a2d3d1f316d2ac4d4dcb508d0d54b103a677b9bf4cbe720bbf"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\native-readonly-recheck.json",
+      "archive": "integration/native-readonly-recheck.json",
+      "bytes": 2069,
+      "sha256": "5fbebf5b764ae85c410be8fb47a892aae9ac11d46b0fd9de9fd610f2f99151e1"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\native-recheck-frozen-result.json",
+      "archive": "integration/native-recheck-frozen-result.json",
+      "bytes": 2069,
+      "sha256": "5fbebf5b764ae85c410be8fb47a892aae9ac11d46b0fd9de9fd610f2f99151e1"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\observer-810b8be-tests.log",
+      "archive": "integration/observer-810b8be-tests.log",
+      "bytes": 4638,
+      "sha256": "fc7d81c6d01b8c5c5c33c701c24797004b0e5b1ec27e7e6786b51dd65dd034fe"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\observer-fixed-tests.log",
+      "archive": "integration/observer-fixed-tests.log",
+      "bytes": 4980,
+      "sha256": "6d469a42e9b048dfb452310c9c5e8640d5be135b570e22bb6ac7fd40c5148b87"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\pair-final-for-publication.json",
+      "archive": "integration/pair-final-for-publication.json",
+      "bytes": 10980,
+      "sha256": "7e65634fb55d417ff07026f1ae814b89683d58920d60436e78c02986622fabea"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\pair-final-stdout.json",
+      "archive": "integration/pair-final-stdout.json",
+      "bytes": 180,
+      "sha256": "ef18940693cf91adf2feddce1f29547c6e9bd23b083587d0156cdea47c3787f5"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\pair-recheck-frozen.json",
+      "archive": "integration/pair-recheck-frozen.json",
+      "bytes": 10980,
+      "sha256": "7e65634fb55d417ff07026f1ae814b89683d58920d60436e78c02986622fabea"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\pair-recheck.json",
+      "archive": "integration/pair-recheck.json",
+      "bytes": 10980,
+      "sha256": "7e65634fb55d417ff07026f1ae814b89683d58920d60436e78c02986622fabea"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\pr-bancada-e1.md",
+      "archive": "integration/pr-bancada-e1.md",
+      "bytes": 2038,
+      "sha256": "a68221ccd32afc351f748d71d8fd5cfc4362e4011ba88b455743fdc438ba0a32"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\pr-observador.md",
+      "archive": "integration/pr-observador.md",
+      "bytes": 838,
+      "sha256": "16352acc2d6c9494e5779297616bd7de886495812da6b212a68a4fb95987eb36"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\pr10-final-tests.log",
+      "archive": "integration/pr10-final-tests.log",
+      "bytes": 4980,
+      "sha256": "b4e11866036ce633fe54cb873562655dfbcb0dcd0d3b74da37f119bd7c1d7afe"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\pr29-blob-verification.json",
+      "archive": "integration/pr29-blob-verification.json",
+      "bytes": 12665,
+      "sha256": "ebbafc1fafb04a29cc802f428d5fad69740d4e915d171e5bfaa6540e6d0ac639"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\pr29-evidence-tests-system-python.log",
+      "archive": "integration/pr29-evidence-tests-system-python.log",
+      "bytes": 3865,
+      "sha256": "6877e888e7c770ab2af1ccc2aae60a1ef619b34687c657f159be7dbfee3298bf"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\pr29-final-evidence-tests.log",
+      "archive": "integration/pr29-final-evidence-tests.log",
+      "bytes": 3961,
+      "sha256": "c84b908e8ded7363d4437c1acfdc6caab7052abcfc99a583662545228c0d0721"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\pr29-final-platform-tests.log",
+      "archive": "integration/pr29-final-platform-tests.log",
+      "bytes": 7477,
+      "sha256": "352ae073ac0eef99588d5da4adc06586a5df9c9599684cd8530f06b253855e80"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\pr29-native-build-check.json",
+      "archive": "integration/pr29-native-build-check.json",
+      "bytes": 810,
+      "sha256": "e0675ec612a7d80fb19ab963b648e4180d2a937ac6e0cdec41fd5980fe6fda01"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\pr29-native-readonly.json",
+      "archive": "integration/pr29-native-readonly.json",
+      "bytes": 2069,
+      "sha256": "5fbebf5b764ae85c410be8fb47a892aae9ac11d46b0fd9de9fd610f2f99151e1"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\pr29-pair-verification.json",
+      "archive": "integration/pr29-pair-verification.json",
+      "bytes": 10980,
+      "sha256": "7e65634fb55d417ff07026f1ae814b89683d58920d60436e78c02986622fabea"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\publication-tracker-verification.json",
+      "archive": "integration/publication-tracker-verification.json",
+      "bytes": 885,
+      "sha256": "62f9fbfe33a1770fb6be118deb9628bb57732380a847beced981777c36be08cb"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\requirements.core.preflight.txt",
+      "archive": "integration/requirements.core.preflight.txt",
+      "bytes": 478,
+      "sha256": "b3d32c4ebc47c71058422b4ec5e19ccb537422b0951ef77f4f23d450684a9356"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\revisao-encerramento.md",
+      "archive": "integration/revisao-encerramento.md",
+      "bytes": 7047,
+      "sha256": "d99c3e9880283671705d7061ab13069c6a074f758232c460e99a30be2a337947"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\revisao-final.md",
+      "archive": "integration/revisao-final.md",
+      "bytes": 6717,
+      "sha256": "997e7aced3256b936f1b0f6066ef5eaffea15c2148d816dabad8a66a3f8b20b4"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\revisao-integracao-pr28.md",
+      "archive": "integration/revisao-integracao-pr28.md",
+      "bytes": 1868,
+      "sha256": "b2ef0a9b12a6b1876d54537d14e8ed83a3419bcb8973fe08ab878ee00b1b7f2a"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\revisao-metadados-final.md",
+      "archive": "integration/revisao-metadados-final.md",
+      "bytes": 4108,
+      "sha256": "2e3915487d1ba3c364e918d5bd689f7d057e04586405280f2d122339b01d3a35"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\revisao-observador.md",
+      "archive": "integration/revisao-observador.md",
+      "bytes": 5957,
+      "sha256": "72ccd46922b70546df7196d391e30996e95b7d6828a991787f181fa7bd2915ad"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\revisao-tracker-final.md",
+      "archive": "integration/revisao-tracker-final.md",
+      "bytes": 1341,
+      "sha256": "b7767a2dcadd4b8c1f0a676c7e991dc49f133c0ebc117cb15eb93636645ec0f1"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\toolchain-decisoes.md",
+      "archive": "integration/toolchain-decisoes.md",
+      "bytes": 15264,
+      "sha256": "5b7c0c8e11d0560ccc2a98407515c14f19f5da57f9228ba49fdaa64ae217314d"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\toolchain-donor-proposal.sh",
+      "archive": "integration/toolchain-donor-proposal.sh",
+      "bytes": 125,
+      "sha256": "1888134e9201380b1c9b41df2a3c62fcc417072782135e12d649c15c772aacee"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\toolchain-proposal.md",
+      "archive": "integration/toolchain-proposal.md",
+      "bytes": 22372,
+      "sha256": "a9207915346994db7418cb19d895c378b67b8ceadfe534c58c7f4f9598826a37"
+    },
+    {
+      "source": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e1\\correcoes-runtime-port.md",
+      "archive": "runtime-review/correcoes-runtime-port.md",
+      "bytes": 3271,
+      "sha256": "862759f00c3aeb23b945f7bbe4ff52419ba1545919d110d8689fcd05da83f45f"
+    },
+    {
+      "source": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e1\\dependencias-linux-nota.md",
+      "archive": "runtime-review/dependencias-linux-nota.md",
+      "bytes": 4889,
+      "sha256": "f45b81894516d0e46d796100fc9fb7d6f64aa177bee6012cd412c89fd30cf25c"
+    },
+    {
+      "source": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e1\\fixes-source-provenance.json",
+      "archive": "runtime-review/fixes-source-provenance.json",
+      "bytes": 1281,
+      "sha256": "814e5f6746f153e4d738da091392fa7d09ddd5ccdcc9b0f1993bc6dfcad7199b"
+    },
+    {
+      "source": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e1\\fixes-test-platform-final.log",
+      "archive": "runtime-review/fixes-test-platform-final.log",
+      "bytes": 9729,
+      "sha256": "1bfbe34de3356971ef539a2036fb2b1b33efea05207676316cbe20dbe6a8ed61"
+    },
+    {
+      "source": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e1\\fixes-test-platform-frozen.log",
+      "archive": "runtime-review/fixes-test-platform-frozen.log",
+      "bytes": 9729,
+      "sha256": "e484e050fb38ee05606b8fadb2beb71af28ed1d4745d495169473f482c8fe585"
+    },
+    {
+      "source": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e1\\fixes-test-platform.log",
+      "archive": "runtime-review/fixes-test-platform.log",
+      "bytes": 9554,
+      "sha256": "df999e101b1f7981fc8a68e9fbb81a1a3ecd02261b5a3215ce9eae34069909e3"
+    },
+    {
+      "source": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e1\\revisao-runtime-port-r2.md",
+      "archive": "runtime-review/revisao-runtime-port-r2.md",
+      "bytes": 4094,
+      "sha256": "1f068c75c5146a2ada54ee0620144178726b4c90b3bf829ef5464d35ce44586f"
+    },
+    {
+      "source": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e1\\revisao-runtime-port.md",
+      "archive": "runtime-review/revisao-runtime-port.md",
+      "bytes": 5305,
+      "sha256": "47b84951deebfcaa884e2e4e537e28f8d6a9d1944180704e3bf4af3aa26ec682"
+    },
+    {
+      "source": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e1\\root-r2-platform-tests.log",
+      "archive": "runtime-review/root-r2-platform-tests.log",
+      "bytes": 9729,
+      "sha256": "222b93f74341ef9649f037241b158bb65259ed8cfb1e0ff6f5f20548e4008129"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\results\\observer-calibration-2026-10-02-reboot\\fixture.jsonl",
+      "archive": "observer-preliminary/observer-calibration-2026-10-02-reboot/fixture.jsonl",
+      "bytes": 346,
+      "sha256": "a1c94c717625713ff2967a829ad0afc290c17a1b1fa97060c923d62dec1ba4ab"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\results\\observer-calibration-2026-10-02-reboot\\observations.jsonl",
+      "archive": "observer-preliminary/observer-calibration-2026-10-02-reboot/observations.jsonl",
+      "bytes": 3466,
+      "sha256": "c7b0bf93f1c8dff31eef775b87f83e354c796d56eca31af75aacc6bb5dbe8715"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\results\\observer-calibration-2026-10-02-reboot\\summary.json",
+      "archive": "observer-preliminary/observer-calibration-2026-10-02-reboot/summary.json",
+      "bytes": 677,
+      "sha256": "3f57e13ff2ea1927ca1dfa4f88cb2ef7bceeafd52502bd09aab1f2f5d0ef4990"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\results\\observer-preliminary-2026-10-02\\reboot\\calibration.json",
+      "archive": "observer-preliminary/observer-preliminary-2026-10-02/reboot/calibration.json",
+      "bytes": 258,
+      "sha256": "87ab913acfe40ee75cee490d00b09ab34fefaea517117b2acbe116f27681b792"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\results\\observer-preliminary-2026-10-02\\reboot\\fixture.jsonl",
+      "archive": "observer-preliminary/observer-preliminary-2026-10-02/reboot/fixture.jsonl",
+      "bytes": 21562,
+      "sha256": "0661fdbd388d98e3b41330d2e1e5d36bd5bc97594c7946dbc332b11996af393b"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\results\\observer-preliminary-2026-10-02\\reboot\\observations.jsonl",
+      "archive": "observer-preliminary/observer-preliminary-2026-10-02/reboot/observations.jsonl",
+      "bytes": 58257,
+      "sha256": "08056c7129d23427eced1eee8107e6169a82cee02c13c51c6e676dd14205d9ed"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\results\\observer-preliminary-2026-10-02\\reboot\\summary.json",
+      "archive": "observer-preliminary/observer-preliminary-2026-10-02/reboot/summary.json",
+      "bytes": 1076,
+      "sha256": "05a1e5e88da5976de57143c6a06e6f68877dfb6b99b9d7ffeb738f1f9b762e3a"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\results\\observer-preliminary-2026-10-02\\reboot-repeat\\calibration.json",
+      "archive": "observer-preliminary/observer-preliminary-2026-10-02/reboot-repeat/calibration.json",
+      "bytes": 256,
+      "sha256": "ac5c53f6af20d78b845d07dbf53960f71411f673672f0bff8575698b9487d65c"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\results\\observer-preliminary-2026-10-02\\reboot-repeat\\fixture.jsonl",
+      "archive": "observer-preliminary/observer-preliminary-2026-10-02/reboot-repeat/fixture.jsonl",
+      "bytes": 21562,
+      "sha256": "81bd7a6d5f9be6e375b1022795aead5df7e3bc6da371a703cc139867413bb5f8"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\results\\observer-preliminary-2026-10-02\\reboot-repeat\\observations.jsonl",
+      "archive": "observer-preliminary/observer-preliminary-2026-10-02/reboot-repeat/observations.jsonl",
+      "bytes": 58341,
+      "sha256": "ffa590e5c9d7bcd2d9779de55c752df367c809dceb17afb1478d9cedbb7f7366"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\results\\observer-preliminary-2026-10-02\\reboot-repeat\\summary.json",
+      "archive": "observer-preliminary/observer-preliminary-2026-10-02/reboot-repeat/summary.json",
+      "bytes": 1139,
+      "sha256": "d9433687dbd5595fb8aaadafade48a73328d4971acc545b9fb8850b4db0b8048"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\results\\observer-preliminary-2026-10-02\\same-boot\\calibration.json",
+      "archive": "observer-preliminary/observer-preliminary-2026-10-02/same-boot/calibration.json",
+      "bytes": 255,
+      "sha256": "212e0d71351fc70ef00ecd3c1b6de9b3b544650a338a4fba2b5ac4d9a0771568"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\results\\observer-preliminary-2026-10-02\\same-boot\\fixture.jsonl",
+      "archive": "observer-preliminary/observer-preliminary-2026-10-02/same-boot/fixture.jsonl",
+      "bytes": 21602,
+      "sha256": "441713a149e38bcfb246691a8279a41df7c966ed7333fd6cbe3d3f009f436bf5"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\results\\observer-preliminary-2026-10-02\\same-boot\\observations.jsonl",
+      "archive": "observer-preliminary/observer-preliminary-2026-10-02/same-boot/observations.jsonl",
+      "bytes": 58786,
+      "sha256": "46c73b764cb495e685e8553923c4f748b73b05009a0c6f703634543a749fa319"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\results\\observer-preliminary-2026-10-02\\same-boot\\summary.json",
+      "archive": "observer-preliminary/observer-preliminary-2026-10-02/same-boot/summary.json",
+      "bytes": 1073,
+      "sha256": "d1d14e2f380323228d41a80001b4985dd65bf450d5fe13860aa2b6c850287272"
+    }
+  ],
+  "excluded": [
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-final-ct107\\elf-r4\\wasmhome_bench.elf",
+      "reason": "generated complete or interrupted binary; preserve locally and on CT107, not a source deliverable",
+      "bytes": 9196308,
+      "sha256": "3ffca7b09a450e0ac63f5e0d1ea67fb3d672eb55684ad9b6d7953898f90df500"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-final-ct107\\ssh-r2\\wasmhome_bench.elf",
+      "reason": "generated complete or interrupted binary; preserve locally and on CT107, not a source deliverable",
+      "bytes": 1048576,
+      "sha256": "668fc0299dc7a06501d8cee61b7762d2f3a2ade27adb8e4b76b1680bd7d22487"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-final-ct107\\wasmhome_bench.bin",
+      "reason": "generated complete or interrupted binary; preserve locally and on CT107, not a source deliverable",
+      "bytes": 737088,
+      "sha256": "bef4b0b0ce7061d3f2cb693a8d3f0240a95d84a80fa31b5379aaa3bb2e74f73c"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\native-final-ct107\\wasmhome_bench.elf",
+      "reason": "generated complete or interrupted binary; preserve locally and on CT107, not a source deliverable",
+      "bytes": 3244032,
+      "sha256": "febf421a07e2808189f9fca29c352efc4f2459ac7e1cf8e996aa363a1ab63459"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\app-original-1m.bin",
+      "reason": "local device backup, generated archive or local SSH trust configuration; not republished"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\known_hosts",
+      "reason": "local device backup, generated archive or local SSH trust configuration; not republished"
+    },
+    {
+      "source": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e0\\observer-810b8be.zip",
+      "reason": "local device backup, generated archive or local SSH trust configuration; not republished"
+    }
+  ],
+  "notes": [
+    "Original absolute paths are historical references. Use archive paths in a fresh Linux checkout.",
+    "Archives are byte-preserving snapshots, not current executable instructions.",
+    "Temporary academic PDF renders and attachment photographs remain local; project evidence is already documented."
+  ]
+}

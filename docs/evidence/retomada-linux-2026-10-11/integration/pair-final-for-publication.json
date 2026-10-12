@@ -1,0 +1,252 @@
+{
+  "controlled_negative": {
+    "actual_source_ipv4": "192.168.0.145",
+    "boot_continuity_verified": true,
+    "controlled_server_source_rejection_observed": true,
+    "correlation_limit": "isolated runs with matching endpoints; rejected server request contains no nonce",
+    "firmware_response_mismatch_observed": true,
+    "reader_absence_proven": false,
+    "serial_boot_id": 6287236521768356468,
+    "server_expected_peer": "192.168.0.146",
+    "transaction_nonce_paired": false,
+    "udp_after_result": 164,
+    "udp_before_command": 3,
+    "udp_packets": 168
+  },
+  "date": "2026-10-09",
+  "excluded_first_capture": {
+    "continuity_acceptance": false,
+    "directory": "lxc-positive",
+    "reason": "third UDP frame and command timestamp tie",
+    "udp_before_command": 2
+  },
+  "native_checksum": {
+    "assessment": "not assessed here",
+    "external_evidence": "native/derived-native.json"
+  },
+  "positive": {
+    "boot_continuity_verified": true,
+    "correlation_basis": "matching random nonce and endpoint; host clocks are never compared",
+    "nonce": "731492b12bc06c09b1be2583f6b7f03c39c90feec4d95bb6308d1405f08a51e3",
+    "serial_boot_id": 5730668695202879461,
+    "server_ipv4": "192.168.0.138",
+    "server_port": 18080,
+    "server_source_port": 52131,
+    "source_ipv4": "192.168.0.145",
+    "transport_round_trip_verified": true,
+    "udp_after_result": 164,
+    "udp_before_command": 3,
+    "udp_packets": 168
+  },
+  "previous_app_restoration": {
+    "backup_local_only_not_published": true,
+    "backup_sha256": "b00a479e56a1a486703093e93683de845dd09ae5392152a10f49fe9b15cde171",
+    "boot_id": "7a90e79f8778787c",
+    "diagnostic_rows": 11,
+    "final_state_scope": "recorded hostname/IP and guest status from final corrected command",
+    "initial_sensor_row": "pending acquisition, preserved in raw evidence",
+    "offset": "0x20000",
+    "port_18080_listener_absent": true,
+    "reader_script_absent": true,
+    "region_bytes": 1048576,
+    "udp_packets": 88,
+    "valid_sensor_rows": 10,
+    "verified_write_and_readback": true
+  },
+  "raw_and_source_hashes": {
+    "build-session-e0/app-original-1m.bin": {
+      "bytes": 1048576,
+      "sha256": "b00a479e56a1a486703093e93683de845dd09ae5392152a10f49fe9b15cde171"
+    },
+    "docs/evidence/execucao-2026-10-09/app-restore-flash.txt": {
+      "bytes": 1987,
+      "sha256": "9973da6c9e3dc7782b480abaad25fbd148070d14eb96c5ceb33d6fc38b7fcccd"
+    },
+    "docs/evidence/execucao-2026-10-09/app-restore-verify.txt": {
+      "bytes": 477,
+      "sha256": "2c2f32b74326c2de9f71744d74425694a763a29d5adcaa88b3e1d2412a39a2db"
+    },
+    "docs/evidence/execucao-2026-10-09/capture-lxc-probe.py": {
+      "bytes": 11060,
+      "sha256": "3393bd6ae954a82b06a6f966860df1238ab8f32561c1a2fa4ff593dfcc9916db"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-app-flash.txt": {
+      "bytes": 1623,
+      "sha256": "24730e86d14765cdf25595c3470c4fb3bed33dbc9d1bfbd9ede6a753b5de4690"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-negative-source-server.jsonl": {
+      "bytes": 402,
+      "sha256": "f6ce039726b15dce59f7b3265de187db5a155ca0ccdf4f092ae49e0fcec0fef2"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-negative-source/observations.jsonl": {
+      "bytes": 58756,
+      "sha256": "059e87ec469227c39a279c10f6b3903b840b2aded927207cddfc7ce8e31d7a45"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-negative-source/pre-reset-serial.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-negative-source/serial.log": {
+      "bytes": 11107,
+      "sha256": "528a8061887eac3b497e466116ea3b23409d7ba7b193bbfc855089c2b2201853"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-negative-source/summary.json": {
+      "bytes": 1153,
+      "sha256": "fbaff6bbc937fb8c124fd452de929443c6829e81e474a8109292e62b5fd062b4"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-positive-r2-server.jsonl": {
+      "bytes": 477,
+      "sha256": "ea9029a68d68880efcbb72444370ffac4ebc2a4fef322a0c790d1c6b2bddc6ee"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-positive-r2/observations.jsonl": {
+      "bytes": 58988,
+      "sha256": "1427fe77fe22409f273ac97007ddd2aa2568f9c6dac1ee0f5ee9d882e28159a6"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-positive-r2/pre-reset-serial.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-positive-r2/serial.log": {
+      "bytes": 11091,
+      "sha256": "b87a9c63251a9bdbdd48e7d241aa6e1a7bbea97a2a87df1b35d43bf8bf25c255"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-positive-r2/summary.json": {
+      "bytes": 1166,
+      "sha256": "36911253ad5fcc5c4aac3d67824e911dd35114f23a65d17c2ca595ca41ade77f"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-positive-server.jsonl": {
+      "bytes": 477,
+      "sha256": "4dcbeb580835396d06d3b5e1ec75bc6b34b79ee8b4ec60f2271f6db2c813e63a"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-positive/observations.jsonl": {
+      "bytes": 58741,
+      "sha256": "7f1d7b403921ff05f953b75e8e7457d785b7a1fc9046a46c9d41219272b1ce85"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-positive/pre-reset-serial.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-positive/serial.log": {
+      "bytes": 11092,
+      "sha256": "c0864d59f66d43c07843f515fe3dac67e090186b9505f3a018f2809876f5dc62"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-positive/summary.json": {
+      "bytes": 1008,
+      "sha256": "59b5028f6825dc8aa1cc7b2a98afeff9bd94fc1abb138c74a8ecc4b03a5c6df3"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-preflight.txt": {
+      "bytes": 2244,
+      "sha256": "94ff12a042428a4e38ef32b26dd00136bc637f4c1e38301e1c7bb7b90eb549da"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-probe-server-identity.txt": {
+      "bytes": 150,
+      "sha256": "91405b8a2c4c433d5922d6b1816f281aaaccd68a4bd3e54cf2f8aaa75cc13fa7"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-rebuild-after-reboot.txt": {
+      "bytes": 1755,
+      "sha256": "da5a576ef46951e97885079bc7e5514fbde6a8a56464e182386c02c374d82455"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-rebuild-before-reboot.txt": {
+      "bytes": 598,
+      "sha256": "6c058381c587e045296d1f8d773709dc35b2cfb0b8b2e9a540388e70ea9c5dcf"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-rebuild-bootstrap.txt": {
+      "bytes": 6656,
+      "sha256": "56859695289d208e7b2b296b88b7d8f10a52b0e2a58fca3fab2e74e2f6cccc14"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-rebuild-create.txt": {
+      "bytes": 2349,
+      "sha256": "3843d8dfa7c9d67d4b5f7a6595e4d0e3b1d9da1a61ee77af673a4b07c41fde5e"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-rebuild-final.txt": {
+      "bytes": 678,
+      "sha256": "50e94a83821100f64e0742b573f4f109c74cafda6da1f1b459aeef3c49f9a74a"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-rebuild-identity.txt": {
+      "bytes": 523,
+      "sha256": "5ea8deb08042647de9bf9161c9902f1ad18dcac574b6892bc11941ac805ca3d8"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-rebuild-network-diagnosis.txt": {
+      "bytes": 3303,
+      "sha256": "8a4d385fd6429d92a3f80c2b054e81a253ea865522965b71b9269c26049a5c74"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-rebuild-restart.txt": {
+      "bytes": 145,
+      "sha256": "0bcfe08bf4f282d989354ad9e4887f74ec412ed5c0a03f5890f843a4415e122e"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-rebuild-ssh-after-reboot.txt": {
+      "bytes": 152,
+      "sha256": "fa8a7032cdb0e861d0c1a21ea39b684606c18bf72e19353afbf5e7612c0d1ad0"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-session-final-confirmed.txt": {
+      "bytes": 186,
+      "sha256": "eb546a680c2aa1c0b3a20d6af8eb796749ff3539b84fde5982fe112d38ce1896"
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-session-final.txt": {
+      "bytes": 34,
+      "sha256": "0b9f870fe42b97e05f3a41a649816265b1ded86b65c6068a672f9294f39fb941"
+    },
+    "docs/evidence/execucao-2026-10-09/native-app-flash.txt": {
+      "bytes": 1558,
+      "sha256": "2f283f4f6cd5475d63bc4b42a0c8ec91b1a04041cb574766c6258ea16cfa8119"
+    },
+    "docs/evidence/execucao-2026-10-09/platform/observations.jsonl": {
+      "bytes": 37868,
+      "sha256": "cad49f278cd7d3fd01e19accddb80009e918b07ddda65d7bc5df161cb80f85cd"
+    },
+    "docs/evidence/execucao-2026-10-09/platform/serial.log": {
+      "bytes": 10023,
+      "sha256": "b62becf857dd79bbcd9d017f1953b12b603790a89474dd4b790e4fbcb925f1dd"
+    },
+    "docs/evidence/execucao-2026-10-09/platform/summary.json": {
+      "bytes": 804,
+      "sha256": "93534ad32d067e58c06e1862ed2cb3dc8ef98967cfccf38670693c9687f09312"
+    },
+    "docs/evidence/execucao-2026-10-09/restore/observations.jsonl": {
+      "bytes": 38266,
+      "sha256": "dea5d92fe6b77e934047856ec42726a232b6bdf0d7d11187277e05dadd4924b4"
+    },
+    "docs/evidence/execucao-2026-10-09/restore/serial.log": {
+      "bytes": 9921,
+      "sha256": "233c18b9c4f0ad824f8088faae67d14d5f6022e32a68af88f1c1074d64866440"
+    },
+    "docs/evidence/execucao-2026-10-09/restore/summary.json": {
+      "bytes": 804,
+      "sha256": "8b7b152087853e523d58e10159ec5ff6d317bc0b18edbccb319fc4a2e14f0a02"
+    },
+    "docs/evidence/execucao-2026-10-09/test_capture_lxc_probe.py": {
+      "bytes": 6295,
+      "sha256": "7bf13226f574af26b8f6ce8ee374859921b829a7077aefcaaeef85f585ed5678"
+    },
+    "docs/evidence/execucao-2026-10-09/test_verify_lxc_pair.py": {
+      "bytes": 2730,
+      "sha256": "e2371a523f36f0453815a8b7945984e49c57fc4cbe5cb77a9d14252b8c2f7a72"
+    },
+    "docs/evidence/execucao-2026-10-09/verify-lxc-pair.py": {
+      "bytes": 13555,
+      "sha256": "ddca9a267009f4daeb60d1cd2510c21ba0697f05aaa43018b1cfb9fe96541205"
+    },
+    "main/Kconfig.projbuild": {
+      "bytes": 2009,
+      "sha256": "a90758ca16e108bb7d62f544f4a83e51f23745e1a63f9f7fc9f47f69825c25ac"
+    },
+    "main/platform_selftest.c": {
+      "bytes": 9220,
+      "sha256": "5e16f728cf543239c830635b5578a0e5cb8bbb76f579a137131d438b65c604bb"
+    },
+    "tools/observation_protocol_v1.py": {
+      "bytes": 11812,
+      "sha256": "16ca04f35bf8fdeebf3dc6e8b663fe6474b8a34611288ee6fd00692b08c01d86"
+    },
+    "tools/probe-platform.py": {
+      "bytes": 8952,
+      "sha256": "ba7c38947e49e3de96da4fbdce1f9b41af279348b4a1303f0a714f5a19b13fa9"
+    },
+    "tools/probe_lxc_network.py": {
+      "bytes": 4686,
+      "sha256": "d94a8e9772eeafe540ec45361defbcde3e8cbe2048f4a955d3f0f339d98f8ec7"
+    }
+  },
+  "schema": "wasmhome-lxc-transport-pair-v1",
+  "scope": "issue #6 minimum ESP32 to CT107 transport; no HTTPS, COSE or campaign service claim"
+}

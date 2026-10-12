@@ -1,0 +1,27 @@
+{
+  "schema": "wasmhome-ct107-apt-pins-v1",
+  "simulation_sha256": "5b4b0259e7f959593b566dba610b84366bf4258f3f57ff5834e6bab54df67276",
+  "packages": {
+    "m4": "1.4.19-8",
+    "flex": "2.6.4-8.2+b4",
+    "bison": "2:3.8.2+dfsg-1+b2",
+    "libfmt10": "10.1.1+ds1-4",
+    "libhiredis1.1.0": "1.2.0-6+b3",
+    "ccache": "4.11.2-2",
+    "cmake-data": "3.31.6-2",
+    "libarchive13t64": "3.7.4-4+deb13u1",
+    "libjsoncpp26": "1.9.6-3",
+    "librhash1": "1.4.5-1",
+    "cmake": "3.31.6-2",
+    "libngtcp2-16": "1.11.0-1+deb13u1",
+    "libngtcp2-crypto-gnutls8": "1.11.0-1+deb13u1",
+    "libcurl3t64-gnutls": "8.14.1-2+deb13u5",
+    "liberror-perl": "0.17030-1",
+    "git-man": "1:2.47.3-0+deb13u1",
+    "git": "1:2.47.3-0+deb13u1",
+    "gperf": "3.2.1-1",
+    "libunwind8": "1.8.1-0.1",
+    "libusb-1.0-0": "2:1.0.28-1",
+    "ninja-build": "1.12.1-1"
+  }
+}

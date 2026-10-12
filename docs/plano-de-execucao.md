@@ -9,15 +9,19 @@ as dependências, os critérios de aceite e as revisões de cada entrega.
 
 ## Objetivo e delimitação
 
-Avaliar o impacto da atualização da mesma aplicação no ESP32-S3 sobre duração,
-indisponibilidade, perda de respostas, volume transferido e consumo de recursos.
-O resultado do TCC será uma bancada reproduzível, seus dados e uma análise.
+Avaliar como a estratégia de execução e atualização afeta o tempo de retorno,
+as lacunas de serviço, a perda de respostas, o volume transferido e o uso de
+recursos no mesmo ESP32-S3. O resultado do TCC será uma bancada reproduzível,
+seus dados e uma análise.
 
-| Cenário | Aplicação | Atualização |
+O detalhamento operacional de dependências, preparação da campanha, formato dos
+registros e análise está em [Planejamento detalhado para coleta e análise](plano-detalhado-coleta-analise.md).
+
+| Cenário | Execução | Aplicação e atualização |
 |---|---|---|
-| A | C nativo sobre ESP-IDF/FreeRTOS | Imagem da aplicação por OTA e reinicialização |
-| B | Wasm no interpretador clássico WAMR | Download e substituição do módulo |
-| C | AOT no WAMR para ESP32-S3 | Download e substituição do módulo AOT |
+| A | C nativo sobre ESP-IDF/FreeRTOS | Telemetria e controle no firmware monolítico; OTA da imagem da aplicação e reinicialização |
+| B | Wasm no interpretador clássico WAMR | Telemetria em módulo estável; download e substituição do módulo Wasm de controle |
+| C | AOT no WAMR para ESP32-S3 | Telemetria em módulo estável; download e substituição do módulo AOT de controle |
 
 FreeRTOS permanece comum aos três cenários. AOT não é um terceiro sistema
 operacional. Usaremos uma carga funcional com entradas e resultados equivalentes
@@ -65,8 +69,8 @@ podem acrescentar tempo. Não são datas de entrega contratadas.
 | E2. Observação do serviço | Gerador externo, respostas versionadas e coleta | Funcionamento estável sem atualização e interrupção conhecida detectada | E1 | 1–2 dias |
 | E3. OTA nativo | Atualização v1→v2, reboot e reconexão | Resposta correta da nova versão com intervalo completo registrado | E2 | 1–2 dias |
 | E4. Troca modular | Download, validação e substituição em B e C | Nova versão correta e continuidade do boot observada | E2 | 2–4 dias |
-| E5. Piloto | Cinco ciclos completos por cenário e protocolo congelado | 15 tentativas rastreáveis, instrumentos e critérios revisados | E3 e E4 | 1–2 dias |
-| E6. Campanha | 30 tentativas por cenário | 90 tentativas contabilizadas, inclusive falhas | E5 | 1–2 dias |
+| E5. Piloto | Pelo menos cinco tentativas normais aceitas por cenário e protocolo congelado | Mínimo de 15 tentativas aceitas rastreáveis; dispatches sem aceite ficam separados e podem exigir slots adicionais | E3 e E4 | 1–2 dias |
+| E6. Campanha | N blocos, um slot de A, B e C por bloco | 3N slots contabilizados; resultados por slot e por atualização aceita separados | E5 | 1–2 dias |
 | E7. Análise | Tabelas, gráficos, texto e pacote de reprodução | Campanhas normal e de resiliência contabilizadas, resultados rastreáveis e limitações explícitas | E6 e campanha complementar da #23 | 2–3 dias |
 
 Estimativa sequencial total: aproximadamente 11–20 dias de trabalho, além de
@@ -87,8 +91,9 @@ como CT 107 em 01/10/2026; acesso, sistema-base e persistência foram verificado
 Em 09/10, a reconstrução do sistema-base foi executada no CT 109 e o caminho
 ESP32→CT 107 foi demonstrado por TCP com nonce, origem e logs dos dois lados.
 O CT 109 ficou parado ao final. As evidências e seus limites estão no
-[registro da sessão](evidence/execucao-2026-10-09/README.md); revisão final,
-publicação e aceite formal da issue #6 permanecem etapas próprias.
+[registro da sessão](evidence/execucao-2026-10-09/README.md). Revisão final,
+integração pela PR #29 e aceite da #6 foram concluídos em 10/10.
+O [registro de retomada](retomada-linux.md) atualiza o preparo da toolchain.
 
 A [documentação do provisionamento do LXC](provisionamento-lxc.md) registra a
 inspeção de capacidade e rede, a configuração efetiva e os testes de
@@ -127,10 +132,13 @@ orientador; não substituir o cenário silenciosamente.
 
 ### E2. Medir respostas da aplicação
 
-O observador envia `sample_id` e entrada. O dispositivo responde com o mesmo ID,
-resultado, versão da aplicação e identificador de boot. Apenas respostas de
-cálculo correto contam como serviço prestado. Heartbeat do firmware-base é
-adicional e não comprova que a aplicação permaneceu disponível.
+O observador envia `sample_id` e a temperatura de estímulo ao serviço de
+controle. O dispositivo responde com o mesmo ID, resultado, versão do módulo,
+nível solicitado e nível observado pelo loopback. Apenas respostas corretas
+dentro do timeout contam como serviço de controle prestado. Em paralelo, o
+módulo de telemetria publica a última leitura válida do DS18B20, seu ID, idade
+e estado. Heartbeat do firmware-base é adicional e não comprova disponibilidade
+funcional dos dois serviços.
 
 A calibração já registrada do observador usa uma fixture diagnóstica. E2 exige
 validar também os serviços definitivos dos três cenários, das issues #11, #13
@@ -144,9 +152,11 @@ medição com uma interrupção controlada de duração conhecida.
 
 ### E3 e E4. Implementar as atualizações reais
 
-Usar mesmo servidor, rede, transporte e alteração funcional. Em A, transferir
-a imagem OTA da aplicação, não a imagem inteira da flash. Em B/C, transferir
-os módulos pela rede. Arrays embutidos ficam restritos à prova inicial.
+Usar o mesmo servidor, rede, transporte e mudança observável do controle. Em A,
+telemetria e controle são atualizados juntos pela imagem OTA da aplicação, não
+pela imagem inteira da flash. Em B/C, transferir somente o módulo de controle.
+A telemetria permanece ativa durante a troca modular. Arrays embutidos ficam
+restritos à prova inicial.
 
 Definir e implementar uma política comparável de integridade/autenticidade antes
 da campanha. Documentar os campos autenticados do manifesto, incluindo versão
@@ -169,10 +179,13 @@ funcional. Preservar rejeições e falhas segundo a contagem própria da bateria
 
 ### E5. Pilotar, corrigir e congelar
 
-Executar cinco ciclos completos v1→v2 por cenário. Não incorporar esses dados
-à campanha definitiva. Corrigir coleta para distinguir campanha, bloco, sessão
-e tentativa; rejeitar evidências vazias ou malformadas; verificar referência de
-resultado e presença da matriz completa. Guardar as falhas como resultados.
+Executar pelo menos cinco tentativas normais aceitas por cenário, total mínimo
+de 15. Um slot que termine sem aceite não conta entre as cinco e deve permanecer
+registrado como resultado de despacho; planejar slots adicionais quando
+necessário. Não incorporar os dados do piloto à campanha definitiva. Corrigir
+a coleta para distinguir campanha, slot, bloco, sessão, disparo e tentativa
+aceita; rejeitar evidências vazias ou malformadas; verificar a referência de
+resultado e a presença da matriz completa. Preservar todas as falhas.
 
 Congelar janela, cadência, timeout, condições iniciais, memória e sequência de
 eventos. O timeout funcional congelado aplica-se também à campanha de resiliência;
@@ -181,24 +194,41 @@ recuperação dessa bateria. Ajustar o aquecimento ao serviço persistente. O co
 ao boot, portanto esperar 60 segundos depois dele não aquece as medições já
 realizadas. A espera deve anteceder explicitamente o disparo medido.
 
-Reavaliar 30 tentativas por cenário à luz da dispersão do piloto, antes de iniciar
-a coleta definitiva. Justificar qualquer ajuste de tamanho amostral.
+Antes do piloto, registrar a regra para selecionar o timeout funcional e o tamanho
+amostral. Cinco tentativas aceitas por cenário servem para validar o procedimento,
+mas não estimam poder com precisão. Se não houver uma base independente para alterar N,
+manter 30 blocos por viabilidade e apresentar a análise como descritiva. Congelar
+N e a agenda antes da primeira coleta definitiva.
 
 ### E6. Coletar por blocos
 
-Usar 30 blocos, cada um com uma tentativa de A, B e C na mesma placa. Balancear
-a ordem: cada uma das seis permutações aparece cinco vezes, com embaralhamento
-e semente registrados. A unidade experimental é uma tentativa completa de
-atualização. Chamadas de função são observações internas à tentativa.
+A agenda por slots a seguir é proposta operacional. A referência anterior e
+o checklist dizem 30 tentativas por cenário, 90 no total, enquanto o contrato
+inicia uma tentativa normal após aceite. Com recusas, 90 slots podem gerar
+menos de 90 tentativas aceitas. Resolver no congelamento da #20 se o alvo será
+de slots ou de tentativas aceitas e registrar a agenda correspondente. Esta
+publicação não decide essa mudança; #21 permanece bloqueada até a conciliação.
+
+Usar N=30 blocos como referência, cada um com um slot planejado de A, B e C na
+mesma placa. Isso gera 90 slots, com cada uma das seis ordens aparecendo cinco
+vezes. Se N mudar, gerar 3N slots e distribuir as ordens com contagens que diferem
+no máximo em uma. Registrar `slot_id`, `session_id`, a semente e a agenda
+congelada. O slot é a oportunidade planejada; a tentativa normal de atualização
+começa somente com `UPDATE_ACCEPTANCE=ACCEPTED` correlacionado. Chamadas de função
+são observações internas, não atualizações independentes.
 
 Restaurar v1 antes de cada tentativa e aguardar estabilidade. Excluir esse
 preparo da janela de medição. Se houver contador antirretorno, usar pacote de
 preparação autenticado com sequência nova para a lógica v1, seguido de sequência
 maior para v2; não desativar a proteção durante a campanha.
 
-Falhas de atualização e timeouts permanecem no denominador. Falhas comprovadas
-do instrumento podem invalidar uma tentativa, com motivo preservado e reposição
-identificada. Não repetir seletivamente resultados desfavoráveis.
+Todos os slots entram na taxa de conclusão por slot. Recusas e timeouts antes do
+aceite são resultados de despacho, não falhas de uma atualização aceita. Reportar
+em separado a taxa de sucesso entre as tentativas que receberam aceite e tiveram
+instrumentação válida. Falhas e timeouts depois do aceite permanecem no
+denominador dessas tentativas. Só repor um slot por falha instrumental ou
+impedimento externo comprovado; manter o registro original e ligar a reposição
+ao mesmo slot. Não repetir seletivamente resultados desfavoráveis.
 
 ### E7. Analisar e redigir
 
@@ -206,11 +236,18 @@ A análise final da issue #24 exige a campanha normal e a complementar de
 resiliência da issue #23. É possível preparar a análise normal após E6;
 a entrega completa permanece pendente até contabilizar ambas separadamente.
 
-Apresentar taxa de sucesso, distribuição, mediana e intervalo interquartil por
-cenário. Comparar diferenças pareadas por bloco, com intervalos de confiança
-de 95% por reamostragem dos blocos, método e semente documentados. Tempos de
-atualizações bem-sucedidas devem ser acompanhados das contagens de falhas e
-timeouts. Não convertê-los em zeros nem excluí-los silenciosamente.
+Apresentar conclusão por slot e sucesso após aceite com instrumentação válida,
+com numeradores, denominadores e intervalos score de Wilson de 95% por cenário.
+Comparar as taxas
+binárias pareadas com o intervalo score assintótico para pares combinados,
+conforme [Fagerland, Lydersen e Laake (2014)](https://doi.org/10.1002/sim.6148),
+e publicar a tabela 2×2 de cada contraste. Para tempos e sensibilidade a sessões
+compartilhadas, preservar os blocos e reamostrar por `session_id`; declarar
+incerteza entre sessões não estimável quando houver sessões insuficientes. Tempos de atualizações
+bem-sucedidas devem vir acompanhados das contagens de falhas e timeouts. Não
+convertê-los em zeros nem excluí-los silenciosamente. As comparações entre os
+três cenários são exploratórias; resultado sem diferença detectável não prova
+equivalência.
 
 O microbenchmark de processamento será secundário, com chamadas agrupadas por
 sessão. Valores repetidos de uma única carga não formam amostras independentes.
@@ -221,20 +258,24 @@ sistemas críticos a partir desta bancada.
 
 | Métrica | Definição | Cuidado |
 |---|---|---|
-| Tempo total | Primeira resposta correta de v2 menos envio do comando, em ms no observador | Timeout é falha registrada |
-| Lacuna de serviço | Maior intervalo entre respostas funcionais corretas na janela | Inclui cadência normal e efeitos de rede; comparar com linha de base |
-| Indisponibilidade estimada | Excesso da lacuna sobre o intervalo nominal, limitado a zero | Resolução depende da cadência; não é duração física exata |
+| Tempo envio→resposta | Primeira resposta correta de v2 menos envio do comando, em ms no observador | Inclui o despacho; timeout é resultado de slot sem conclusão |
+| Duração após aceite | Primeira resposta correta de v2 menos recepção do aceite | Mede a atualização normal depois que ela começa |
+| Lacuna de serviço | Maior intervalo entre respostas funcionais corretas na janela | Reportar também a cauda censurada até o fim da janela |
+| Indisponibilidade estimada | Excesso da maior lacuna observada sobre o intervalo nominal, limitado a zero | Não inclui a cauda censurada e não é duração física exata |
 | Perda de respostas | IDs enviados sem resposta correta até o prazo fixado | Reportar total enviado, atrasos e perdas sem atualização |
+| Telemetria | IDs de leitura, idade, estado do sensor e lacunas entre mensagens válidas | Não inferir perda de aquisição física a partir de perda de datagramas |
 | Payload | Bytes da imagem/módulo e metadados necessários | Tráfego total com retransmissões é métrica distinta |
 | Tempos locais | Download, validação, carga, instanciação e ativação, em µs | Não subtrair relógios entre dispositivos nem através do reboot |
 | Memória | SRAM/PSRAM antes do runtime, durante troca e após liberação | Incluir estáticos, buffers e pilhas; rotular mínimo desde boot |
 | Processamento | Tempo da mesma transformação com resultado verificado | Sem impressão no trecho medido; identificar overhead da chamada |
-| Sucesso | Resposta correta de v2 dentro do timeout | Em B/C, registrar reboot inesperado e recuperação |
+| Conclusão por slot | Aceite pontual e resposta correta de v2 dentro dos prazos | Denominador: slots planejados; despacho e atualização têm resultados separados |
+| Sucesso após aceite | Resposta correta de v2 dentro dos prazos após `ACCEPTED` | Denominador: tentativas aceitas com instrumentação válida |
 
-Campos não aplicáveis recebem `null`/`not_applicable`, não zero. A perda medida
-é perda de respostas ao gerador, não uma prova direta de perda de aquisição de
-um sensor real. O custo de disponibilidade do serviço-base pode ser medido à
-parte quando necessário.
+Campos não aplicáveis recebem `null`/`not_applicable`, não zero. A perda de
+controle medida é a perda de respostas ao gerador; não demonstra perda de
+aquisição do sensor. A telemetria reporta separadamente mensagens, IDs, idade
+e estado observados. O custo de disponibilidade do firmware-base pode ser
+medido à parte quando necessário.
 
 Preservar tanto o envio do disparo quanto a recepção de `update_accepted` no
 relógio monotônico do observador. O aceite inicia a tentativa normal, conforme
@@ -247,7 +288,8 @@ e timeouts depois do aceite permanecem nesse denominador.
 
 Preservar revisão do código, inventário, versões, configurações efetivas, hashes,
 ordem dos blocos e logs brutos de observador, dispositivo e servidor. Cada
-registro identifica campanha, bloco, tentativa, cenário, boot e versão.
+registro identifica campanha, slot, bloco, tentativa quando aceita, cenário,
+sessão, boot e versão.
 
 Entregar dados brutos, tabela derivada, scripts de análise, gráficos, instruções
 de reprodução e limitações. Encerrar após contabilizar todas as tentativas e

@@ -156,8 +156,11 @@ atribui um `attempt_id` e registra o pedido de injeção no seu relógio monotô
 O firmware confirma o pedido com `fault_accepted` antes de executar o caso.
 Esse evento aceita o ensaio, não o comando UDP de atualização nem o artefato.
 Após essa confirmação, rejeições esperadas, falhas, resets e timeouts permanecem
-no denominador da célula. Ausência de confirmação é falha do disparo, preservada
-no registro e reposta com outro ID; não comprova rejeição do envelope.
+no denominador da célula. Sem confirmação, marcar o disparo como `unconfirmed` e
+preservar o pedido. O silêncio não prova que o dispositivo não recebeu o pedido,
+nem que rejeitou o envelope. Consultar o estado do dispositivo antes de qualquer
+reposição e confirmar que um novo disparo é seguro. Manter os disparos sem
+confirmação em registro separado das 70 injeções aceitas.
 
 O ticket #22 implementará um canal serial de ensaio separado do UDP v1. O pedido
 será uma linha JSON com `event=fault_request`, `attempt_id` e `case_id` da matriz.
@@ -237,6 +240,14 @@ Uma tentativa `NAT-ABORT` é aprovada somente quando:
 O limite de 30 segundos é um timeout operacional para impedir tentativas
 indefinidas. O tempo efetivo de recuperação e todos os intervalos de perda devem
 ser preservados como métricas, sem substituir valores pelo timeout.
+
+Para medir esse limite, iniciar o relógio monotônico local do observador ao
+receber `fault_accepted`. Em `WASM-OOB` e `WASM-DIV0`, encerrar na primeira
+resposta correta do controle após a falha; a telemetria também deve permanecer
+disponível durante todo o intervalo. Em `NAT-ABORT`, encerrar quando ambos os
+serviços tiverem respondido corretamente depois do novo boot. Guardar tempos de
+recepção serial e UDP no mesmo relógio do observador; não subtrair timestamps do
+dispositivo. Sem `fault_accepted`, não iniciar o cronômetro de recuperação.
 
 Qualquer reset, pânico do firmware-base, lacuna de telemetria acima do timeout
 funcional congelado ou

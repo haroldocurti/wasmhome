@@ -1,0 +1,2 @@
+{"ensurepip": false, "pip": false, "venv": true}
+OpenSSL 3.5.1 1 Jul 2025

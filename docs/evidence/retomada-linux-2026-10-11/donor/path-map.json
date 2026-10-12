@@ -1,0 +1,294 @@
+{
+  "schema": "wasmhome-donor-portable-capture-map-v1",
+  "note": "Absolute source paths are historical provenance only; resolve targets relative to this donor directory. Originals unchanged.",
+  "entries": [
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\approval-template.json",
+      "target_relative": "captures/approval-template.json",
+      "bytes": 483,
+      "sha256": "7a4c9c726e8698d9e0bfed5f332ff4d862937b436ae3fbef343b8fbda6224c85"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\ct110-plan.json",
+      "target_relative": "captures/ct110-plan.json",
+      "bytes": 1811,
+      "sha256": "5bed6e441f0037de2ba59bef3ab4dde7601ee682891c4df31770968f55ec0deb"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\ct110_supervisor_receiver.py",
+      "target_relative": "captures/ct110_supervisor_receiver.py",
+      "bytes": 9087,
+      "sha256": "c49735cc92daca5f505d29d9424d2e4a3807bb3fadbead1caf06dea53bd428ca"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\doador-proposta.md",
+      "target_relative": "captures/doador-proposta.md",
+      "bytes": 16764,
+      "sha256": "ddda0f3c0e9185a933bc8c3b2c5cec03e00a64ddfd77158aa6165fe19ac474ad"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\donor-guard-tests.log",
+      "target_relative": "captures/donor-guard-tests.log",
+      "bytes": 513,
+      "sha256": "6595c537b3862ca229a1d48a66ca3710761885c913551766b382b9c15fd13552"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\donor-guard-tests.stderr.bin",
+      "target_relative": "captures/donor-guard-tests.stderr.bin",
+      "bytes": 109,
+      "sha256": "40e6a3053d86436d6aa245501343227a2e81436f4f14da71a21257468605aff6"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\donor-guard-tests.stdout.log",
+      "target_relative": "captures/donor-guard-tests.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\donor-preflight.json",
+      "target_relative": "captures/donor-preflight.json",
+      "bytes": 2333,
+      "sha256": "1780e5ad425eb2e0de6258173f00c658ab97dc0a7f3b72e67e5572d12fdd5121"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\donor-wsl-stderr.bin",
+      "target_relative": "captures/donor-wsl-stderr.bin",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\donor_wamrc.py",
+      "target_relative": "captures/donor_wamrc.py",
+      "bytes": 20807,
+      "sha256": "419169d661974a490931bdb5e163deed4b60b845f32ba593c87741ba53b83d8c"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\preflight-readonly.sh",
+      "target_relative": "captures/preflight-readonly.sh",
+      "bytes": 563,
+      "sha256": "ae741ef40d6ecf42e032c0b8665705e9a77be1acfa2f81f229ce860a6fe9b51a"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\proposal-index-r1.json",
+      "target_relative": "captures/proposal-index-r1.json",
+      "bytes": 4146,
+      "sha256": "afb4a592322197b9562585d311b2debde514d7bef60d7512ccb1506eca2f7ebc"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\proposal-index-r2.json",
+      "target_relative": "captures/proposal-index-r2.json",
+      "bytes": 4892,
+      "sha256": "f258587215f70326ac913d7ee086a76e8f3d9988446a2e8854b6d366645e9769"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\proposal-index.json",
+      "target_relative": "captures/proposal-index.json",
+      "bytes": 5958,
+      "sha256": "1696cd5604c1fc86f9a688acb01df004012d774d419dec78185e9bc06fe73b79"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\proxmox-guest-memory.txt",
+      "target_relative": "captures/proxmox-guest-memory.txt",
+      "bytes": 2435,
+      "sha256": "602ecc6165f5c3090dd7d4b9f5073e9a55dbcd7f880508bf033a6dd8f0311b1c"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\proxmox_donor_guard.py",
+      "target_relative": "captures/proxmox_donor_guard.py",
+      "bytes": 8457,
+      "sha256": "08dc184bc474a2f1ab1e7c1c610a2f07499590fa1f7071ecb9861dae87884df2"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\revisao-ct110-proposta.md",
+      "target_relative": "captures/revisao-ct110-proposta.md",
+      "bytes": 5102,
+      "sha256": "e6832310ad08ec4e1f1e5cffa5af0e48a4bf79d0811652d686f6eb420bd33637"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\revisao-ct110-supervisor-final.md",
+      "target_relative": "captures/revisao-ct110-supervisor-final.md",
+      "bytes": 4497,
+      "sha256": "e854ecb0bbc785f010139ba754814d9a3fd1cd05856201aa12a90609dcced756"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\revisao-ct110-supervisor-r2-consolidada.md",
+      "target_relative": "captures/revisao-ct110-supervisor-r2-consolidada.md",
+      "bytes": 3115,
+      "sha256": "f813a80d207b0108dca2b0e08e7900309ac52c50c071bad46da8697917e68693"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\revisao-ct110-supervisor-r2-reconstructed-not-original.md",
+      "target_relative": "captures/revisao-ct110-supervisor-r2-reconstructed-not-original.md",
+      "bytes": 3173,
+      "sha256": "4c307f0e738f9cb6e3bb23498263d212adf17d3185d7264c5df12ba9a9f4728f"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\revisao-ct110-supervisor-r3.md",
+      "target_relative": "captures/revisao-ct110-supervisor-r3.md",
+      "bytes": 2559,
+      "sha256": "1c90927a2da041ac28a0c899bbcf9d6f6206908ba83c8b2345e7f902364c2775"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\supervise_ct110.py",
+      "target_relative": "captures/supervise_ct110.py",
+      "bytes": 11735,
+      "sha256": "0f834895a3c8d36f200c00144097131190466c4553ca88a4ae0674ec9f159a8c"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\supervisor-default.stderr.log",
+      "target_relative": "captures/supervisor-default.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\supervisor-default.stdout.log",
+      "target_relative": "captures/supervisor-default.stdout.log",
+      "bytes": 241,
+      "sha256": "a09d3f18dab3f1f50da3f79daa40837a57ca55e4def71dac83ab03c22b4feecd"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\supervisor-guard-tests-r2-receipt.json",
+      "target_relative": "captures/supervisor-guard-tests-r2-receipt.json",
+      "bytes": 670,
+      "sha256": "693d1e57310f7bb530f7af23b67cdc1b2bc5c2bdc325575d091acbeebfbbe3b6"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\supervisor-guard-tests-r2.stderr.bin",
+      "target_relative": "captures/supervisor-guard-tests-r2.stderr.bin",
+      "bytes": 4167,
+      "sha256": "720607546d8df4b5ec647584d14b9008b480303da70a94e8fee915e70e63d779"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\supervisor-guard-tests-r2.stdout.log",
+      "target_relative": "captures/supervisor-guard-tests-r2.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\supervisor-guard-tests-r3-receipt.json",
+      "target_relative": "captures/supervisor-guard-tests-r3-receipt.json",
+      "bytes": 713,
+      "sha256": "1e986aff71593921067a797683806a0d23a1ab46d9d1a01bcc4e0ecae0465717"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\supervisor-guard-tests-r3.stderr.bin",
+      "target_relative": "captures/supervisor-guard-tests-r3.stderr.bin",
+      "bytes": 4561,
+      "sha256": "15ac69aa5aa4ecb8430510142316ae45826ebc85b7e6382564b58a1fefd2c8b0"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\supervisor-guard-tests-r3.stdout.log",
+      "target_relative": "captures/supervisor-guard-tests-r3.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\supervisor-guard-tests-receipt.json",
+      "target_relative": "captures/supervisor-guard-tests-receipt.json",
+      "bytes": 670,
+      "sha256": "7c096355f8cdef683654bc131a92706884857b63397b2037299281f7a64013e7"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\supervisor-guard-tests.stderr.bin",
+      "target_relative": "captures/supervisor-guard-tests.stderr.bin",
+      "bytes": 3555,
+      "sha256": "6b8752b7bfad8573ce73c86d27c642e89953394096998c545ded6b8165701548"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\supervisor-guard-tests.stdout.log",
+      "target_relative": "captures/supervisor-guard-tests.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\template-preflight.txt",
+      "target_relative": "captures/template-preflight.txt",
+      "bytes": 577,
+      "sha256": "5cf13f0838d554f0fff78bd7cd19171c1ea2348d6d37f04371f9ecd58429cbcb"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\test_ct110_supervisor.py",
+      "target_relative": "captures/test_ct110_supervisor.py",
+      "bytes": 13903,
+      "sha256": "18cba5068d32163b4e8a22a175302dc834925935aaaa2a62ffbef5cacdfb6629"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\test_donor_proposal.py",
+      "target_relative": "captures/test_donor_proposal.py",
+      "bytes": 7285,
+      "sha256": "713504d308303b330cd460ea6f6a13547005e383c695c4f28ca53ac7cce6ef2c"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\test_runner_spawn.py",
+      "target_relative": "captures/test_runner_spawn.py",
+      "bytes": 4297,
+      "sha256": "3f77db7e061e48b41f4359439511d1785884b480dd852c95f75902627efea84b"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e2\\wsl-preflight.txt",
+      "target_relative": "captures/wsl-preflight.txt",
+      "bytes": 9002,
+      "sha256": "569039e98e96e323eb40a4028dcb72c2ae34358893160a0c1968af8e7dff50b1"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e1\\correcoes-runtime-port.md",
+      "target_relative": "runtime-reviews/correcoes-runtime-port.md",
+      "bytes": 3271,
+      "sha256": "862759f00c3aeb23b945f7bbe4ff52419ba1545919d110d8689fcd05da83f45f"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e1\\fixes-source-provenance.json",
+      "target_relative": "runtime-reviews/fixes-source-provenance.json",
+      "bytes": 1281,
+      "sha256": "814e5f6746f153e4d738da091392fa7d09ddd5ccdcc9b0f1993bc6dfcad7199b"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e1\\fixes-test-platform-final.log",
+      "target_relative": "runtime-reviews/fixes-test-platform-final.log",
+      "bytes": 9729,
+      "sha256": "1bfbe34de3356971ef539a2036fb2b1b33efea05207676316cbe20dbe6a8ed61"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e1\\fixes-test-platform-frozen.log",
+      "target_relative": "runtime-reviews/fixes-test-platform-frozen.log",
+      "bytes": 9729,
+      "sha256": "e484e050fb38ee05606b8fadb2beb71af28ed1d4745d495169473f482c8fe585"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e1\\fixes-test-platform.log",
+      "target_relative": "runtime-reviews/fixes-test-platform.log",
+      "bytes": 9554,
+      "sha256": "df999e101b1f7981fc8a68e9fbb81a1a3ecd02261b5a3215ce9eae34069909e3"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e1\\revisao-runtime-port-r2.md",
+      "target_relative": "runtime-reviews/revisao-runtime-port-r2.md",
+      "bytes": 4094,
+      "sha256": "1f068c75c5146a2ada54ee0620144178726b4c90b3bf829ef5464d35ce44586f"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e1\\revisao-runtime-port.md",
+      "target_relative": "runtime-reviews/revisao-runtime-port.md",
+      "bytes": 5305,
+      "sha256": "47b84951deebfcaa884e2e4e537e28f8d6a9d1944180704e3bf4af3aa26ec682"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\proxmox-donor-preflight-20261010.txt",
+      "target_relative": "snapshots/proxmox-donor-preflight-20261010.txt",
+      "bytes": 1366,
+      "sha256": "280e950399641bc367826f66405dbc8456621d20b7488c36c16c4ba29856cfbc"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\proxmox-guest-memory-preflight.json",
+      "target_relative": "snapshots/proxmox-guest-memory-preflight.json",
+      "bytes": 1027,
+      "sha256": "05ed84f650e91f82c53b0a34a4e5da5a4810163490ebd6b5a0301e3cb46e22b3"
+    },
+    {
+      "source_absolute": "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\proxmox-vm-donor-preflight.txt",
+      "target_relative": "snapshots/proxmox-vm-donor-preflight.txt",
+      "bytes": 383,
+      "sha256": "99e56dcb1168d98420d910f4f6a225b7fc9c560da99983e8d2b33df3ec003a68"
+    }
+  ]
+}

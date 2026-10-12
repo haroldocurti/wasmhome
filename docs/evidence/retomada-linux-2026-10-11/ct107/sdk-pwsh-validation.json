@@ -1,0 +1,13 @@
+{
+  "clang": "clang version 20.1.8-wasi-sdk (https://github.com/llvm/llvm-project 87f0227cb60147a26a1eeb4fb06e3b505e9c7261)\nTarget: wasm32-unknown-wasi\nThread model: posix\nInstalledDir: /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/wasi-sdk/wasi-sdk-27.0-x86_64-linux/bin\nConfiguration file: /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/wasi-sdk/wasi-sdk-27.0-x86_64-linux/bin/clang.cfg\n",
+  "pwsh": {
+    "version": "7.6.6",
+    "jsonValue": 1,
+    "python": "Python 3.13.5",
+    "hash": "914495b5323e322cb0da50b0e0f419175d8d5be3cf885100731da55620bdf30f"
+  },
+  "pending": [
+    "generator with real wamrc",
+    "IDF configure/build"
+  ]
+}

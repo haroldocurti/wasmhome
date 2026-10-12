@@ -1,0 +1,76 @@
+--- identity ---
+1000
+wasmhome-bench
+--- installed ---
+python3-venv 
+python3.13 3.13.5-2
+tar 1.35+dfsg-3.1
+wget 1.25.0-2
+xz-utils 5.8.1-1
+--- minimal no Python/XZ requests ---
+NOTE: This is only a simulation!
+      apt-get needs root privileges for real execution.
+      Keep also in mind that locking is deactivated,
+      so don't depend on the relevance to the real current situation!
+Reading package lists...
+Building dependency tree...
+Reading state information...
+wget is already the newest version (1.25.0-2).
+The following additional packages will be installed:
+  cmake-data git-man libarchive13t64 libcurl3t64-gnutls liberror-perl libfmt10
+  libhiredis1.1.0 libjsoncpp26 libngtcp2-16 libngtcp2-crypto-gnutls8 librhash1
+  m4
+Suggested packages:
+  bison-doc distcc | icecc cmake-doc cmake-format elpa-cmake-mode
+  build-essential flex-doc git-doc git-email git-gui gitk gitweb git-cvs
+  git-mediawiki git-svn lrzip m4-doc
+Recommended packages:
+  gcc make gcc | c-compiler libfl-dev patch
+The following NEW packages will be installed:
+  bison ccache cmake cmake-data flex git git-man gperf libarchive13t64
+  libcurl3t64-gnutls liberror-perl libfmt10 libhiredis1.1.0 libjsoncpp26
+  libngtcp2-16 libngtcp2-crypto-gnutls8 librhash1 libunwind8 libusb-1.0-0 m4
+  ninja-build
+0 upgraded, 21 newly installed, 0 to remove and 82 not upgraded.
+Inst m4 (1.4.19-8 Debian:13.7/stable [amd64])
+Inst flex (2.6.4-8.2+b4 Debian:13.7/stable [amd64])
+Inst bison (2:3.8.2+dfsg-1+b2 Debian:13.7/stable [amd64])
+Inst libfmt10 (10.1.1+ds1-4 Debian:13.7/stable [amd64])
+Inst libhiredis1.1.0 (1.2.0-6+b3 Debian:13.7/stable [amd64])
+Inst ccache (4.11.2-2 Debian:13.7/stable [amd64])
+Inst cmake-data (3.31.6-2 Debian:13.7/stable [all])
+Inst libarchive13t64 (3.7.4-4+deb13u1 Debian:13.7/stable [amd64])
+Inst libjsoncpp26 (1.9.6-3 Debian:13.7/stable [amd64])
+Inst librhash1 (1.4.5-1 Debian:13.7/stable [amd64])
+Inst cmake (3.31.6-2 Debian:13.7/stable [amd64])
+Inst libngtcp2-16 (1.11.0-1+deb13u1 Debian:13.7/stable, Debian-Security:13/stable-security [amd64])
+Inst libngtcp2-crypto-gnutls8 (1.11.0-1+deb13u1 Debian:13.7/stable, Debian-Security:13/stable-security [amd64])
+Inst libcurl3t64-gnutls (8.14.1-2+deb13u5 Debian:13.7/stable [amd64])
+Inst liberror-perl (0.17030-1 Debian:13.7/stable [all])
+Inst git-man (1:2.47.3-0+deb13u1 Debian:13.7/stable [all])
+Inst git (1:2.47.3-0+deb13u1 Debian:13.7/stable [amd64])
+Inst gperf (3.2.1-1 Debian:13.7/stable [amd64])
+Inst libunwind8 (1.8.1-0.1 Debian:13.7/stable [amd64])
+Inst libusb-1.0-0 (2:1.0.28-1 Debian:13.7/stable [amd64])
+Inst ninja-build (1.12.1-1 Debian:13.7/stable [amd64])
+Conf m4 (1.4.19-8 Debian:13.7/stable [amd64])
+Conf flex (2.6.4-8.2+b4 Debian:13.7/stable [amd64])
+Conf bison (2:3.8.2+dfsg-1+b2 Debian:13.7/stable [amd64])
+Conf libfmt10 (10.1.1+ds1-4 Debian:13.7/stable [amd64])
+Conf libhiredis1.1.0 (1.2.0-6+b3 Debian:13.7/stable [amd64])
+Conf ccache (4.11.2-2 Debian:13.7/stable [amd64])
+Conf cmake-data (3.31.6-2 Debian:13.7/stable [all])
+Conf libarchive13t64 (3.7.4-4+deb13u1 Debian:13.7/stable [amd64])
+Conf libjsoncpp26 (1.9.6-3 Debian:13.7/stable [amd64])
+Conf librhash1 (1.4.5-1 Debian:13.7/stable [amd64])
+Conf cmake (3.31.6-2 Debian:13.7/stable [amd64])
+Conf libngtcp2-16 (1.11.0-1+deb13u1 Debian:13.7/stable, Debian-Security:13/stable-security [amd64])
+Conf libngtcp2-crypto-gnutls8 (1.11.0-1+deb13u1 Debian:13.7/stable, Debian-Security:13/stable-security [amd64])
+Conf libcurl3t64-gnutls (8.14.1-2+deb13u5 Debian:13.7/stable [amd64])
+Conf liberror-perl (0.17030-1 Debian:13.7/stable [all])
+Conf git-man (1:2.47.3-0+deb13u1 Debian:13.7/stable [all])
+Conf git (1:2.47.3-0+deb13u1 Debian:13.7/stable [amd64])
+Conf gperf (3.2.1-1 Debian:13.7/stable [amd64])
+Conf libunwind8 (1.8.1-0.1 Debian:13.7/stable [amd64])
+Conf libusb-1.0-0 (2:1.0.28-1 Debian:13.7/stable [amd64])
+Conf ninja-build (1.12.1-1 Debian:13.7/stable [amd64])

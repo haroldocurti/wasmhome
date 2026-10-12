@@ -12,3 +12,6 @@ sdkconfig
 sdkconfig.old
 sdkconfig.local
 sdkconfig-*
+
+# Generation publishes complete sets; receipts and assembly are outputs too.
+artifacts/

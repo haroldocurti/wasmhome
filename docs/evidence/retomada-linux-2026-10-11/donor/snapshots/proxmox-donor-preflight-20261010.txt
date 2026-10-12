@@ -1,0 +1,20 @@
+{"hostname": "haroldo", "memory_bytes": {"MemTotal": 16631762944, "MemAvailable": 2306097152, "SwapTotal": 8589930496, "SwapFree": 2895523840}}
+COMMAND ["pct", "list"]
+VMID       Status     Lock         Name                
+100        running                 crafty-controller   
+101        running                 pihole              
+105        running                 crawl4ai            
+106        running                 umami               
+107        running                 wasmhome-bench      
+108        running                 paperclip           
+109        stopped                 wasmhome-bench-rebuild
+COMMAND ["pvesm", "status"]
+Name              Type     Status     Total (KiB)      Used (KiB) Available (KiB)        %
+DevServer      lvmthin     active       229609472        30859513       198749958   13.44%
+Webserver      lvmthin     active       229609472        72648436       156961035   31.64%
+backup-hdd         dir     active       960302804       893135460        67150960   93.01%
+local              dir     active        67169672        10704656        53007176   15.94%
+local-lvm      lvmthin     active       136593408        90493132        46100275   66.25%
+COMMAND ["df", "-B1", "/var/lib/vz"]
+Filesystem             1B-blocks        Used   Available Use% Mounted on
+/dev/mapper/pve-root 68781744128 10961567744 54279348224  17% /

@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "wsl",
+    "-d",
+    "Ubuntu",
+    "--",
+    "python3",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "/mnt/c/Users/inomi/Documents/wasmhome/docs/evidence/retomada-linux-2026-10-11/donor/captures",
+    "-p",
+    "test_*.py",
+    "-v"
+  ],
+  "cwd": "C:\\Users\\inomi\\Documents\\wasmhome",
+  "exit_code": 0,
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "83b49cb771303113db147755e2357c611c590e93f91bea2ea4f5d65bd3f74c97",
+  "scope": "repeat local POSIX guards/tests against preserved R3 copies; no SSH, packages, infrastructure, LLVM or AOT"
+}

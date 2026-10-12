@@ -16,38 +16,6 @@ from validate_build_config import sha256, resolved_runtime, validate_artifacts, 
 
 
 class EvidenceTests(unittest.TestCase):
-    def test_resolved_runtime_rejects_hash_version_and_source_mismatch(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = pathlib.Path(temporary)
-            component = root / "managed_components/espressif__wasm-micro-runtime"
-            for name in ("core/config.h", "core/version.h", "core/iwasm/common/wasm_runtime_common.c", "idf_component.yml"):
-                path = component / name
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text("version: 2.4.0~1\nrepository_info:\n  commit_sha: " + "a" * 40 + "\n" if name == "idf_component.yml" else "fixture source\n", newline="\n")
-            files = [dict(path=str(p.relative_to(component)).replace("\\", "/"), size=p.stat().st_size, hash=sha256(p)) for p in component.rglob("*") if p.is_file() and p.name != ".component_hash"]
-            package = hashlib.sha256()
-            for record in sorted(files, key=lambda item: item["path"]):
-                package.update(record["path"].encode())
-                package.update(record["hash"].encode())
-            component_hash = package.hexdigest()
-            (component / ".component_hash").write_text(component_hash)
-            (component / "CHECKSUMS.json").write_text(json.dumps(dict(algorithm="sha256", files=files)))
-            lock = root / "dependencies.lock"
-            lock_text = "dependencies:\n  espressif/wasm-micro-runtime:\n    component_hash: " + component_hash + "\n    version: 2.4.0~1\n"
-            lock.write_text(lock_text)
-            identity = resolved_runtime(root)[0]
-            self.assertEqual(identity["version"], "2.4.0~1")
-            (component / "core/version.h").write_bytes(b"fixture source\r\n")
-            resolved_runtime(root)  # Only the generated header may change newlines.
-            for before, after, message in ((component_hash, "b" * 64, "marker differs"), ("2.4.0~1", "2.4.1", "version differs")):
-                lock.write_text(lock_text.replace(before, after))
-                with self.assertRaisesRegex(ValueError, message):
-                    resolved_runtime(root)
-            lock.write_text(lock_text)
-            (component / "core/config.h").write_text("changed source\n")
-            with self.assertRaisesRegex(ValueError, "runtime file changed"):
-                resolved_runtime(root)
-
     def test_embedding_requires_nonempty_ascii_identifier(self):
         for data, symbol in ((b"", "valid"), (b"a", "ação"), (b"a", "a-b"), (b"a", "while"), (b"a", "_Atomic")):
             with self.assertRaises(ValueError):
@@ -78,24 +46,40 @@ class EvidenceTests(unittest.TestCase):
             with self.subTest(flags=flags), self.assertRaises(ValueError):
                 validate_native_workload([dict(file=source, command=f'cc {flags} -c "{source}"')], ROOT)
 
-    def test_artifact_manifest_rejects_tampering_and_stale_source(self):
+    @patch("validate_build_config.validate_manifest")
+    def test_artifact_manifest_rejects_tampering_and_stale_source(self, provenance_gate):
         with tempfile.TemporaryDirectory() as temporary:
             folder = pathlib.Path(temporary)
-            identity = dict(component="espressif/wasm-micro-runtime", version="2.4.0~1", component_hash="c" * 64, repository_revision="d" * 40)
-            for kind, data in (("wasm", b"\0asm\x01\0\0\0"), ("aot", b"\0aot\x01\0\0\0")):
+            identity = dict(component="wasmhome/wasm-micro-runtime", version="2.4.5-wasmhome.1", component_hash="c" * 64, repository_revision="25bd7eb63e828e4bd242cc9b38d260b4b31c6605", aot_version=5)
+            for kind, data in (("wasm", b"\0asm\x01\0\0\0"), ("aot", b"\0aot\x05\0\0\0")):
                 (folder / f"benchmark.{kind}").write_bytes(data)
                 (folder / f"benchmark_{kind}_embedded.c").write_text(render(data, f"benchmark_{kind}"), encoding="ascii")
             (folder / "benchmark.wasm.s").write_text("loop\n")
-            manifest = dict(schema="wasmhome-e1-artifacts-v1", source_sha256=sha256(ROOT / "workload/benchmark.c"),
+            manifest = dict(schema="wasmhome-e1-artifacts-v3", aot_format_version=5, source_sha256=sha256(ROOT / "workload/benchmark.c"),
                             header_sha256=sha256(ROOT / "workload/benchmark.h"), runtime_identity=dict(identity),
-                            wamrc_source_revision_declared="a" * 40, wamrc_source_provenance="operator_declaration_not_binary_origin_proof",
-                            wamrc_version="wamrc 2.4.0", wamrc_path="fixture-wamrc", wamrc_sha256="a" * 64,
+                            wamrc_source_revision="25bd7eb63e828e4bd242cc9b38d260b4b31c6605",
+                            wamrc_version="wamrc 2.4.5", wamrc_path="fixture-wamrc", wamrc_sha256="a" * 64,
                             clang_version="clang fixture", clang_path="fixture-clang", clang_sha256="b" * 64,
                             expected_checksum="0xDBB2F0D4", clang_flags=["--target=wasm32-wasi", "-O3"], aot_flags=["--target=xtensa", "--bounds-checks=1", "--disable-llvm-lto", "-O3"],
                             files={p.name: dict(sha256=sha256(p), bytes=p.stat().st_size) for p in folder.iterdir()})
             path = folder / "build-manifest.json"
             path.write_text(json.dumps(manifest))
             validate_artifacts(folder, ROOT, check_tools=False, runtime_identity=identity)
+            for key, value in (("schema", "wasmhome-e1-artifacts-v1"), ("aot_format_version", 4)):
+                original_value = manifest[key]
+                manifest[key] = value
+                path.write_text(json.dumps(manifest))
+                with self.subTest(key=key), self.assertRaises(ValueError):
+                    validate_artifacts(folder, ROOT, check_tools=False, runtime_identity=identity)
+                manifest[key] = original_value
+            aot = folder / "benchmark.aot"
+            aot.write_bytes(b"\0aot\x04\0\0\0")
+            manifest["files"][aot.name] = dict(sha256=sha256(aot), bytes=aot.stat().st_size)
+            path.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(ValueError, "AOT format must be version 5"):
+                validate_artifacts(folder, ROOT, check_tools=False, runtime_identity=identity)
+            aot.write_bytes(b"\0aot\x05\0\0\0")
+            manifest["files"][aot.name] = dict(sha256=sha256(aot), bytes=aot.stat().st_size)
             for key in ("clang_flags", "aot_flags"):
                 original = manifest[key][:]
                 for flags in ([flag for flag in original if flag != "-O3"], [flag.replace("-O3", "-O2") for flag in original], original + ["-O2"]):
@@ -132,12 +116,12 @@ class EvidenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             tool = pathlib.Path(temporary) / "fixture-tool"
             tool.write_bytes(b"tool")
-            manifest = dict(wamrc_source_revision_declared="a" * 40, wamrc_source_provenance="operator_declaration_not_binary_origin_proof",
-                            wamrc_version="wamrc 2.4.0", wamrc_path=str(tool), wamrc_sha256=sha256(tool),
+            manifest = dict(wamrc_source_revision="25bd7eb63e828e4bd242cc9b38d260b4b31c6605",
+                            wamrc_version="wamrc 2.4.5", wamrc_path=str(tool), wamrc_sha256=sha256(tool),
                             clang_version="clang fixture", clang_path=str(tool), clang_sha256=sha256(tool))
-            with patch("validate_build_config.subprocess.run", side_effect=[SimpleNamespace(stdout="wamrc 2.4.0\n", stderr=""), SimpleNamespace(stdout="clang fixture\n", stderr="")]):
+            with patch("validate_build_config.subprocess.run", side_effect=[SimpleNamespace(stdout="wamrc 2.4.5\n", stderr=""), SimpleNamespace(stdout="clang fixture\n", stderr="")]):
                 validate_toolchain(manifest)
-            for key, value in (("wamrc_source_revision_declared", "abc"), ("wamrc_version", "wamrc 2.4.1"), ("wamrc_sha256", "0" * 64)):
+            for key, value in (("wamrc_source_revision", "abc"), ("wamrc_source_revision", "47c7c85ac21f240a878026af603e032065d183fb"), ("wamrc_version", "wamrc 2.4.1"), ("wamrc_sha256", "0" * 64)):
                 with self.subTest(key=key), self.assertRaises(ValueError):
                     validate_toolchain(dict(manifest, **{key: value}))
             with patch("validate_build_config.subprocess.run", return_value=SimpleNamespace(stdout="wamrc 2.4.1\n", stderr="")), self.assertRaisesRegex(ValueError, "version differs"):
@@ -165,7 +149,7 @@ class EvidenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="wasmhome-cmake-") as temporary:
             root = pathlib.Path(temporary)
             (root / "tools").mkdir()
-            for name in ("validate_build_config.py", "embed_artifact.py"):
+            for name in ("validate_build_config.py", "embed_artifact.py", "evidence_json.py", "toolchain_provenance.py", "runtime_package.py"):
                 shutil.copyfile(ROOT / "tools" / name, root / "tools" / name)
             (root / "artifacts").mkdir()
             (root / "artifacts/benchmark.wasm").write_bytes(b"old payload")

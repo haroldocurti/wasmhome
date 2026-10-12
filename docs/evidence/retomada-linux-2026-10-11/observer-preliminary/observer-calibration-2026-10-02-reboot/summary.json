@@ -1,0 +1,24 @@
+{
+  "attempt_id": "4d95e103-dd5d-43d2-a310-e8a0290acd15",
+  "boot_ids": [],
+  "period_ns": 100000000,
+  "timeout_ns": 300000000,
+  "sent_controls": 0,
+  "lost_controls": 0,
+  "counters": {
+    "awaiting_boot": 40
+  },
+  "control_max_gap_ns": null,
+  "control_unavailability_estimate_ns": null,
+  "telemetry_max_gap_ns": null,
+  "first_control_valid_ns": null,
+  "last_control_valid_ns": null,
+  "last_telemetry_valid_ns": null,
+  "unresolved_sequence_gaps": {},
+  "accepted_ns": null,
+  "activated_ns": null,
+  "update_total_ns": null,
+  "observation_start_ns": 7598619319500,
+  "observation_end_ns": 7602920986700,
+  "control_tail_censored_ns": null
+}

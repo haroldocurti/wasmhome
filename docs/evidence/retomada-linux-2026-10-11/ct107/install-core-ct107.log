@@ -1,0 +1,134 @@
+Verified pyserial-3.5-py2.py3-none-any.whl
+Verified click-8.1.8-py3-none-any.whl
+Verified packaging-26.3-py3-none-any.whl
+Verified setuptools-84.0.0-py3-none-any.whl
+Verified pyelftools-0.33-py3-none-any.whl
+Verified pyparsing-3.2.5-py3-none-any.whl
+Verified idf_component_manager-2.5.2-py3-none-any.whl
+Verified construct-2.10.70-py3-none-any.whl
+Verified esp_coredump-1.17.2-py3-none-any.whl
+Verified esp_idf_kconfig-1.5.0-py3-none-any.whl
+Verified reedsolo-1.7.0-py3-none-any.whl
+Verified esptool-4.12.0.tar.gz
+Verified esp_idf_panic_decoder-1.5.0-py3-none-any.whl
+Verified cryptography-41.0.7-cp37-abi3-manylinux_2_28_x86_64.whl
+Verified esp_idf_monitor-1.10.0-py3-none-any.whl
+Verified esp_idf_size-1.7.1-py3-none-any.whl
+Verified pyclang-0.7.0-py3-none-any.whl
+Verified freertos_gdb-1.0.4-py3-none-any.whl
+Verified argcomplete-3.7.2-py3-none-any.whl
+Verified bitstring-4.4.0-py3-none-any.whl
+Verified bitarray-3.12.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+Verified tibs-0.5.7-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+Verified ecdsa-0.19.2-py2.py3-none-any.whl
+Verified cffi-2.1.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+Verified rich_click-1.9.9-py3-none-any.whl
+Verified esp_pylib-1.2.0-py3-none-any.whl
+Verified kconfiglib-14.1.0-py2.py3-none-any.whl
+Verified annotated_types-0.8.0-py3-none-any.whl
+Verified pygdbmi-0.11.0.0-py3-none-any.whl
+Verified pydantic-2.14.0-py3-none-any.whl
+Verified pydantic_core-2.50.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+Verified rich-15.0.0-py3-none-any.whl
+Verified pyyaml-6.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+Verified mdurl-0.1.2-py3-none-any.whl
+Verified markdown_it_py-4.2.0-py3-none-any.whl
+Verified six-1.17.0-py2.py3-none-any.whl
+Verified pygments-2.21.0-py3-none-any.whl
+Verified typing_extensions-4.16.0-py3-none-any.whl
+Verified typing_inspection-0.4.4-py3-none-any.whl
+Verified colorama-0.4.6-py2.py3-none-any.whl
+Verified intelhex-2.3.0-py2.py3-none-any.whl
+Verified pathvalidate-3.3.1-py3-none-any.whl
+Verified jsonref-1.1.0-py3-none-any.whl
+Verified pycparser-3.11-py3-none-any.whl
+Verified psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl
+Verified pydantic_settings-2.15.0-py3-none-any.whl
+Verified python_dotenv-1.2.4-py3-none-any.whl
+Verified requests-2.34.2-py3-none-any.whl
+Verified charset_normalizer-3.5.2-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+Verified urllib3-1.26.20-py2.py3-none-any.whl
+Verified idna-3.20-py3-none-any.whl
+Verified requests_file-3.0.1-py2.py3-none-any.whl
+Verified certifi-2026.7.22-py3-none-any.whl
+Verified ruamel_yaml-0.19.1-py3-none-any.whl
+Verified requests_toolbelt-1.0.0-py2.py3-none-any.whl
+Verified tqdm-4.70.1-py3-none-any.whl
+Verified truststore-0.10.4-py3-none-any.whl
+Looking in links: /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/core-distributions
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-distributions/setuptools-84.0.0-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/setuptools-bootstrap.lock (line 1))
+Installing collected packages: setuptools
+Successfully installed setuptools-84.0.0
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-distributions/esptool-4.12.0.tar.gz
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: esptool
+  Building wheel for esptool (pyproject.toml): started
+  Building wheel for esptool (pyproject.toml): finished with status 'done'
+  Created wheel for esptool: filename=esptool-4.12.0-py3-none-any.whl size=616540 sha256=615ebb05eabc9d062504cd64df0dcea7041b443bbae24bf371ed0130e92e62c5
+  Stored in directory: /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/tmp/pip-ephem-wheel-cache-m5plngcv/wheels/87/9d/c7/b0f40745a28b15a0b87e16d0670f85c6dbe85c3a33bea4afca
+Successfully built esptool
+Looking in links: /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse
+Requirement already satisfied: setuptools==84.0.0 in ./.local/toolchains/wasmhome-e1-20261010-187ff962/idf526-py313/lib/python3.13/site-packages (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 1)) (84.0.0)
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/packaging-26.3-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 2))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/click-8.1.8-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 3))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/pyserial-3.5-py2.py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 4))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/cryptography-41.0.7-cp37-abi3-manylinux_2_28_x86_64.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 5))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/pyparsing-3.2.5-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 6))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/pyelftools-0.33-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 7))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/idf_component_manager-2.5.2-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 8))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/esp_coredump-1.17.2-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 9))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/construct-2.10.70-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 10))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/esptool-4.12.0-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 11))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/reedsolo-1.7.0-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 12))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/esp_idf_kconfig-1.5.0-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 13))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/esp_idf_monitor-1.10.0-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 14))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/esp_idf_panic_decoder-1.5.0-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 15))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/esp_idf_size-1.7.1-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 16))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/pyclang-0.7.0-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 17))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/freertos_gdb-1.0.4-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 18))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/argcomplete-3.7.2-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 19))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/bitstring-4.4.0-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 20))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/bitarray-3.12.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 21))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/tibs-0.5.7-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 22))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/cffi-2.1.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 23))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/ecdsa-0.19.2-py2.py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 24))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/esp_pylib-1.2.0-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 25))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/rich_click-1.9.9-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 26))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/kconfiglib-14.1.0-py2.py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 27))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/pydantic-2.14.0-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 28))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/pydantic_core-2.50.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 29))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/annotated_types-0.8.0-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 30))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/pygdbmi-0.11.0.0-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 31))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/pyyaml-6.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 32))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/rich-15.0.0-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 33))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/pygments-2.21.0-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 34))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/markdown_it_py-4.2.0-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 35))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/mdurl-0.1.2-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 36))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/six-1.17.0-py2.py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 37))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/typing_extensions-4.16.0-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 38))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/typing_inspection-0.4.4-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 39))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/colorama-0.4.6-py2.py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 40))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/intelhex-2.3.0-py2.py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 41))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/jsonref-1.1.0-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 42))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/pathvalidate-3.3.1-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 43))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 44))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/pycparser-3.11-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 45))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/pydantic_settings-2.15.0-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 46))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/python_dotenv-1.2.4-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 47))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/requests-2.34.2-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 48))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/charset_normalizer-3.5.2-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 49))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/idna-3.20-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 50))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/urllib3-1.26.20-py2.py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 51))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/certifi-2026.7.22-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 52))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/requests_file-3.0.1-py2.py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 53))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/requests_toolbelt-1.0.0-py2.py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 54))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/ruamel_yaml-0.19.1-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 55))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/tqdm-4.70.1-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 56))
+Processing ./.local/toolchains/wasmhome-e1-20261010-187ff962/core-wheelhouse/truststore-0.10.4-py3-none-any.whl (from -r /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-core-frozen.lock (line 57))
+Installing collected packages: requests-file, reedsolo, pyserial, pygdbmi, intelhex, urllib3, typing-inspection, typing_extensions, truststore, tqdm, tibs, six, ruamel.yaml, rich-click, rich, requests-toolbelt, requests, PyYAML, python-dotenv, pyparsing, Pygments, pyelftools, pydantic-settings, pydantic_core, pydantic, pycparser, pyclang, psutil, pathvalidate, packaging, mdurl, markdown-it-py, kconfiglib, jsonref, idna, idf-component-manager, freertos-gdb, esptool, esp-pylib, esp-idf-size, esp_idf_panic_decoder, esp-idf-monitor, esp-idf-kconfig, esp-coredump, ecdsa, cryptography, construct, colorama, click, charset-normalizer, cffi, certifi, bitstring, bitarray, argcomplete, annotated-types
+
+Successfully installed PyYAML-6.0.3 Pygments-2.21.0 annotated-types-0.8.0 argcomplete-3.7.2 bitarray-3.12.0 bitstring-4.4.0 certifi-2026.7.22 cffi-2.1.1 charset-normalizer-3.5.2 click-8.1.8 colorama-0.4.6 construct-2.10.70 cryptography-41.0.7 ecdsa-0.19.2 esp-coredump-1.17.2 esp-idf-kconfig-1.5.0 esp-idf-monitor-1.10.0 esp-idf-size-1.7.1 esp-pylib-1.2.0 esp_idf_panic_decoder-1.5.0 esptool-4.12.0 freertos-gdb-1.0.4 idf-component-manager-2.5.2 idna-3.20 intelhex-2.3.0 jsonref-1.1.0 kconfiglib-14.1.0 markdown-it-py-4.2.0 mdurl-0.1.2 packaging-26.3 pathvalidate-3.3.1 psutil-7.2.2 pyclang-0.7.0 pycparser-3.11 pydantic-2.14.0 pydantic-settings-2.15.0 pydantic_core-2.50.0 pyelftools-0.33 pygdbmi-0.11.0.0 pyparsing-3.2.5 pyserial-3.5 python-dotenv-1.2.4 reedsolo-1.7.0 requests-2.34.2 requests-file-3.0.1 requests-toolbelt-1.0.0 rich-15.0.0 rich-click-1.9.9 ruamel.yaml-0.19.1 six-1.17.0 tibs-0.5.7 tqdm-4.70.1 truststore-0.10.4 typing-inspection-0.4.4 typing_extensions-4.16.0 urllib3-1.26.20
+No broken requirements found.
+["ssl", "ctypes", "lzma", "cryptography.hazmat.bindings._rust", "_cffi_backend", "kconfiglib", "esptool", "idf_component_manager", "esp_coredump", "serial", "psutil", "pydantic_core", "pyclang"]
+{"schema": "wasmhome-idf-core-install-v1", "distributions": 57, "resolver_sha256": "535820edadaa9a577df7483416b64a15183cd625b70b0d9ff5e273afb9cd69f0", "lock_sha256": "914495b5323e322cb0da50b0e0f419175d8d5be3cf885100731da55620bdf30f", "freeze_sha256": "b94ef372378057055e676639d74224c85820479787eb727204c3374784c1aac6", "imports": ["ssl", "ctypes", "lzma", "cryptography.hazmat.bindings._rust", "_cffi_backend", "kconfiglib", "esptool", "idf_component_manager", "esp_coredump", "serial", "psutil", "pydantic_core", "pyclang"], "pending": ["IDF configure/native build", "runtime B/C builds and physical proof"]}

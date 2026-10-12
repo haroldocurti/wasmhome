@@ -1,0 +1,19 @@
+{
+  "schema": "wasmhome-e1-build-v1",
+  "scenario": "native",
+  "status": "build_checked_not_device_validated",
+  "elf_sha256": "35ed6729ac02653ab36a296131a64636a86b775662bf0f61c80192d776305b9a",
+  "effective_config_sha256": "aab9531c01984b9961721b1517c9bbb9e9dcc972da418700b639be61d55906c6",
+  "compile_commands_sha256": "49775767aa65550f0cfbaca01ab6bce4dcda22f04d76f92c979524dad01e2109",
+  "pending": [
+    "inspect native/AOT workload disassembly",
+    "execute checksum on ESP32-S3"
+  ],
+  "runtime_resolved": {
+    "component": "espressif/wasm-micro-runtime",
+    "version": "2.4.0~1",
+    "component_hash": "04f25aad2896b5e906397a061d35cce560609bebd3913a4be7e365ecbf2dd9d6",
+    "repository_revision": "8f806e0f2c02a768d2c35044f2964f769612d9bc"
+  },
+  "workload_optimization": "-O3"
+}

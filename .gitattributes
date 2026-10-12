@@ -8,3 +8,7 @@ main/Kconfig.projbuild -text
 tools/probe_lxc_network.py -text
 tools/observation_protocol_v1.py -text whitespace=cr-at-eol
 tools/probe-platform.py -text whitespace=cr-at-eol
+# These bytes participate in the candidate port reproducible identity.
+runtime-port/** text eol=lf
+runtime-port/*.patch whitespace=-blank-at-eol
+docs/evidence/retomada-linux-2026-10-11/** -text whitespace=-blank-at-eol,-blank-at-eof

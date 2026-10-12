@@ -1,5 +1,10 @@
 # Suplemento de decisões da toolchain #7
 
+Atualização de estado em 11/10: o [registro de retomada pelo Linux](retomada-linux.md)
+supera os estados históricos abaixo. SDKs/venv e build nativo no CT107 foram
+executados; LLVM/wamrc real, geração/repetição A/B/C e aceite #7/#9 seguem pendentes.
+
+
 10/10/2026. Somente preparação. Complementa [proposta-toolchain.md](proposta-toolchain.md) sem alterar
 o documento em revisão nem fontes rastreadas. Este agente não instalou ferramentas,
 iniciou WSL, compilou, acessou COM ou escreveu remotamente. O coordenador fez o

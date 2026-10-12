@@ -9,8 +9,11 @@ import shlex
 import subprocess
 
 from embed_artifact import render
+from evidence_json import read
+from toolchain_provenance import validate_manifest, idf_identity
 
-RUNTIME_COMPONENT = "espressif/wasm-micro-runtime"
+RUNTIME_COMPONENT = "wasmhome/wasm-micro-runtime"
+WAMR_REVISION = "25bd7eb63e828e4bd242cc9b38d260b4b31c6605"
 
 
 def sha256(path):
@@ -44,51 +47,13 @@ def scalar(text, key):
 
 
 def resolved_runtime(root):
-    lock = (root / "dependencies.lock").read_text()
-    match = re.search(r"(?ms)^  espressif/wasm-micro-runtime:\n(.*?)(?=^  \S|^\S|\Z)", lock)
-    require(match is not None, "runtime missing from dependencies.lock")
-    # Ignore transitive dependency's nested version while reading the component.
-    versions = re.findall(r"(?m)^    version:\s*['\"]?([^'\"\r\n]+?)['\"]?\s*$", match[1])
-    require(len(versions) == 1, "runtime version missing/ambiguous in lock")
-    version = versions[0]
-    component_hash = scalar(match[1], "component_hash")
-    require(re.fullmatch(r"[0-9a-f]{64}", component_hash), "invalid runtime component hash")
-    directory = root / "managed_components/espressif__wasm-micro-runtime"
-    require((directory / ".component_hash").read_text().strip() == component_hash, "resolved runtime marker differs from lock")
-    metadata = (directory / "idf_component.yml").read_text()
-    require(scalar(metadata, "version") == version, "resolved runtime version differs from lock")
-    checksums = json.loads((directory / "CHECKSUMS.json").read_text())
-    require(checksums.get("algorithm") == "sha256" and isinstance(checksums.get("files"), list), "invalid runtime file checksums")
-    checked = set()
-    for record in checksums["files"]:
-        file = (directory / record["path"]).resolve()
-        require(file.is_relative_to(directory.resolve()) and file not in checked, "invalid/duplicate runtime checksum path")
-        require(file.is_file(), f"resolved runtime file missing: {record['path']}")
-        data = file.read_bytes()
-        # WAMR configure_file regenerates only this header with host newlines.
-        # Permit that exact, verified content normalization; no source exception.
-        if record["path"] == "core/version.h" and hashlib.sha256(data).hexdigest() != record["hash"]:
-            data = data.replace(b"\r\n", b"\n")
-        require(len(data) == record["size"] and hashlib.sha256(data).hexdigest() == record["hash"], f"resolved runtime file changed: {record['path']}")
-        checked.add(file)
-    for name in ("core/config.h", "core/version.h", "core/iwasm/common/wasm_runtime_common.c", "idf_component.yml"):
-        require((directory / name).resolve() in checked, f"runtime checksum omitted critical source: {name}")
-    # Espressif component hash: sorted relative path + per-file SHA-256 text.
-    # Reconstruct it from the verified original bytes, including version.h's
-    # canonical package form, rather than trusting the marker alone.
-    package = hashlib.sha256()
-    for record in sorted(checksums["files"], key=lambda item: item["path"]):
-        package.update(record["path"].encode("utf-8"))
-        package.update(record["hash"].encode("utf-8"))
-    require(package.hexdigest() == component_hash, "runtime package hash differs from lock")
-    return dict(component=RUNTIME_COMPONENT, version=version, component_hash=component_hash,
-                repository_revision=scalar(metadata, "commit_sha")), directory.resolve(), checked
+    from runtime_package import verify
+    return verify(root)
 
 
 def validate_toolchain(manifest, check_tools=True):
-    require(re.fullmatch(r"[0-9a-fA-F]{40}", manifest.get("wamrc_source_revision_declared", "")), "missing/full wamrc source Git SHA required")
-    require(manifest.get("wamrc_source_provenance") == "operator_declaration_not_binary_origin_proof", "compiler origin must remain explicitly unproven")
-    require(re.fullmatch(r"wamrc\s+2\.4\.0", manifest.get("wamrc_version", "")), "wamrc version differs from runtime candidate")
+    require(manifest.get("wamrc_source_revision") == WAMR_REVISION, "wamrc source must match pinned upstream Git SHA")
+    require(re.fullmatch(r"wamrc\s+2\.4\.5", manifest.get("wamrc_version", "")), "wamrc version differs from runtime candidate")
     for name in ("wamrc", "clang"):
         require(re.fullmatch(r"[0-9a-f]{64}", manifest.get(f"{name}_sha256", "")), f"invalid {name} executable hash")
         require(bool(manifest.get(f"{name}_path")) and bool(manifest.get(f"{name}_version")), f"missing {name} executable identity")
@@ -100,13 +65,15 @@ def validate_toolchain(manifest, check_tools=True):
 
 
 def validate_artifacts(directory, root, check_tools=True, runtime_identity=None):
-    manifest = json.loads((directory / "build-manifest.json").read_text(encoding="utf-8-sig"))
-    require(manifest.get("schema") == "wasmhome-e1-artifacts-v1", "missing artifact manifest schema")
+    manifest = read(directory / "build-manifest.json")
+    require(manifest.get("schema") == "wasmhome-e1-artifacts-v3", "missing artifact manifest schema")
     require(manifest.get("source_sha256") == sha256(root / "workload/benchmark.c"), "workload source changed")
     require(manifest.get("header_sha256") == sha256(root / "workload/benchmark.h"), "workload header changed")
     identity = runtime_identity or resolved_runtime(root)[0]
     require(manifest.get("runtime_identity") == identity, "artifact runtime identity differs from resolved component")
-    require(identity["version"] == "2.4.0~1", "unexpected runtime candidate")
+    require(identity["component"] == RUNTIME_COMPONENT and identity["version"] == "2.4.5-wasmhome.1" and identity["repository_revision"] == WAMR_REVISION and identity["aot_version"] == 5, "unexpected runtime candidate")
+    require(manifest.get("aot_format_version") == 5, "manifest AOT format must be version 5")
+    validate_manifest(manifest, root)
     validate_toolchain(manifest, check_tools)
     require(manifest.get("expected_checksum") == "0xDBB2F0D4", "unexpected checksum contract")
     clang_flags = manifest.get("clang_flags")
@@ -128,7 +95,7 @@ def validate_artifacts(directory, root, check_tools=True, runtime_identity=None)
         require(path.is_file() and path.stat().st_size > 0, f"missing/nonempty artifact: {name}")
         require(record.get("sha256") == sha256(path) and record.get("bytes") == path.stat().st_size, f"artifact hash/size mismatch: {name}")
     require((directory / "benchmark.wasm").read_bytes()[:8] == b"\0asm\x01\0\0\0", "invalid Wasm header")
-    require((directory / "benchmark.aot").read_bytes()[:4] == b"\0aot", "invalid AOT header")
+    require((directory / "benchmark.aot").read_bytes()[:8] == b"\0aot\x05\0\0\0", "AOT format must be version 5 for WAMR 2.4.5")
     for kind in ("wasm", "aot"):
         expected = render((directory / f"benchmark.{kind}").read_bytes(), f"benchmark_{kind}")
         require((directory / f"benchmark_{kind}_embedded.c").read_text(encoding="ascii") == expected, f"embedded {kind} differs from payload")
@@ -195,7 +162,7 @@ def main():
             return
         if args.artifact_integrity:
             validate_artifacts(root / "artifacts", root, check_tools=False)
-            print("Artifact manifest, runtime identity and payload hashes checked; binary compiler origin remains pending")
+            print("Artifact manifest, runtime identity and payload hashes checked; unsigned compiler receipt remains subject to independent rebuild")
             return
         require(args.build_dir is not None and args.scenario is not None and args.nm is not None, "build-dir, scenario and nm are required for build validation")
         build = args.build_dir.resolve()
@@ -207,12 +174,17 @@ def main():
         commands = json.loads((build / "compile_commands.json").read_text())
         command = next(x["command"] for x in commands if pathlib.Path(x["file"]).name == "main.c")
         require(f"WASMHOME_SCENARIO_{args.scenario.upper()}=1" in command, "main compile scenario differs")
-        identity, runtime_directory, checked = resolved_runtime(root)
+        identity = None
+        if args.scenario != "native":
+            identity, runtime_directory, checked = resolved_runtime(root)
         if args.scenario == "native":
             validate_native_workload(commands, root)
         if args.scenario != "native":
             validate_runtime_commands(commands, args.scenario, runtime_directory, checked)
             validate_artifacts(root / "artifacts", root, runtime_identity=identity)
+        import os
+        require(bool(os.environ.get("IDF_PATH")), "IDF_PATH required for pinned build identity")
+        actual_idf = idf_identity(pathlib.Path(os.environ["IDF_PATH"]))
         description = json.loads((build / "project_description.json").read_text())
         require(pathlib.Path(description["build_dir"]).resolve() == build, "build description belongs to another directory")
         elf = build / description["app_elf"]
@@ -220,11 +192,13 @@ def main():
         symbols = {line.split()[-1] for line in listing.splitlines() if len(line.split()) >= 3}
         validate_symbols(symbols, args.scenario)
         evidence = {"schema": "wasmhome-e1-build-v1", "scenario": args.scenario, "status": "build_checked_not_device_validated", "elf_sha256": sha256(elf), "effective_config_sha256": sha256(config_path), "compile_commands_sha256": sha256(build / "compile_commands.json"), "pending": ["inspect native/AOT workload disassembly", "execute checksum on ESP32-S3"]}
+        evidence["idf_identity"] = actual_idf
+        evidence["source_revision"] = __import__("toolchain_provenance").workspace(root)
         evidence["runtime_resolved"] = identity
         evidence["workload_optimization"] = "-O3"
         if args.scenario != "native":
             evidence["artifact_manifest_sha256"] = sha256(root / "artifacts/build-manifest.json")
-            evidence["pending"].append("verify compiler binary build origin; source Git SHA is operator declared")
+            evidence["pending"].append("independent rebuild/attestation of unsigned compiler build receipt")
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")

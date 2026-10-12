@@ -1,0 +1,11 @@
+# Revisão independente da evidência nativa — CT107
+
+Pin do candidato: `187ff96279ed8e6d3da14b7663ce5b5e856dff49`; tree `70580c660a5642e9f7226c0d9813b805ee8b3c64`.
+
+Escopo: leitura local de `build-session-e1/native-final-ct107/`, `progresso-toolchain-ct107.md` e do snapshot `native-e1-build-check.json`; nenhuma conexão SSH, alteração de hardware, execução de build ou edição rastreada nesta revisão.
+
+Conclusão limitada: sem blocker para registrar que o build do cenário nativo compilou no CT107 com exit 0, IDF 5.2.6 e `-O3` efetivo no workload. Os hashes locais conferem com o inventário para `wasmhome_bench.bin` (`bef4b0b0ce7061d3f2cb693a8d3f0240a95d84a80fa31b5379aaa3bb2e74f73c`), build-check (`6c01fe758aa8e950abe41f3e8ca60893c617a91fe73d036d7401f881c02df4ff`), comandos (`40024339af60b2349c78fd949c9914d181436b9b99bbf646be5b251443b2a1fb`), disassembly (`f4e50ee8b9113114b9689dad90585de2f83b0b0c1ca17b1bc2f859e934ea93d0`), lock (`aa459686d7f8cb76b051bfae72d2cd1c7005f2a3f2460937ccb567b0e4af94ad`) e pacote dos managed components (`8f81ba04c91c8531cd2c8ec04ec62be410ceadf779d0a727665b389ff45e8dea`). O disassembly mostra `movi a10, 0x7d0` (2000 iterações), multiplicações, XOR e shifts no laço de `benchmark_run`; não é um retorno constante. A checagem do coordenador confirma 18 arquivos managed, 16 hashes de arquivo do `CHECKSUMS.json` e quatro fontes compiladas vinculadas ao `compile_commands.json`.
+
+Limites: o `.bin` local coincide com a coleta. A cópia local do ELF é incompleta (3.244.032 bytes, SHA-256 `febf421a07e2808189f9fca29c352efc4f2459ac7e1cf8e996aa363a1ab63459`); o ELF completo tem 9.196.308 bytes e SHA-256 `3ffca7b09a450e0ac63f5e0d1ea67fb3d672eb55684ad9b6d7953898f90df500` registrados na coleta remota. Não considero a cópia truncada como prova; a evidência de ELF/disassembly depende da coleta remota preservada e de seu inventário. Build nativo não prova checksum na placa, AOT/wamrc, B/C, nem aceitação de #7/#9. Python do sistema permanece 3.13.5, conforme recibo de coleta.
+
+Achado documental P3: o snapshot `native-e1-build-check.json` ainda lista `inspect native/AOT workload disassembly` como pendente, embora o disassembly nativo já esteja coletado e conferido. Convém separar a pendência restante como inspeção AOT; a validação física continua pendente. O recibo de progresso já limita o resultado nativo e não aceita B/C.

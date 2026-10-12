@@ -1,5 +1,10 @@
 # Proposta de execução da toolchain, issue #7
 
+Atualização de estado em 11/10: o [registro de retomada pelo Linux](retomada-linux.md)
+supera os estados históricos abaixo. SDKs/venv e build nativo no CT107 foram
+executados; LLVM/wamrc real, geração/repetição A/B/C e aceite #7/#9 seguem pendentes.
+
+
 Preparada em 09/10/2026, concluída em 10/10/2026. Status: proposta verificável,
 sem instalação, build LLVM, geração Wasm/AOT ou alteração remota executados.
 O preflight começou na árvore `a58a516c6f72545c317a25a5085367c9ba3ee82e`.

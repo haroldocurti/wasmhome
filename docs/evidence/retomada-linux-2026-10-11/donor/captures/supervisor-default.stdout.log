@@ -1,0 +1,8 @@
+{
+  "status": "proposal_only_no_remote_calls",
+  "host": "root@192.168.0.99",
+  "ctid": 110,
+  "lease_interval_seconds": 10,
+  "stale_limit_seconds": 30,
+  "final_state": "normal shutdown newCT110 only; no force; preserve outputs"
+}

@@ -1,0 +1,9 @@
+{
+  "schema": "wasmhome-donor-review-gate-v1",
+  "status": "pending_resource_authorization_and_script_review",
+  "scope": "donor_build_only",
+  "revision": "187ff96279ed8e6d3da14b7663ce5b5e856dff49",
+  "tree": "70580c660a5642e9f7226c0d9813b805ee8b3c64",
+  "review_receipt_sha256": null,
+  "note": "The runtime review passed; this template is not an approval to create/start CT110 or execute the ignored donor proposal. Root must record actual scope and receipt after those gates."
+}

@@ -1,0 +1,31 @@
+test_boot_absent_repeated_or_changed_cannot_claim_continuity (test_capture_lxc_probe.CaptureGates.test_boot_absent_repeated_or_changed_cannot_claim_continuity) ... ok
+test_equal_frame_command_timestamp_remains_inconclusive (test_capture_lxc_probe.CaptureGates.test_equal_frame_command_timestamp_remains_inconclusive) ... ok
+test_existing_directory_rejected_before_uart_or_socket_and_preserves_data (test_capture_lxc_probe.CaptureGates.test_existing_directory_rejected_before_uart_or_socket_and_preserves_data) ... ok
+test_malformed_nonce_wrong_ips_or_wrong_port_cannot_pass (test_capture_lxc_probe.CaptureGates.test_malformed_nonce_wrong_ips_or_wrong_port_cannot_pass) ... ok
+test_negative_attempt_never_proves_absent_reader (test_capture_lxc_probe.CaptureGates.test_negative_attempt_never_proves_absent_reader) ... ok
+test_only_pre_result_udp_or_duplicate_post_frames_cannot_pass (test_capture_lxc_probe.CaptureGates.test_only_pre_result_udp_or_duplicate_post_frames_cannot_pass) ... ok
+test_other_serial_command_cannot_correlate_as_lxc_request (test_capture_lxc_probe.CaptureGates.test_other_serial_command_cannot_correlate_as_lxc_request) ... ok
+test_positive_transcript_remains_pending_server_pairing (test_capture_lxc_probe.CaptureGates.test_positive_transcript_remains_pending_server_pairing) ... ok
+test_stale_or_duplicate_serial_results_are_rejected (test_capture_lxc_probe.CaptureGates.test_stale_or_duplicate_serial_results_are_rejected) ... ok
+test_derivation_rejects_duplicate_json_keys_without_writing (test_verify_e1_native.NativeEvidenceTests.test_derivation_rejects_duplicate_json_keys_without_writing) ... ok
+test_duplicate_boot_reordered_rows_and_wrong_elf_rejected (test_verify_e1_native.NativeEvidenceTests.test_duplicate_boot_reordered_rows_and_wrong_elf_rejected) ... ok
+test_empty_wrong_checksum_status_or_missing_row_rejected (test_verify_e1_native.NativeEvidenceTests.test_empty_wrong_checksum_status_or_missing_row_rejected) ... ok
+test_failed_verification_preserves_existing_derivatives (test_verify_e1_native.NativeEvidenceTests.test_failed_verification_preserves_existing_derivatives) ... Native E1 evidence rejected: [Errno 2] No such file or directory: 'C:\\Users\\inomi\\AppData\\Local\\Temp\\tmp41jm84wc\\missing.bin'
+ok
+test_prepare_requires_new_destination_and_valid_inputs_before_writes (test_verify_e1_native.NativeEvidenceTests.test_prepare_requires_new_destination_and_valid_inputs_before_writes) ... usage: verify-e1-native.py [-h] [--prepare] [--prepare-output PREPARE_OUTPUT]
+                           [--build-dir BUILD_DIR] [--artifact ARTIFACT]
+                           [--derive-output DERIVE_OUTPUT]
+verify-e1-native.py: error: --prepare requires --prepare-output NEW_DIRECTORY; physical verification is a separate command
+ok
+test_preserved_raw_capture_passes (test_verify_e1_native.NativeEvidenceTests.test_preserved_raw_capture_passes) ... ok
+test_actual_positive_roundtrip_and_controlled_negative (test_verify_lxc_pair.PairingGates.test_actual_positive_roundtrip_and_controlled_negative) ... ok
+test_different_nonce_cannot_pair (test_verify_lxc_pair.PairingGates.test_different_nonce_cannot_pair) ... ok
+test_multiple_server_requests_cannot_be_treated_as_isolated_pair (test_verify_lxc_pair.PairingGates.test_multiple_server_requests_cannot_be_treated_as_isolated_pair) ... ok
+test_original_clock_tie_capture_is_rejected_even_with_matching_server_nonce (test_verify_lxc_pair.PairingGates.test_original_clock_tie_capture_is_rejected_even_with_matching_server_nonce) ... ok
+test_server_clock_is_not_used_to_order_client_capture (test_verify_lxc_pair.PairingGates.test_server_clock_is_not_used_to_order_client_capture) ... ok
+test_udp_claimed_sequence_must_match_encoded_raw_packet (test_verify_lxc_pair.PairingGates.test_udp_claimed_sequence_must_match_encoded_raw_packet) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 0.071s
+
+OK

@@ -1,0 +1,422 @@
+[
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfATA",
+        "name": "wayfinder:task",
+        "description": "Execution work on the Wayfinder route",
+        "color": "1D76DB"
+      },
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfAyQ",
+        "name": "ready-for-agent",
+        "description": "Specified work ready for an agent",
+        "color": "0052CC"
+      }
+    ],
+    "number": 24,
+    "state": "OPEN",
+    "title": "Analisar e publicar os resultados reproduzÃ­veis"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfATA",
+        "name": "wayfinder:task",
+        "description": "Execution work on the Wayfinder route",
+        "color": "1D76DB"
+      },
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfAyQ",
+        "name": "ready-for-agent",
+        "description": "Specified work ready for an agent",
+        "color": "0052CC"
+      }
+    ],
+    "number": 23,
+    "state": "OPEN",
+    "title": "Executar a campanha complementar de resiliÃªncia"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfATA",
+        "name": "wayfinder:task",
+        "description": "Execution work on the Wayfinder route",
+        "color": "1D76DB"
+      },
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfAyQ",
+        "name": "ready-for-agent",
+        "description": "Specified work ready for an agent",
+        "color": "0052CC"
+      }
+    ],
+    "number": 22,
+    "state": "OPEN",
+    "title": "Implementar injeÃ§Ã£o, contenÃ§Ã£o e recuperaÃ§Ã£o de falhas"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfATA",
+        "name": "wayfinder:task",
+        "description": "Execution work on the Wayfinder route",
+        "color": "1D76DB"
+      },
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfAyQ",
+        "name": "ready-for-agent",
+        "description": "Specified work ready for an agent",
+        "color": "0052CC"
+      }
+    ],
+    "number": 21,
+    "state": "OPEN",
+    "title": "Executar a campanha normal balanceada"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfATA",
+        "name": "wayfinder:task",
+        "description": "Execution work on the Wayfinder route",
+        "color": "1D76DB"
+      },
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfAyQ",
+        "name": "ready-for-agent",
+        "description": "Specified work ready for an agent",
+        "color": "0052CC"
+      }
+    ],
+    "number": 20,
+    "state": "OPEN",
+    "title": "Executar o piloto e congelar o protocolo"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfATA",
+        "name": "wayfinder:task",
+        "description": "Execution work on the Wayfinder route",
+        "color": "1D76DB"
+      },
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfAyQ",
+        "name": "ready-for-agent",
+        "description": "Specified work ready for an agent",
+        "color": "0052CC"
+      }
+    ],
+    "number": 19,
+    "state": "OPEN",
+    "title": "Completar e calibrar todas as mÃ©tricas"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfATA",
+        "name": "wayfinder:task",
+        "description": "Execution work on the Wayfinder route",
+        "color": "1D76DB"
+      },
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfAyQ",
+        "name": "ready-for-agent",
+        "description": "Specified work ready for an agent",
+        "color": "0052CC"
+      }
+    ],
+    "number": 18,
+    "state": "OPEN",
+    "title": "Realizar a troca AOT observÃ¡vel"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfATA",
+        "name": "wayfinder:task",
+        "description": "Execution work on the Wayfinder route",
+        "color": "1D76DB"
+      },
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfAyQ",
+        "name": "ready-for-agent",
+        "description": "Specified work ready for an agent",
+        "color": "0052CC"
+      }
+    ],
+    "number": 17,
+    "state": "OPEN",
+    "title": "Realizar a troca interpretada observÃ¡vel"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfATA",
+        "name": "wayfinder:task",
+        "description": "Execution work on the Wayfinder route",
+        "color": "1D76DB"
+      },
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfAyQ",
+        "name": "ready-for-agent",
+        "description": "Specified work ready for an agent",
+        "color": "0052CC"
+      }
+    ],
+    "number": 16,
+    "state": "OPEN",
+    "title": "Realizar a atualizaÃ§Ã£o OTA nativa observÃ¡vel"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfATA",
+        "name": "wayfinder:task",
+        "description": "Execution work on the Wayfinder route",
+        "color": "1D76DB"
+      },
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfAyQ",
+        "name": "ready-for-agent",
+        "description": "Specified work ready for an agent",
+        "color": "0052CC"
+      }
+    ],
+    "number": 15,
+    "state": "OPEN",
+    "title": "Publicar artefatos assinados por HTTPS no LXC"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfATA",
+        "name": "wayfinder:task",
+        "description": "Execution work on the Wayfinder route",
+        "color": "1D76DB"
+      },
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfAyQ",
+        "name": "ready-for-agent",
+        "description": "Specified work ready for an agent",
+        "color": "0052CC"
+      }
+    ],
+    "number": 14,
+    "state": "OPEN",
+    "title": "Demonstrar dois mÃ³dulos AOT"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfATA",
+        "name": "wayfinder:task",
+        "description": "Execution work on the Wayfinder route",
+        "color": "1D76DB"
+      },
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfAyQ",
+        "name": "ready-for-agent",
+        "description": "Specified work ready for an agent",
+        "color": "0052CC"
+      }
+    ],
+    "number": 13,
+    "state": "OPEN",
+    "title": "Demonstrar dois mÃ³dulos no interpretador clÃ¡ssico"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfATA",
+        "name": "wayfinder:task",
+        "description": "Execution work on the Wayfinder route",
+        "color": "1D76DB"
+      },
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfAyQ",
+        "name": "ready-for-agent",
+        "description": "Specified work ready for an agent",
+        "color": "0052CC"
+      }
+    ],
+    "number": 12,
+    "state": "OPEN",
+    "title": "Implementar o firmware-base, bindings e gerenciador de mÃ³dulos"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfATA",
+        "name": "wayfinder:task",
+        "description": "Execution work on the Wayfinder route",
+        "color": "1D76DB"
+      },
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfAyQ",
+        "name": "ready-for-agent",
+        "description": "Specified work ready for an agent",
+        "color": "0052CC"
+      }
+    ],
+    "number": 11,
+    "state": "OPEN",
+    "title": "Demonstrar telemetria e GPIO no cenÃ¡rio nativo"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfATA",
+        "name": "wayfinder:task",
+        "description": "Execution work on the Wayfinder route",
+        "color": "1D76DB"
+      }
+    ],
+    "number": 10,
+    "state": "CLOSED",
+    "title": "Construir e calibrar o observador externo"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0me-7A",
+        "name": "wayfinder:prototype",
+        "description": "Prototype used to resolve a decision",
+        "color": "FBCA04"
+      },
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfBLA",
+        "name": "ready-for-human",
+        "description": "Requires live human participation",
+        "color": "B60205"
+      }
+    ],
+    "number": 9,
+    "state": "OPEN",
+    "title": "Comprovar WAMR interpretado e AOT no MCU"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfATA",
+        "name": "wayfinder:task",
+        "description": "Execution work on the Wayfinder route",
+        "color": "1D76DB"
+      }
+    ],
+    "number": 8,
+    "state": "CLOSED",
+    "title": "Configurar a plataforma comum ESP32-S3, ESP-IDF e FreeRTOS"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfATA",
+        "name": "wayfinder:task",
+        "description": "Execution work on the Wayfinder route",
+        "color": "1D76DB"
+      },
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfAyQ",
+        "name": "ready-for-agent",
+        "description": "Specified work ready for an agent",
+        "color": "0052CC"
+      }
+    ],
+    "number": 7,
+    "state": "OPEN",
+    "title": "Instalar e fixar a toolchain reproduzÃ­vel no LXC"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfATA",
+        "name": "wayfinder:task",
+        "description": "Execution work on the Wayfinder route",
+        "color": "1D76DB"
+      }
+    ],
+    "number": 6,
+    "state": "CLOSED",
+    "title": "Provisionar o container LXC no Proxmox"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0me-cA",
+        "name": "wayfinder:research",
+        "description": "AFK research decision",
+        "color": "0E8A16"
+      }
+    ],
+    "number": 5,
+    "state": "CLOSED",
+    "title": "Definir ensaios vÃ¡lidos de resiliÃªncia"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0me-cA",
+        "name": "wayfinder:research",
+        "description": "AFK research decision",
+        "color": "0E8A16"
+      }
+    ],
+    "number": 4,
+    "state": "CLOSED",
+    "title": "Fechar o envelope assinado e a polÃ­tica antirretorno"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0me-7A",
+        "name": "wayfinder:prototype",
+        "description": "Prototype used to resolve a decision",
+        "color": "FBCA04"
+      },
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfBLA",
+        "name": "ready-for-human",
+        "description": "Requires live human participation",
+        "color": "B60205"
+      }
+    ],
+    "number": 3,
+    "state": "CLOSED",
+    "title": "Fechar o protocolo binÃ¡rio de observaÃ§Ã£o"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfATA",
+        "name": "wayfinder:task",
+        "description": "Execution work on the Wayfinder route",
+        "color": "1D76DB"
+      },
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0mfAyQ",
+        "name": "ready-for-agent",
+        "description": "Specified work ready for an agent",
+        "color": "0052CC"
+      }
+    ],
+    "number": 2,
+    "state": "CLOSED",
+    "title": "Inventariar e fixar a bancada fÃ­sica"
+  },
+  {
+    "labels": [
+      {
+        "id": "LA_kwDOUTkaL88AAAAC0me9zA",
+        "name": "wayfinder:map",
+        "description": "Canonical Wayfinder map",
+        "color": "5319E7"
+      }
+    ],
+    "number": 1,
+    "state": "OPEN",
+    "title": "Obter resultados da campanha WasmHome em trÃªs cenÃ¡rios"
+  }
+]

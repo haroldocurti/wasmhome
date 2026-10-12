@@ -1,0 +1,57 @@
+[
+  {
+    "cores": "2",
+    "hostname": "crafty-controller",
+    "memory": "4096",
+    "swap": "512",
+    "id": 100,
+    "memory_current_bytes": 1503285248
+  },
+  {
+    "cores": "1",
+    "hostname": "pihole",
+    "memory": "512",
+    "swap": "512",
+    "id": 101,
+    "memory_current_bytes": 371183616
+  },
+  {
+    "cores": "2",
+    "hostname": "crawl4ai",
+    "memory": "2048",
+    "swap": "512",
+    "id": 105,
+    "memory_current_bytes": 72011776
+  },
+  {
+    "cores": "1",
+    "hostname": "umami",
+    "memory": "512",
+    "swap": "512",
+    "id": 106,
+    "memory_current_bytes": 337412096
+  },
+  {
+    "cores": "1",
+    "hostname": "wasmhome-bench",
+    "memory": "1024",
+    "swap": "0",
+    "id": 107,
+    "memory_current_bytes": 184500224
+  },
+  {
+    "cores": "2",
+    "hostname": "paperclip",
+    "memory": "2048",
+    "swap": "1024",
+    "id": 108,
+    "memory_current_bytes": 399917056
+  },
+  {
+    "cores": "1",
+    "hostname": "wasmhome-bench-rebuild",
+    "memory": "1024",
+    "swap": "0",
+    "id": 109
+  }
+]

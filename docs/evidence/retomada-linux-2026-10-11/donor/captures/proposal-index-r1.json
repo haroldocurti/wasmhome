@@ -1,0 +1,107 @@
+{
+  "approval-template.json": {
+    "sha256": "7a4c9c726e8698d9e0bfed5f332ff4d862937b436ae3fbef343b8fbda6224c85",
+    "bytes": 483
+  },
+  "ct110-plan.json": {
+    "sha256": "5bed6e441f0037de2ba59bef3ab4dde7601ee682891c4df31770968f55ec0deb",
+    "bytes": 1811
+  },
+  "ct110_supervisor_receiver.py": {
+    "sha256": "c62818ad1101763b1f392a922f694f6f3226355f4170afba6d8ed3742d0bfe32",
+    "bytes": 5575
+  },
+  "doador-proposta.md": {
+    "sha256": "e1b5e46679de5fa8ca6dc965a6dc888a5e7e4f2f0812046cce53be14587b891f",
+    "bytes": 13898
+  },
+  "donor-guard-tests.log": {
+    "sha256": "6595c537b3862ca229a1d48a66ca3710761885c913551766b382b9c15fd13552",
+    "bytes": 513
+  },
+  "donor-guard-tests.stderr.bin": {
+    "sha256": "40e6a3053d86436d6aa245501343227a2e81436f4f14da71a21257468605aff6",
+    "bytes": 109
+  },
+  "donor-guard-tests.stdout.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "donor-preflight.json": {
+    "sha256": "1780e5ad425eb2e0de6258173f00c658ab97dc0a7f3b72e67e5572d12fdd5121",
+    "bytes": 2333
+  },
+  "donor-wsl-stderr.bin": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "donor_wamrc.py": {
+    "sha256": "d9239d67b2acebd815349347a6146f4e532188085dec9579723a7c96a54eec29",
+    "bytes": 19791
+  },
+  "preflight-readonly.sh": {
+    "sha256": "ae741ef40d6ecf42e032c0b8665705e9a77be1acfa2f81f229ce860a6fe9b51a",
+    "bytes": 563
+  },
+  "proxmox-guest-memory.txt": {
+    "sha256": "602ecc6165f5c3090dd7d4b9f5073e9a55dbcd7f880508bf033a6dd8f0311b1c",
+    "bytes": 2435
+  },
+  "proxmox_donor_guard.py": {
+    "sha256": "c39d5a83c2d8aadf825ae0aab1f2a9824fbd0db4b85616066dae3fe1e6ecf19d",
+    "bytes": 7522
+  },
+  "revisao-ct110-proposta.md": {
+    "sha256": "e6832310ad08ec4e1f1e5cffa5af0e48a4bf79d0811652d686f6eb420bd33637",
+    "bytes": 5102
+  },
+  "supervise_ct110.py": {
+    "sha256": "0f834895a3c8d36f200c00144097131190466c4553ca88a4ae0674ec9f159a8c",
+    "bytes": 11735
+  },
+  "supervisor-default.stderr.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "supervisor-default.stdout.log": {
+    "sha256": "a09d3f18dab3f1f50da3f79daa40837a57ca55e4def71dac83ab03c22b4feecd",
+    "bytes": 241
+  },
+  "supervisor-guard-tests-receipt.json": {
+    "sha256": "7c096355f8cdef683654bc131a92706884857b63397b2037299281f7a64013e7",
+    "bytes": 670
+  },
+  "supervisor-guard-tests.stderr.bin": {
+    "sha256": "6b8752b7bfad8573ce73c86d27c642e89953394096998c545ded6b8165701548",
+    "bytes": 3555
+  },
+  "supervisor-guard-tests.stdout.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "template-preflight.txt": {
+    "sha256": "5cf13f0838d554f0fff78bd7cd19171c1ea2348d6d37f04371f9ecd58429cbcb",
+    "bytes": 577
+  },
+  "test_ct110_supervisor.py": {
+    "sha256": "d5ec6f39a0e1ed9ad3dcee68a42eac75e4dd54aec6c979c6548626c0bdfdfd09",
+    "bytes": 10067
+  },
+  "test_donor_proposal.py": {
+    "sha256": "662bde970070ea8c969f79818e0a87db45a3abf03b45bd030a7181ca29fb78a4",
+    "bytes": 5125
+  },
+  "wsl-preflight.txt": {
+    "sha256": "569039e98e96e323eb40a4028dcb72c2ae34358893160a0c1968af8e7dff50b1",
+    "bytes": 9002
+  },
+  "runtime_review": {
+    "path": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome\\build-session-e1\\revisao-runtime-port-r2.md",
+    "sha256": "1f068c75c5146a2ada54ee0620144178726b4c90b3bf829ef5464d35ce44586f"
+  },
+  "host_resource_snapshots": {
+    "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\proxmox-donor-preflight-20261010.txt": "280e950399641bc367826f66405dbc8456621d20b7488c36c16c4ba29856cfbc",
+    "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\proxmox-guest-memory-preflight.json": "05ed84f650e91f82c53b0a34a4e5da5a4810163490ebd6b5a0301e3cb46e22b3",
+    "C:\\Users\\inomi\\Documents\\wasmhome\\build-session-e1\\proxmox-vm-donor-preflight.txt": "99e56dcb1168d98420d910f4f6a225b7fc9c560da99983e8d2b33df3ec003a68"
+  }
+}

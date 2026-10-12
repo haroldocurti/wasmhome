@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "wsl",
+    "-d",
+    "Ubuntu",
+    "--",
+    "python3",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "/mnt/c/Users/inomi/.codex/worktrees/issue7-runtime-port/wasmhome/build-session-e2",
+    "-p",
+    "test_*.py",
+    "-v"
+  ],
+  "cwd": "C:\\Users\\inomi\\.codex\\worktrees\\issue7-runtime-port\\wasmhome",
+  "exit_code": 0,
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "6b8752b7bfad8573ce73c86d27c642e89953394096998c545ded6b8165701548",
+  "test_scope": "local Linux disposable processes and mocked SSH/CT endpoints; no infra/build/tool install"
+}

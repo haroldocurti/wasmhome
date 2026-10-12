@@ -1,0 +1,57 @@
+test_capture_lxc_probe (unittest.loader._FailedTest.test_capture_lxc_probe) ... ERROR
+test_derivation_rejects_duplicate_json_keys_without_writing (test_verify_e1_native.NativeEvidenceTests.test_derivation_rejects_duplicate_json_keys_without_writing) ... ok
+test_duplicate_boot_reordered_rows_and_wrong_elf_rejected (test_verify_e1_native.NativeEvidenceTests.test_duplicate_boot_reordered_rows_and_wrong_elf_rejected) ... ok
+test_empty_wrong_checksum_status_or_missing_row_rejected (test_verify_e1_native.NativeEvidenceTests.test_empty_wrong_checksum_status_or_missing_row_rejected) ... ok
+test_failed_verification_preserves_existing_derivatives (test_verify_e1_native.NativeEvidenceTests.test_failed_verification_preserves_existing_derivatives) ... Native E1 evidence rejected: [Errno 2] No such file or directory: 'C:\\Users\\inomi\\AppData\\Local\\Temp\\tmpgbdl9qz2\\missing.bin'
+ok
+test_prepare_requires_new_destination_and_valid_inputs_before_writes (test_verify_e1_native.NativeEvidenceTests.test_prepare_requires_new_destination_and_valid_inputs_before_writes) ... usage: verify-e1-native.py [-h] [--prepare] [--prepare-output PREPARE_OUTPUT]
+                           [--build-dir BUILD_DIR] [--artifact ARTIFACT]
+                           [--derive-output DERIVE_OUTPUT]
+verify-e1-native.py: error: --prepare requires --prepare-output NEW_DIRECTORY; physical verification is a separate command
+ok
+test_preserved_raw_capture_passes (test_verify_e1_native.NativeEvidenceTests.test_preserved_raw_capture_passes) ... ok
+test_verify_lxc_pair (unittest.loader._FailedTest.test_verify_lxc_pair) ... ERROR
+
+======================================================================
+ERROR: test_capture_lxc_probe (unittest.loader._FailedTest.test_capture_lxc_probe)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_capture_lxc_probe
+Traceback (most recent call last):
+  File "C:\Python314\Lib\unittest\loader.py", line 433, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "C:\Python314\Lib\unittest\loader.py", line 374, in _get_module_from_name
+    __import__(name)
+    ~~~~~~~~~~^^^^^^
+  File "C:\Users\inomi\Documents\wasmhome\docs\evidence\execucao-2026-10-09\test_capture_lxc_probe.py", line 10, in <module>
+    spec.loader.exec_module(capture)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\inomi\Documents\wasmhome\docs\evidence\execucao-2026-10-09\capture-lxc-probe.py", line 10, in <module>
+    import serial
+ModuleNotFoundError: No module named 'serial'
+
+
+======================================================================
+ERROR: test_verify_lxc_pair (unittest.loader._FailedTest.test_verify_lxc_pair)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_verify_lxc_pair
+Traceback (most recent call last):
+  File "C:\Python314\Lib\unittest\loader.py", line 433, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "C:\Python314\Lib\unittest\loader.py", line 374, in _get_module_from_name
+    __import__(name)
+    ~~~~~~~~~~^^^^^^
+  File "C:\Users\inomi\Documents\wasmhome\docs\evidence\execucao-2026-10-09\test_verify_lxc_pair.py", line 9, in <module>
+    spec.loader.exec_module(pair)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\inomi\Documents\wasmhome\docs\evidence\execucao-2026-10-09\verify-lxc-pair.py", line 17, in <module>
+    spec.loader.exec_module(capture)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\inomi\Documents\wasmhome\docs\evidence\execucao-2026-10-09\capture-lxc-probe.py", line 10, in <module>
+    import serial
+ModuleNotFoundError: No module named 'serial'
+
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.056s
+
+FAILED (errors=2)

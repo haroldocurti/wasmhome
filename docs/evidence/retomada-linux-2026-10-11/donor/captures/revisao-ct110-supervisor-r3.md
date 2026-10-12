@@ -1,0 +1,12 @@
+# Re-revisão focal R3 — janela de spawn do Runner
+
+Escopo: somente a correção R3 do achado P2 no `Runner`, com conferência de fonte, teste novo e texto atualizado. Não é revisão integral do pacote nem diff Git; os materiais de execução são ignorados pelo Git. Pin base continua commit `187ff96279ed8e6d3da14b7663ce5b5e856dff49`, tree `70580c660a5642e9f7226c0d9813b805ee8b3c64`.
+
+Pacote R3 congelado em `proposal-index.json` SHA-256 `1696cd5604c1fc86f9a688acb01df004012d774d419dec78185e9bc06fe73b79`. Conferi os hashes dos arquivos focais contra o índice: `donor_wamrc.py` `419169d661974a490931bdb5e163deed4b60b845f32ba593c87741ba53b83d8c`; `test_runner_spawn.py` `3f77db7e061e48b41f4359439511d1785884b480dd852c95f75902627efea84b`; `doador-proposta.md` `ddda0f3c0e9185a933bc8c3b2c5cec03e00a64ddfd77158aa6165fe19ac474ad`. O índice preserva o pacote R2 como `proposal-index-r2.json`, SHA-256 `f258587215f70326ac913d7ee086a76e8f3d9988446a2e8854b6d366645e9769`, e o recibo consolidado R2 permanece byte-preservado em `revisao-ct110-supervisor-r2-consolidada.md`, SHA-256 `f813a80d207b0108dca2b0e08e7900309ac52c50c071bad46da8697917e68693`.
+
+## Eixos Standards e Spec
+
+- **Standards:** `Runner.run` verifica o processo Linux single-threaded antes de usar `preexec_fn`; bloqueia SIGINT/SIGTERM durante `Popen` e até a referência do filho ser atribuída; restaura a máscara do pai dentro do `try` que já tem cleanup; e restaura a máscara original do filho antes do exec. Em erro, apenas o grupo novo de `Runner` é sinalizado. Não encontrei regressão adicional dentro desta mudança focal.
+- **Spec:** a exceção por sinal pendente agora é processada já com `child` atribuído e sob o `except BaseException` que chama `Runner.interrupt`. Os dois testes R3 criam processos Linux reais, estabelecem um processo aninhado antes de devolver o `Popen`, enviam SIGINT ou SIGTERM enquanto o sinal está bloqueado e verificam encerramento do líder/descendente, sobrevivência do processo independente e restauração das máscaras. Isto cobre a janela concreta identificada em R2.
+
+Root reporta 28 testes Linux R3 sem falhas ou skips; li o recibo e saída congelados, sem reexecutar a suíte. A alteração R3 remove o P2 da janela pós-spawn/pré-atribuição, sem impor requisito de assinatura ou de dupla compilação. A aprovação é focal para essa janela; não prova build LLVM/wamrc, ABI do target, execução A/B/C ou readiness total de CT110. Não fiz SSH, instalação, build de toolchain, chamada de infraestrutura ou mudança de hardware.

@@ -1,0 +1,9 @@
+{
+  "purpose": "host UDP calibration; no MCU or OTA evidence",
+  "known_duration_ns": 1000000000,
+  "estimated_duration_ns": 1100853200,
+  "absolute_error_ns": 100853200,
+  "resolution_ns": 100000000,
+  "reboot_simulated": true,
+  "passed": false
+}

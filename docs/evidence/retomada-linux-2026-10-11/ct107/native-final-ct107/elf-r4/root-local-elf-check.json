@@ -1,0 +1,14 @@
+{
+  "elf_bytes": 9196308,
+  "elf_sha256": "3ffca7b09a450e0ac63f5e0d1ea67fb3d672eb55684ad9b6d7953898f90df500",
+  "objdump_path": "C:\\esp\\tools-task8\\tools\\xtensa-esp-elf\\esp-13.2.0_20250707\\xtensa-esp-elf\\bin\\xtensa-esp32s3-elf-objdump.exe",
+  "objdump_sha256": "710620a0142753aad485906d1941f9b464aa910ed9744b154d12fe654231c1b1",
+  "objdump_version": "GNU objdump (crosstool-NG esp-13.2.0_20250707) 2.41\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis program is free software; you may redistribute it under the terms of\nthe GNU General Public License version 3 or (at your option) any later version.\nThis program has absolutely no warranty.\n",
+  "workload_disassembly_matches_remote": true,
+  "comparison": "all addresses/opcode/instruction/operand tokens; ignore tool column padding",
+  "loop_iterations": 2000,
+  "pending": [
+    "physical checksum",
+    "wamrc and B/C builds"
+  ]
+}

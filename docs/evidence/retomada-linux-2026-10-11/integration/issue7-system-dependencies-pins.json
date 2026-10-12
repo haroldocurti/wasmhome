@@ -1,0 +1,457 @@
+{
+  "scope": "candidate transaction in CT107 only; NOT executed",
+  "upgrades": 14,
+  "new_packages": 76,
+  "packages": [
+    {
+      "package": "dpkg",
+      "before": "1.22.21",
+      "version": "1.22.22"
+    },
+    {
+      "package": "libc6",
+      "before": "2.41-12",
+      "version": "2.41-12+deb13u4"
+    },
+    {
+      "package": "libc-bin",
+      "before": "2.41-12",
+      "version": "2.41-12+deb13u4"
+    },
+    {
+      "package": "m4",
+      "before": null,
+      "version": "1.4.19-8"
+    },
+    {
+      "package": "flex",
+      "before": null,
+      "version": "2.6.4-8.2+b4"
+    },
+    {
+      "package": "openssl-provider-legacy",
+      "before": "3.5.1-1+deb13u1",
+      "version": "3.5.7-1~deb13u3"
+    },
+    {
+      "package": "libssl3t64",
+      "before": "3.5.1-1+deb13u1",
+      "version": "3.5.7-1~deb13u3"
+    },
+    {
+      "package": "python3.13",
+      "before": "3.13.5-2",
+      "version": "3.13.5-2+deb13u5"
+    },
+    {
+      "package": "libpython3.13-stdlib",
+      "before": "3.13.5-2",
+      "version": "3.13.5-2+deb13u5"
+    },
+    {
+      "package": "python3.13-minimal",
+      "before": "3.13.5-2",
+      "version": "3.13.5-2+deb13u5"
+    },
+    {
+      "package": "libpython3.13-minimal",
+      "before": "3.13.5-2",
+      "version": "3.13.5-2+deb13u5"
+    },
+    {
+      "package": "liblzma5",
+      "before": "5.8.1-1",
+      "version": "5.8.1-1+deb13u1"
+    },
+    {
+      "package": "libc-l10n",
+      "before": "2.41-12",
+      "version": "2.41-12+deb13u4"
+    },
+    {
+      "package": "locales",
+      "before": "2.41-12",
+      "version": "2.41-12+deb13u4"
+    },
+    {
+      "package": "xz-utils",
+      "before": "5.8.1-1",
+      "version": "5.8.1-1+deb13u1"
+    },
+    {
+      "package": "libsframe1",
+      "before": null,
+      "version": "2.44-3"
+    },
+    {
+      "package": "binutils-common",
+      "before": null,
+      "version": "2.44-3"
+    },
+    {
+      "package": "libbinutils",
+      "before": null,
+      "version": "2.44-3"
+    },
+    {
+      "package": "libgprofng0",
+      "before": null,
+      "version": "2.44-3"
+    },
+    {
+      "package": "libctf-nobfd0",
+      "before": null,
+      "version": "2.44-3"
+    },
+    {
+      "package": "libctf0",
+      "before": null,
+      "version": "2.44-3"
+    },
+    {
+      "package": "binutils-x86-64-linux-gnu",
+      "before": null,
+      "version": "2.44-3"
+    },
+    {
+      "package": "binutils",
+      "before": null,
+      "version": "2.44-3"
+    },
+    {
+      "package": "bison",
+      "before": null,
+      "version": "2:3.8.2+dfsg-1+b2"
+    },
+    {
+      "package": "libc-dev-bin",
+      "before": null,
+      "version": "2.41-12+deb13u4"
+    },
+    {
+      "package": "linux-libc-dev",
+      "before": null,
+      "version": "6.12.111-1"
+    },
+    {
+      "package": "libcrypt-dev",
+      "before": null,
+      "version": "1:4.4.38-1"
+    },
+    {
+      "package": "rpcsvc-proto",
+      "before": null,
+      "version": "1.4.3-1"
+    },
+    {
+      "package": "libc6-dev",
+      "before": null,
+      "version": "2.41-12+deb13u4"
+    },
+    {
+      "package": "libisl23",
+      "before": null,
+      "version": "0.27-1"
+    },
+    {
+      "package": "libmpfr6",
+      "before": null,
+      "version": "4.2.2-1"
+    },
+    {
+      "package": "libmpc3",
+      "before": null,
+      "version": "1.3.1-1+b3"
+    },
+    {
+      "package": "cpp-14-x86-64-linux-gnu",
+      "before": null,
+      "version": "14.2.0-19"
+    },
+    {
+      "package": "cpp-14",
+      "before": null,
+      "version": "14.2.0-19"
+    },
+    {
+      "package": "cpp-x86-64-linux-gnu",
+      "before": null,
+      "version": "4:14.2.0-1"
+    },
+    {
+      "package": "cpp",
+      "before": null,
+      "version": "4:14.2.0-1"
+    },
+    {
+      "package": "libcc1-0",
+      "before": null,
+      "version": "14.2.0-19"
+    },
+    {
+      "package": "libgomp1",
+      "before": null,
+      "version": "14.2.0-19"
+    },
+    {
+      "package": "libitm1",
+      "before": null,
+      "version": "14.2.0-19"
+    },
+    {
+      "package": "libatomic1",
+      "before": null,
+      "version": "14.2.0-19"
+    },
+    {
+      "package": "libasan8",
+      "before": null,
+      "version": "14.2.0-19"
+    },
+    {
+      "package": "liblsan0",
+      "before": null,
+      "version": "14.2.0-19"
+    },
+    {
+      "package": "libtsan2",
+      "before": null,
+      "version": "14.2.0-19"
+    },
+    {
+      "package": "libubsan1",
+      "before": null,
+      "version": "14.2.0-19"
+    },
+    {
+      "package": "libhwasan0",
+      "before": null,
+      "version": "14.2.0-19"
+    },
+    {
+      "package": "libquadmath0",
+      "before": null,
+      "version": "14.2.0-19"
+    },
+    {
+      "package": "libgcc-14-dev",
+      "before": null,
+      "version": "14.2.0-19"
+    },
+    {
+      "package": "gcc-14-x86-64-linux-gnu",
+      "before": null,
+      "version": "14.2.0-19"
+    },
+    {
+      "package": "gcc-14",
+      "before": null,
+      "version": "14.2.0-19"
+    },
+    {
+      "package": "gcc-x86-64-linux-gnu",
+      "before": null,
+      "version": "4:14.2.0-1"
+    },
+    {
+      "package": "gcc",
+      "before": null,
+      "version": "4:14.2.0-1"
+    },
+    {
+      "package": "libstdc++-14-dev",
+      "before": null,
+      "version": "14.2.0-19"
+    },
+    {
+      "package": "g++-14-x86-64-linux-gnu",
+      "before": null,
+      "version": "14.2.0-19"
+    },
+    {
+      "package": "g++-14",
+      "before": null,
+      "version": "14.2.0-19"
+    },
+    {
+      "package": "g++-x86-64-linux-gnu",
+      "before": null,
+      "version": "4:14.2.0-1"
+    },
+    {
+      "package": "g++",
+      "before": null,
+      "version": "4:14.2.0-1"
+    },
+    {
+      "package": "make",
+      "before": null,
+      "version": "4.4.1-2"
+    },
+    {
+      "package": "libdpkg-perl",
+      "before": null,
+      "version": "1.22.22"
+    },
+    {
+      "package": "patch",
+      "before": null,
+      "version": "2.8-2"
+    },
+    {
+      "package": "dpkg-dev",
+      "before": null,
+      "version": "1.22.22"
+    },
+    {
+      "package": "build-essential",
+      "before": null,
+      "version": "12.12"
+    },
+    {
+      "package": "libfmt10",
+      "before": null,
+      "version": "10.1.1+ds1-4"
+    },
+    {
+      "package": "libhiredis1.1.0",
+      "before": null,
+      "version": "1.2.0-6+b3"
+    },
+    {
+      "package": "ccache",
+      "before": null,
+      "version": "4.11.2-2"
+    },
+    {
+      "package": "cmake-data",
+      "before": null,
+      "version": "3.31.6-2"
+    },
+    {
+      "package": "libarchive13t64",
+      "before": null,
+      "version": "3.7.4-4+deb13u1"
+    },
+    {
+      "package": "libjsoncpp26",
+      "before": null,
+      "version": "1.9.6-3"
+    },
+    {
+      "package": "librhash1",
+      "before": null,
+      "version": "1.4.5-1"
+    },
+    {
+      "package": "cmake",
+      "before": null,
+      "version": "3.31.6-2"
+    },
+    {
+      "package": "libngtcp2-16",
+      "before": null,
+      "version": "1.11.0-1+deb13u1"
+    },
+    {
+      "package": "libngtcp2-crypto-gnutls8",
+      "before": null,
+      "version": "1.11.0-1+deb13u1"
+    },
+    {
+      "package": "libcurl3t64-gnutls",
+      "before": null,
+      "version": "8.14.1-2+deb13u5"
+    },
+    {
+      "package": "liberror-perl",
+      "before": null,
+      "version": "0.17030-1"
+    },
+    {
+      "package": "git-man",
+      "before": null,
+      "version": "1:2.47.3-0+deb13u1"
+    },
+    {
+      "package": "git",
+      "before": null,
+      "version": "1:2.47.3-0+deb13u1"
+    },
+    {
+      "package": "gperf",
+      "before": null,
+      "version": "3.2.1-1"
+    },
+    {
+      "package": "libffi-dev",
+      "before": null,
+      "version": "3.4.8-2"
+    },
+    {
+      "package": "libssl-dev",
+      "before": null,
+      "version": "3.5.7-1~deb13u3"
+    },
+    {
+      "package": "libunwind8",
+      "before": null,
+      "version": "1.8.1-0.1"
+    },
+    {
+      "package": "libusb-1.0-0",
+      "before": null,
+      "version": "2:1.0.28-1"
+    },
+    {
+      "package": "ninja-build",
+      "before": null,
+      "version": "1.12.1-1"
+    },
+    {
+      "package": "openssl",
+      "before": "3.5.1-1+deb13u1",
+      "version": "3.5.7-1~deb13u3"
+    },
+    {
+      "package": "python3-packaging",
+      "before": null,
+      "version": "25.0-1"
+    },
+    {
+      "package": "python3-wheel",
+      "before": null,
+      "version": "0.46.1-2"
+    },
+    {
+      "package": "python3-pip",
+      "before": null,
+      "version": "25.1.1+dfsg-1"
+    },
+    {
+      "package": "python3-pip-whl",
+      "before": null,
+      "version": "25.1.1+dfsg-1"
+    },
+    {
+      "package": "python3-setuptools-whl",
+      "before": null,
+      "version": "78.1.1-0.1"
+    },
+    {
+      "package": "python3.13-venv",
+      "before": null,
+      "version": "3.13.5-2+deb13u5"
+    },
+    {
+      "package": "python3-venv",
+      "before": null,
+      "version": "3.13.5-1"
+    },
+    {
+      "package": "zlib1g-dev",
+      "before": null,
+      "version": "1:1.3.dfsg+really1.3.1-1+b1"
+    }
+  ]
+}

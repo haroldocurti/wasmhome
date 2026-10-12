@@ -1,0 +1,9 @@
+A issue #6 estava sem prova ESP32→LXC, reserva de endpoint registrada e reconstrução separada. A sessão de 09/10 preserva o percurso TCP com nonce pareado, um negativo de origem divergente, a confirmação humana da reserva DHCP e a reconstrução autorizada no CT 109. SSH e persistência após reboot passaram; o CT 109 ficou parado e o CT 107 permaneceu em execução. O firmware original da placa foi restaurado e verificado.
+
+O checklist E0–E7 passa a rastrear requisitos, dependências e limites de aceite. A preparação de E1 corrige buffer/alinhamento/limpeza do runner, valida configurações e proveniência de artefatos e exige `-O3` efetivo. A carga nativa executou 30 chamadas com checksum correto no ESP32-S3. Essa prova é local de A: toolchain no LXC, Wasm/AOT, serviços e campanhas continuam pendentes.
+
+Validação: 68 testes locais sem skips, builds ESP-IDF nativos, verificadores offline contra logs físicos, 67 blobs dos inventários conferidos contra seus SHA-256 e revisão adversarial Luna. Os achados de concorrência de diagnóstico, flags de otimização, relógio de captura, preservação dos derivados e ambiguidade JSON foram corrigidos. A primeira captura inconclusiva e as divergências do instrumento/ifupdown2 foram preservadas. CI não está configurada; este registro não constitui publicação, integração ou aceite formal do rastreador.
+
+Após integração e aceite, atualizar a issue #6 e o mapa #1 somente com critérios respaldados por estas evidências. Não encerrar #7, #9 ou os tickets posteriores.
+
+A árvore de integração conferida é `56a6f161277d16ba725a536b76230aecf1e120d6`, idêntica à revisão final local. O head é `021643140b43d290fb52717f99b14864761b79f4`, sobre a integração do observador `6c94ab505672e4056c1a87932403853fe9aa06e7`. Os 47 testes principais e os 21 de evidências passaram novamente; os últimos usam o Python 3.11.2 do SDK, com pyserial. Conferência somente leitura do ELF/configuração nativa e hashes de 67 blobs também passaram.

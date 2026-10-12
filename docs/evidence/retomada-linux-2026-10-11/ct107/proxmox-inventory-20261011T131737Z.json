@@ -1,0 +1,130 @@
+{
+  "host": "haroldo",
+  "mem_total_bytes": 16631762944,
+  "mem_available_bytes": 2922221568,
+  "swap_used_bytes": 6930243584,
+  "guests": [
+    {
+      "vmid": 100,
+      "name": "crafty-controller",
+      "type": "lxc",
+      "node": "haroldo",
+      "status": "running",
+      "mem": 791375872,
+      "maxmem": 4294967296,
+      "maxcpu": 2,
+      "configured_swap_mib": 512,
+      "memory.current": 1061380096,
+      "memory.swap.current": 371372032
+    },
+    {
+      "vmid": 101,
+      "name": "pihole",
+      "type": "lxc",
+      "node": "haroldo",
+      "status": "running",
+      "mem": 129085440,
+      "maxmem": 536870912,
+      "maxcpu": 1,
+      "configured_swap_mib": 512,
+      "memory.current": 362610688,
+      "memory.swap.current": 16277504
+    },
+    {
+      "vmid": 102,
+      "name": "hermes",
+      "type": "qemu",
+      "node": "haroldo",
+      "status": "running",
+      "mem": 5717798912,
+      "maxmem": 6408896512,
+      "maxcpu": 1
+    },
+    {
+      "vmid": 103,
+      "name": "Webserver",
+      "type": "qemu",
+      "node": "haroldo",
+      "status": "running",
+      "mem": 6024019968,
+      "maxmem": 8489271296,
+      "maxcpu": 4
+    },
+    {
+      "vmid": 104,
+      "name": "DevServer",
+      "type": "qemu",
+      "node": "haroldo",
+      "status": "running",
+      "mem": 3048923136,
+      "maxmem": 8589934592,
+      "maxcpu": 4
+    },
+    {
+      "vmid": 105,
+      "name": "crawl4ai",
+      "type": "lxc",
+      "node": "haroldo",
+      "status": "running",
+      "mem": 33894400,
+      "maxmem": 2147483648,
+      "maxcpu": 2,
+      "configured_swap_mib": 512,
+      "memory.current": 122294272,
+      "memory.swap.current": 85606400
+    },
+    {
+      "vmid": 106,
+      "name": "umami",
+      "type": "lxc",
+      "node": "haroldo",
+      "status": "running",
+      "mem": 216772608,
+      "maxmem": 536870912,
+      "maxcpu": 1,
+      "configured_swap_mib": 512,
+      "memory.current": 380444672,
+      "memory.swap.current": 161972224
+    },
+    {
+      "vmid": 107,
+      "name": "wasmhome-bench",
+      "type": "lxc",
+      "node": "haroldo",
+      "status": "running",
+      "mem": 134950912,
+      "maxmem": 1073741824,
+      "maxcpu": 1,
+      "configured_swap_mib": 0,
+      "memory.current": 330227712,
+      "memory.swap.current": 0
+    },
+    {
+      "vmid": 108,
+      "name": "paperclip",
+      "type": "lxc",
+      "node": "haroldo",
+      "status": "running",
+      "mem": 276307968,
+      "maxmem": 2147483648,
+      "maxcpu": 2,
+      "configured_swap_mib": 1024,
+      "memory.current": 449695744,
+      "memory.swap.current": 120913920
+    },
+    {
+      "vmid": 109,
+      "name": "wasmhome-bench-rebuild",
+      "type": "lxc",
+      "node": "haroldo",
+      "status": "stopped",
+      "mem": 0,
+      "maxmem": 1073741824,
+      "maxcpu": 1,
+      "configured_swap_mib": 0,
+      "memory.current": null,
+      "memory.swap.current": null
+    }
+  ],
+  "captured_utc": "2026-10-11T13:17:37.358525+00:00"
+}

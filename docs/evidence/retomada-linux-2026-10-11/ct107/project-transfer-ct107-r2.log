@@ -1,0 +1,30 @@
+Cloning into '/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/project'...
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+Note: switching to '187ff96279ed8e6d3da14b7663ce5b5e856dff49'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+HEAD is now at 187ff96 fix: preserve artifact sets and require pinned build provenance
+{"bundle_sha256": "6e551c247ab1e9549e1bf8eec9df32ec95d9adc3a638e180d63cfb6d2dadede3", "revision": "187ff96279ed8e6d3da14b7663ce5b5e856dff49", "tree": "70580c660a5642e9f7226c0d9813b805ee8b3c64", "project": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/project"}

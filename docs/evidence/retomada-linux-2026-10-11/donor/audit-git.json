@@ -1,0 +1,81 @@
+{
+  "schema": "wasmhome-git-pending-audit-v1",
+  "main_at_audit": "8b372147e739e46c8952ab8c7907b6c76a76345b",
+  "branches": [
+    {
+      "ref": "refs/heads/codex/issue-2-physical-bench-inventory",
+      "tip_ancestor_main": false,
+      "cherry": [
+        "- b9da524cd896b805017d900970dab8fe33debe6e docs: inventory physical experiment bench"
+      ],
+      "ancestry_not_main": [
+        "b9da524cd896b805017d900970dab8fe33debe6e docs: inventory physical experiment bench"
+      ]
+    },
+    {
+      "ref": "refs/heads/codex/issue-3-observation-protocol",
+      "tip_ancestor_main": true,
+      "cherry": [],
+      "ancestry_not_main": []
+    },
+    {
+      "ref": "refs/heads/codex/issue-7-runtime-port",
+      "tip_ancestor_main": false,
+      "cherry": [
+        "+ 40aca4c14c09a2fe5058eec9bfce9c7b08f5379c feat: prepare independent WAMR 2.4.5 candidate port",
+        "+ 187ff96279ed8e6d3da14b7663ce5b5e856dff49 fix: preserve artifact sets and require pinned build provenance"
+      ],
+      "ancestry_not_main": [
+        "187ff96279ed8e6d3da14b7663ce5b5e856dff49 fix: preserve artifact sets and require pinned build provenance",
+        "40aca4c14c09a2fe5058eec9bfce9c7b08f5379c feat: prepare independent WAMR 2.4.5 candidate port"
+      ]
+    },
+    {
+      "ref": "refs/heads/codex/issue-8-common-platform",
+      "tip_ancestor_main": true,
+      "cherry": [],
+      "ancestry_not_main": []
+    },
+    {
+      "ref": "refs/heads/codex/plano-coleta-analise",
+      "tip_ancestor_main": true,
+      "cherry": [],
+      "ancestry_not_main": []
+    },
+    {
+      "ref": "refs/heads/research/ensaios-resiliencia",
+      "tip_ancestor_main": false,
+      "cherry": [
+        "- ef6499906468e8afdb0cf869814ad557ebf37ffa Define resilience experiment matrix"
+      ],
+      "ancestry_not_main": [
+        "ef6499906468e8afdb0cf869814ad557ebf37ffa Define resilience experiment matrix"
+      ]
+    },
+    {
+      "ref": "refs/heads/research/envelope-antirretorno",
+      "tip_ancestor_main": false,
+      "cherry": [
+        "- a541f2aa3fe2bc1082caed41906c0c9dbde146ed Define signed update envelope and anti-rollback policy"
+      ],
+      "ancestry_not_main": [
+        "a541f2aa3fe2bc1082caed41906c0c9dbde146ed Define signed update envelope and anti-rollback policy"
+      ]
+    }
+  ],
+  "collection_worktree": {
+    "path_historical": "C:\\Users\\inomi\\.codex\\worktrees\\plano-coleta-analise\\wasmhome",
+    "head": "9d332d6d33686c47b601f7e734e762a26079c0ea",
+    "status": [
+      " M README.md",
+      " M docs/plano-de-execucao.md",
+      " M docs/research/ensaios-resiliencia.md",
+      "?? docs/plano-detalhado-coleta-analise.md"
+    ]
+  },
+  "known_pending_patch_commits": [
+    "40aca4c14c09a2fe5058eec9bfce9c7b08f5379c",
+    "187ff96279ed8e6d3da14b7663ce5b5e856dff49"
+  ],
+  "note": "Audit is read-only; uncommitted collection files need root preservation/integration. No branch/worktree cleanup was performed."
+}

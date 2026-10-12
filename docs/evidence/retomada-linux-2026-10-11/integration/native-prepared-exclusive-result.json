@@ -1,0 +1,18 @@
+{
+  "scope": "build metadata only; physical capture not assessed",
+  "inventory": {
+    "schema": "wasmhome-native-e1-evidence-v1",
+    "scope": "preparatory_local_A_only",
+    "app_bin_sha256": "7bdbf68d9827d52ff524d9e8c246ac7a4caab0af8a1af196ab09bfb7706e731a",
+    "app_bin_bytes": 745872,
+    "elf_sha256": "35ed6729ac02653ab36a296131a64636a86b775662bf0f61c80192d776305b9a",
+    "effective_config_sha256": "aab9531c01984b9961721b1517c9bbb9e9dcc972da418700b639be61d55906c6",
+    "original_build_report_sha256": "e0675ec612a7d80fb19ab963b648e4180d2a937ac6e0cdec41fd5980fe6fda01",
+    "files_sha256": {
+      "e1-build.json": "e76cdae5e267fbc42a94dda2d6dfc378eac787b16e4bd8a9af5b8bddf7363591",
+      "benchmark-compile-command.json": "a3f699bdd7b8ba86b8f26c6b7299af34465f67d965570f2a7e2ab51efaae14cc",
+      "benchmark.disassembly.txt": "385da951b25d466082187428dfc9640a23523f58833b2d1c1bbc93863385cfb6",
+      "build-result-excerpt.txt": "5fcadfb1ae9cb36bef0982fc96b1ae7eb4bbfac0108eee00a50ed55bc098106d"
+    }
+  }
+}

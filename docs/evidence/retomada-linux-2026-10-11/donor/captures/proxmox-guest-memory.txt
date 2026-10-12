@@ -1,0 +1,85 @@
+CT=100
+cores: 2
+hostname: crafty-controller
+memory: 4096
+onboot: 1
+swap: 512
+unprivileged: 1
+/sys/fs/cgroup/lxc/100/memory.current=1499377664
+/sys/fs/cgroup/lxc/100/memory.max=4294967296
+/sys/fs/cgroup/lxc/100/memory.swap.current=241135616
+/sys/fs/cgroup/lxc/100/ns/memory.current=1499357184
+/sys/fs/cgroup/lxc/100/ns/memory.max=max
+/sys/fs/cgroup/lxc/100/ns/memory.swap.current=241135616
+CT=101
+cores: 1
+hostname: pihole
+memory: 512
+onboot: 1
+swap: 512
+unprivileged: 1
+/sys/fs/cgroup/lxc/101/memory.current=371171328
+/sys/fs/cgroup/lxc/101/memory.max=536870912
+/sys/fs/cgroup/lxc/101/memory.swap.current=20250624
+/sys/fs/cgroup/lxc/101/ns/memory.current=371150848
+/sys/fs/cgroup/lxc/101/ns/memory.max=max
+/sys/fs/cgroup/lxc/101/ns/memory.swap.current=20250624
+CT=105
+cores: 2
+hostname: crawl4ai
+memory: 2048
+onboot: 1
+swap: 512
+unprivileged: 1
+/sys/fs/cgroup/lxc/105/memory.current=70848512
+/sys/fs/cgroup/lxc/105/memory.max=2147483648
+/sys/fs/cgroup/lxc/105/memory.swap.current=85008384
+/sys/fs/cgroup/lxc/105/ns/memory.current=70828032
+/sys/fs/cgroup/lxc/105/ns/memory.max=max
+/sys/fs/cgroup/lxc/105/ns/memory.swap.current=85008384
+CT=106
+cores: 1
+hostname: umami
+memory: 512
+onboot: 1
+swap: 512
+unprivileged: 1
+/sys/fs/cgroup/lxc/106/memory.current=337858560
+/sys/fs/cgroup/lxc/106/memory.max=536870912
+/sys/fs/cgroup/lxc/106/memory.swap.current=159195136
+/sys/fs/cgroup/lxc/106/ns/memory.current=337838080
+/sys/fs/cgroup/lxc/106/ns/memory.max=max
+/sys/fs/cgroup/lxc/106/ns/memory.swap.current=159195136
+CT=107
+cores: 1
+hostname: wasmhome-bench
+memory: 1024
+onboot: 0
+swap: 0
+unprivileged: 1
+/sys/fs/cgroup/lxc/107/memory.current=184307712
+/sys/fs/cgroup/lxc/107/memory.max=1073741824
+/sys/fs/cgroup/lxc/107/memory.swap.current=0
+/sys/fs/cgroup/lxc/107/ns/memory.current=184287232
+/sys/fs/cgroup/lxc/107/ns/memory.max=max
+/sys/fs/cgroup/lxc/107/ns/memory.swap.current=0
+CT=108
+cores: 2
+hostname: paperclip
+memory: 2048
+onboot: 1
+swap: 1024
+unprivileged: 1
+/sys/fs/cgroup/lxc/108/memory.current=399151104
+/sys/fs/cgroup/lxc/108/memory.max=2147483648
+/sys/fs/cgroup/lxc/108/memory.swap.current=120070144
+/sys/fs/cgroup/lxc/108/ns/memory.current=399130624
+/sys/fs/cgroup/lxc/108/ns/memory.max=max
+/sys/fs/cgroup/lxc/108/ns/memory.swap.current=120070144
+CT=109
+cores: 1
+hostname: wasmhome-bench-rebuild
+memory: 1024
+onboot: 0
+swap: 0
+unprivileged: 1

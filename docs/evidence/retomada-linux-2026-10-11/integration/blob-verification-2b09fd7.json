@@ -1,0 +1,280 @@
+{
+  "commit": "2b09fd79d5a6d2b7e7bab08e16b1071edcd33545",
+  "tracked_blobs_verified": 67,
+  "transport_inventory_blobs": 47,
+  "native_build_blobs": 4,
+  "observer_revalidation_blobs": 16,
+  "private_dependencies_not_in_git": [
+    "build-session-e0/app-original-1m.bin"
+  ],
+  "files": {
+    "docs/evidence/execucao-2026-10-09/app-restore-flash.txt": {
+      "sha256": "9973da6c9e3dc7782b480abaad25fbd148070d14eb96c5ceb33d6fc38b7fcccd",
+      "bytes": 1987
+    },
+    "docs/evidence/execucao-2026-10-09/app-restore-verify.txt": {
+      "sha256": "2c2f32b74326c2de9f71744d74425694a763a29d5adcaa88b3e1d2412a39a2db",
+      "bytes": 477
+    },
+    "docs/evidence/execucao-2026-10-09/capture-lxc-probe.py": {
+      "sha256": "3393bd6ae954a82b06a6f966860df1238ab8f32561c1a2fa4ff593dfcc9916db",
+      "bytes": 11060
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-app-flash.txt": {
+      "sha256": "24730e86d14765cdf25595c3470c4fb3bed33dbc9d1bfbd9ede6a753b5de4690",
+      "bytes": 1623
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-negative-source-server.jsonl": {
+      "sha256": "f6ce039726b15dce59f7b3265de187db5a155ca0ccdf4f092ae49e0fcec0fef2",
+      "bytes": 402
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-negative-source/observations.jsonl": {
+      "sha256": "059e87ec469227c39a279c10f6b3903b840b2aded927207cddfc7ce8e31d7a45",
+      "bytes": 58756
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-negative-source/pre-reset-serial.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-negative-source/serial.log": {
+      "sha256": "528a8061887eac3b497e466116ea3b23409d7ba7b193bbfc855089c2b2201853",
+      "bytes": 11107
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-negative-source/summary.json": {
+      "sha256": "fbaff6bbc937fb8c124fd452de929443c6829e81e474a8109292e62b5fd062b4",
+      "bytes": 1153
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-positive-r2-server.jsonl": {
+      "sha256": "ea9029a68d68880efcbb72444370ffac4ebc2a4fef322a0c790d1c6b2bddc6ee",
+      "bytes": 477
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-positive-r2/observations.jsonl": {
+      "sha256": "1427fe77fe22409f273ac97007ddd2aa2568f9c6dac1ee0f5ee9d882e28159a6",
+      "bytes": 58988
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-positive-r2/pre-reset-serial.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-positive-r2/serial.log": {
+      "sha256": "b87a9c63251a9bdbdd48e7d241aa6e1a7bbea97a2a87df1b35d43bf8bf25c255",
+      "bytes": 11091
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-positive-r2/summary.json": {
+      "sha256": "36911253ad5fcc5c4aac3d67824e911dd35114f23a65d17c2ca595ca41ade77f",
+      "bytes": 1166
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-positive-server.jsonl": {
+      "sha256": "4dcbeb580835396d06d3b5e1ec75bc6b34b79ee8b4ec60f2271f6db2c813e63a",
+      "bytes": 477
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-positive/observations.jsonl": {
+      "sha256": "7f1d7b403921ff05f953b75e8e7457d785b7a1fc9046a46c9d41219272b1ce85",
+      "bytes": 58741
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-positive/pre-reset-serial.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-positive/serial.log": {
+      "sha256": "c0864d59f66d43c07843f515fe3dac67e090186b9505f3a018f2809876f5dc62",
+      "bytes": 11092
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-positive/summary.json": {
+      "sha256": "59b5028f6825dc8aa1cc7b2a98afeff9bd94fc1abb138c74a8ecc4b03a5c6df3",
+      "bytes": 1008
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-preflight.txt": {
+      "sha256": "94ff12a042428a4e38ef32b26dd00136bc637f4c1e38301e1c7bb7b90eb549da",
+      "bytes": 2244
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-probe-server-identity.txt": {
+      "sha256": "91405b8a2c4c433d5922d6b1816f281aaaccd68a4bd3e54cf2f8aaa75cc13fa7",
+      "bytes": 150
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-rebuild-after-reboot.txt": {
+      "sha256": "da5a576ef46951e97885079bc7e5514fbde6a8a56464e182386c02c374d82455",
+      "bytes": 1755
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-rebuild-before-reboot.txt": {
+      "sha256": "6c058381c587e045296d1f8d773709dc35b2cfb0b8b2e9a540388e70ea9c5dcf",
+      "bytes": 598
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-rebuild-bootstrap.txt": {
+      "sha256": "56859695289d208e7b2b296b88b7d8f10a52b0e2a58fca3fab2e74e2f6cccc14",
+      "bytes": 6656
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-rebuild-create.txt": {
+      "sha256": "3843d8dfa7c9d67d4b5f7a6595e4d0e3b1d9da1a61ee77af673a4b07c41fde5e",
+      "bytes": 2349
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-rebuild-final.txt": {
+      "sha256": "50e94a83821100f64e0742b573f4f109c74cafda6da1f1b459aeef3c49f9a74a",
+      "bytes": 678
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-rebuild-identity.txt": {
+      "sha256": "5ea8deb08042647de9bf9161c9902f1ad18dcac574b6892bc11941ac805ca3d8",
+      "bytes": 523
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-rebuild-network-diagnosis.txt": {
+      "sha256": "8a4d385fd6429d92a3f80c2b054e81a253ea865522965b71b9269c26049a5c74",
+      "bytes": 3303
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-rebuild-restart.txt": {
+      "sha256": "0bcfe08bf4f282d989354ad9e4887f74ec412ed5c0a03f5890f843a4415e122e",
+      "bytes": 145
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-rebuild-ssh-after-reboot.txt": {
+      "sha256": "fa8a7032cdb0e861d0c1a21ea39b684606c18bf72e19353afbf5e7612c0d1ad0",
+      "bytes": 152
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-session-final-confirmed.txt": {
+      "sha256": "eb546a680c2aa1c0b3a20d6af8eb796749ff3539b84fde5982fe112d38ce1896",
+      "bytes": 186
+    },
+    "docs/evidence/execucao-2026-10-09/lxc-session-final.txt": {
+      "sha256": "0b9f870fe42b97e05f3a41a649816265b1ded86b65c6068a672f9294f39fb941",
+      "bytes": 34
+    },
+    "docs/evidence/execucao-2026-10-09/native-app-flash.txt": {
+      "sha256": "2f283f4f6cd5475d63bc4b42a0c8ec91b1a04041cb574766c6258ea16cfa8119",
+      "bytes": 1558
+    },
+    "docs/evidence/execucao-2026-10-09/platform/observations.jsonl": {
+      "sha256": "cad49f278cd7d3fd01e19accddb80009e918b07ddda65d7bc5df161cb80f85cd",
+      "bytes": 37868
+    },
+    "docs/evidence/execucao-2026-10-09/platform/serial.log": {
+      "sha256": "b62becf857dd79bbcd9d017f1953b12b603790a89474dd4b790e4fbcb925f1dd",
+      "bytes": 10023
+    },
+    "docs/evidence/execucao-2026-10-09/platform/summary.json": {
+      "sha256": "93534ad32d067e58c06e1862ed2cb3dc8ef98967cfccf38670693c9687f09312",
+      "bytes": 804
+    },
+    "docs/evidence/execucao-2026-10-09/restore/observations.jsonl": {
+      "sha256": "dea5d92fe6b77e934047856ec42726a232b6bdf0d7d11187277e05dadd4924b4",
+      "bytes": 38266
+    },
+    "docs/evidence/execucao-2026-10-09/restore/serial.log": {
+      "sha256": "233c18b9c4f0ad824f8088faae67d14d5f6022e32a68af88f1c1074d64866440",
+      "bytes": 9921
+    },
+    "docs/evidence/execucao-2026-10-09/restore/summary.json": {
+      "sha256": "8b7b152087853e523d58e10159ec5ff6d317bc0b18edbccb319fc4a2e14f0a02",
+      "bytes": 804
+    },
+    "docs/evidence/execucao-2026-10-09/test_capture_lxc_probe.py": {
+      "sha256": "7bf13226f574af26b8f6ce8ee374859921b829a7077aefcaaeef85f585ed5678",
+      "bytes": 6295
+    },
+    "docs/evidence/execucao-2026-10-09/test_verify_lxc_pair.py": {
+      "sha256": "e2371a523f36f0453815a8b7945984e49c57fc4cbe5cb77a9d14252b8c2f7a72",
+      "bytes": 2730
+    },
+    "docs/evidence/execucao-2026-10-09/verify-lxc-pair.py": {
+      "sha256": "ddca9a267009f4daeb60d1cd2510c21ba0697f05aaa43018b1cfb9fe96541205",
+      "bytes": 13555
+    },
+    "main/Kconfig.projbuild": {
+      "sha256": "a90758ca16e108bb7d62f544f4a83e51f23745e1a63f9f7fc9f47f69825c25ac",
+      "bytes": 2009
+    },
+    "main/platform_selftest.c": {
+      "sha256": "5e16f728cf543239c830635b5578a0e5cb8bbb76f579a137131d438b65c604bb",
+      "bytes": 9220
+    },
+    "tools/observation_protocol_v1.py": {
+      "sha256": "16ca04f35bf8fdeebf3dc6e8b663fe6474b8a34611288ee6fd00692b08c01d86",
+      "bytes": 11812
+    },
+    "tools/probe-platform.py": {
+      "sha256": "ba7c38947e49e3de96da4fbdce1f9b41af279348b4a1303f0a714f5a19b13fa9",
+      "bytes": 8952
+    },
+    "tools/probe_lxc_network.py": {
+      "sha256": "d94a8e9772eeafe540ec45361defbcde3e8cbe2048f4a955d3f0f339d98f8ec7",
+      "bytes": 4686
+    },
+    "docs/evidence/execucao-2026-10-09/native/e1-build.json": {
+      "sha256": "e76cdae5e267fbc42a94dda2d6dfc378eac787b16e4bd8a9af5b8bddf7363591",
+      "bytes": 791
+    },
+    "docs/evidence/execucao-2026-10-09/native/benchmark-compile-command.json": {
+      "sha256": "a3f699bdd7b8ba86b8f26c6b7299af34465f67d965570f2a7e2ab51efaae14cc",
+      "bytes": 7379
+    },
+    "docs/evidence/execucao-2026-10-09/native/benchmark.disassembly.txt": {
+      "sha256": "385da951b25d466082187428dfc9640a23523f58833b2d1c1bbc93863385cfb6",
+      "bytes": 1717
+    },
+    "docs/evidence/execucao-2026-10-09/native/build-result-excerpt.txt": {
+      "sha256": "5fcadfb1ae9cb36bef0982fc96b1ae7eb4bbfac0108eee00a50ed55bc098106d",
+      "bytes": 115
+    },
+    "docs/evidence/observer-revalidation-2026-10-10/same-boot/calibration.json": {
+      "sha256": "f983f5da922910549c608c560dc7a8134f5e89eca9601f36f788b2df3ef4dbe7",
+      "bytes": 255
+    },
+    "docs/evidence/observer-revalidation-2026-10-10/same-boot/fixture.jsonl": {
+      "sha256": "76706f68565cdbcdf259df4aae6041c3ffbc00af55968ae7daf2bd36c2745f64",
+      "bytes": 20620
+    },
+    "docs/evidence/observer-revalidation-2026-10-10/same-boot/observations.jsonl": {
+      "sha256": "f6429f645e4e2c881a71f94d13196884cf063916fdbf4a4124c064c8f66395ee",
+      "bytes": 67905
+    },
+    "docs/evidence/observer-revalidation-2026-10-10/same-boot/summary.json": {
+      "sha256": "5278b63787aa69f7a4c490501b4d563e90197010697ef4e18472f698c883b040",
+      "bytes": 1125
+    },
+    "docs/evidence/observer-revalidation-2026-10-10/simulated-reboot/calibration.json": {
+      "sha256": "6c5dbd8a7a3c9f5400473abadcfa53040971b1465037b309d1ee3fce1073e2e9",
+      "bytes": 257
+    },
+    "docs/evidence/observer-revalidation-2026-10-10/simulated-reboot/fixture.jsonl": {
+      "sha256": "d0fa6ef5e3f93dfb3af594fb23adadcfdf7a3f179aeb356fa4487101318956b0",
+      "bytes": 20773
+    },
+    "docs/evidence/observer-revalidation-2026-10-10/simulated-reboot/observations.jsonl": {
+      "sha256": "ad7d0801862e2e964dc0984ab7e840b9a8d85832a2ef1549781c04b4e5422d7f",
+      "bytes": 67439
+    },
+    "docs/evidence/observer-revalidation-2026-10-10/simulated-reboot/summary.json": {
+      "sha256": "6e7873db9ca8363574e2f70087e17714052497ee5cd406e859dbcfafbc54c23f",
+      "bytes": 1206
+    },
+    "docs/evidence/observer-revalidation-2026-10-10/fixed-same-boot/calibration.json": {
+      "sha256": "ec76962384e6bfcde5e04d1bae8bb9da0d3404499e267fd85c271e2d168531dc",
+      "bytes": 256
+    },
+    "docs/evidence/observer-revalidation-2026-10-10/fixed-same-boot/fixture.jsonl": {
+      "sha256": "70f6dbfbc14834b2dfe5172e0479ed5f288f7760e5feec9431867da702ab794e",
+      "bytes": 20620
+    },
+    "docs/evidence/observer-revalidation-2026-10-10/fixed-same-boot/observations.jsonl": {
+      "sha256": "f63a69c64f5c21a8fff95c221db30bd2cb231ed6ed05bd4d4b98be4bedb10a01",
+      "bytes": 67905
+    },
+    "docs/evidence/observer-revalidation-2026-10-10/fixed-same-boot/summary.json": {
+      "sha256": "f28221f0eaf3766403b70e2335cb9f5ad88f51e66f5b25630b900f861132b15a",
+      "bytes": 1125
+    },
+    "docs/evidence/observer-revalidation-2026-10-10/fixed-simulated-reboot/calibration.json": {
+      "sha256": "9faab619b62a170a7262960ff512cd8e04912efdcf99a4616048a93252717379",
+      "bytes": 257
+    },
+    "docs/evidence/observer-revalidation-2026-10-10/fixed-simulated-reboot/fixture.jsonl": {
+      "sha256": "fcf495ee3ebc63fcd2019276926127fb2e385e9fa2e0c8719696615f508f9604",
+      "bytes": 20773
+    },
+    "docs/evidence/observer-revalidation-2026-10-10/fixed-simulated-reboot/observations.jsonl": {
+      "sha256": "bfd626acacd8cb8499c8b96454d1ffcfc825f4d6f54e9071af67d306e247cd29",
+      "bytes": 68028
+    },
+    "docs/evidence/observer-revalidation-2026-10-10/fixed-simulated-reboot/summary.json": {
+      "sha256": "de0ac24b9a45249c944da6031d20424788106868d76d8f931a0157351e48e4c6",
+      "bytes": 1206
+    }
+  }
+}

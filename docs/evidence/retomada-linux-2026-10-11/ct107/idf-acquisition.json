@@ -1,0 +1,45 @@
+{
+  "schema": "wasmhome-idf-acquisition-v1",
+  "revision": "9ef24e3e2a2c96e720d83c574a3f8699177573da",
+  "tree": "e74c4c35593551e612df306248b403a92ec8a403",
+  "origin": "https://github.com/espressif/esp-idf.git",
+  "submodules": " 24c60e243580c7868f4334a1ba3123481fe1aa48 components/bootloader/subproject/components/micro-ecc/micro-ecc (24c60e2)\n f0bdec4d25946fb57481c22bed6a971975eb4c6e components/bt/controller/lib_esp32 (f0bdec4)\n 5f735a14e99a010303f899e305894f1701068610 components/bt/controller/lib_esp32c2/esp32c2-bt-lib (5f735a1)\n 0c68809d62e432427de97b5294f6619307f62f40 components/bt/controller/lib_esp32c3_family (0c68809)\n dbe52b71de3955fa8c0661a8c17186918e34e8fb components/bt/controller/lib_esp32c6/esp32c6-bt-lib (dbe52b7)\n a77ad054f1f1b70fa1cf715100c2dde49c310770 components/bt/controller/lib_esp32h2/esp32h2-bt-lib (a77ad05)\n 24010ec6a4348d58826627616f54c57d777de147 components/bt/esp_ble_mesh/lib/lib (24010ec)\n efcf93c2e31daca039dd70f75e4afd9d2359b69c components/bt/host/nimble/nimble (efcf93c)\n eeecc49ce8af123cf8ad40efdb9673e37b56230f components/cmock/CMock (eeecc49)\n 71b47be7c950f1bf5f7e5303779fa99a16224bb6 components/cmock/CMock/vendor/c_exception (71b47be)\n cf949f45ca6d172a177b00da21310607b97bc7a7 components/cmock/CMock/vendor/unity (cf949f4)\n 40372a4be7bab3c0634903c50a3443d30effd2cc components/esp_coex/lib (40372a4)\n 4c2a23c8d2f6ceaf462feeae31636251870713aa components/esp_phy/lib (4c2a23c)\n a8a9a247bf7fb31d20a8b0ab33557fc1abeb7bb9 components/esp_wifi/lib (a8a9a24)\n d2e28f872472ffc6a704faae65ddee1f24e2dfba components/heap/tlsf (d2e28f8)\n 8f2beb57ddad1f94bed899790b00f46df893ccac components/json/cJSON (8f2beb5)\n 392707e5c3a5d8e2531461db77843b9759cd5a43 components/lwip/lwip (392707e)\n b5d87eaa6748b7a6fa70593178c08b4480e9b71e components/mbedtls/mbedtls (b5d87ea)\n cac1552e62b0474c162547b7cce345d7cd1aecfe components/mqtt/esp-mqtt (cac1552)\n 8532614fae5f7bc011b32d2dec76983bafa4e0c5 components/openthread/lib (8532614)\n b945928d722177cd9caeab2e1025499628c101ef components/openthread/openthread (b945928)\n abc67a11c6db271bedbb9f58be85d6f4e2ea8389 components/protobuf-c/protobuf-c (abc67a1)\n 0dbb3f71c5f6fae3747a9d935372773762baf852 components/spiffs/spiffs (0dbb3f7)\n 7d2bf62b7e6afaf38153041a9d53c21aeeca9a25 components/unity/unity (7d2bf62)",
+  "official_tools_json_sha256": "4b203a3ca3e4747099dedea0cc34c56e69b4380645009b3dc61317e4c10fcc88",
+  "packages": [
+    {
+      "name": "xtensa-esp-elf-gdb-16.2_20250324-x86_64-linux-gnu.tar.gz",
+      "bytes": 36361058,
+      "sha256": "27b58ab12248e04277c4fdc74038cf0a001d5142df091ab94939ad35053738fd"
+    },
+    {
+      "name": "riscv32-esp-elf-13.2.0_20250707-x86_64-linux-gnu.tar.xz",
+      "bytes": 150554748,
+      "sha256": "bd1ad6cdcee2d5de288c0c05b70f56f959dd270e2df254159594d0b05ad5dea1"
+    },
+    {
+      "name": "xtensa-esp-elf-13.2.0_20250707-x86_64-linux-gnu.tar.xz",
+      "bytes": 113781196,
+      "sha256": "d1f1378394baa3788bf78062e5d041cb14d4858bbb57f86d59e5b83fc9d5525f"
+    },
+    {
+      "name": "openocd-esp32-linux-amd64-0.12.0-esp32-20250707.tar.gz",
+      "bytes": 2489724,
+      "sha256": "766293bd7a08900d3536f87a0a7ade960f07266f16e4147f95ca5ce4e15d4c5d"
+    },
+    {
+      "name": "esp-rom-elfs-20240305.tar.gz",
+      "bytes": 3258247,
+      "sha256": "a26609b415710f0163d785850c769752717004059c129c472e9a0cbd54e0422c"
+    },
+    {
+      "name": "esp32ulp-elf-2.35_20220830-linux-amd64.tar.gz",
+      "bytes": 10685282,
+      "sha256": "b1f7801c3a16162e72393ebb772c0cbfe4d22d907be7c2c2dac168736e9195fd"
+    }
+  ],
+  "source_clean": true,
+  "pending": [
+    "IDF configure/native build",
+    "runtime B/C builds and physical proof"
+  ]
+}

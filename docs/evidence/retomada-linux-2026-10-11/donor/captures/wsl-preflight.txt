@@ -1,0 +1,128 @@
+IDENTITY
+1000
+haroldo
+x86_64
+haroldo-mini
+TOOLS
+/usr/bin/git
+/usr/bin/python3
+/usr/bin/tar
+/usr/bin/xz
+/usr/bin/curl
+PACKAGES
+git 1:2.43.0-1ubuntu7.3
+make 
+python3 3.12.3-0ubuntu2.1
+tar 1.35+dfsg-3ubuntu0.4
+xz-utils 5.6.1+really5.4.5-1ubuntu0.3
+NETWORK
+MINIMAL_APT
+NOTE: This is only a simulation!
+      apt-get needs root privileges for real execution.
+      Keep also in mind that locking is deactivated,
+      so don't depend on the relevance to the real current situation!
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following additional packages will be installed:
+  cmake-data cpp cpp-13 cpp-13-x86-64-linux-gnu cpp-x86-64-linux-gnu g++-13
+  g++-13-x86-64-linux-gnu g++-x86-64-linux-gnu gcc-13 gcc-13-base
+  gcc-13-x86-64-linux-gnu gcc-x86-64-linux-gnu libarchive13t64 libasan8
+  libatomic1 libc-dev-bin libc6-dev libcc1-0 libcrypt-dev libgcc-13-dev
+  libgomp1 libhwasan0 libisl23 libitm1 libjsoncpp25 liblsan0 libmpc3
+  libquadmath0 librhash0 libstdc++-13-dev libtsan2 libubsan1 libuv1t64
+  linux-libc-dev rpcsvc-proto
+Suggested packages:
+  cmake-doc cmake-format elpa-cmake-mode cpp-doc gcc-13-locales cpp-13-doc
+  g++-multilib g++-13-multilib gcc-13-doc gcc-multilib make manpages-dev
+  autoconf automake libtool flex bison gdb gcc-doc gcc-13-multilib
+  gdb-x86-64-linux-gnu lrzip glibc-doc libstdc++-13-doc
+Recommended packages:
+  make manpages-dev libc-devtools
+The following NEW packages will be installed:
+  cmake cmake-data cpp cpp-13 cpp-13-x86-64-linux-gnu cpp-x86-64-linux-gnu g++
+  g++-13 g++-13-x86-64-linux-gnu g++-x86-64-linux-gnu gcc gcc-13 gcc-13-base
+  gcc-13-x86-64-linux-gnu gcc-x86-64-linux-gnu libarchive13t64 libasan8
+  libatomic1 libc-dev-bin libc6-dev libcc1-0 libcrypt-dev libgcc-13-dev
+  libgomp1 libhwasan0 libisl23 libitm1 libjsoncpp25 liblsan0 libmpc3
+  libquadmath0 librhash0 libstdc++-13-dev libtsan2 libubsan1 libuv1t64
+  linux-libc-dev ninja-build rpcsvc-proto
+0 upgraded, 39 newly installed, 0 to remove and 80 not upgraded.
+Inst libuv1t64 (1.48.0-1.1build1 Ubuntu:24.04/noble [amd64])
+Inst libarchive13t64 (3.7.2-2ubuntu0.8 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst libjsoncpp25 (1.9.5-6build1 Ubuntu:24.04/noble [amd64])
+Inst librhash0 (1.4.3-3build1 Ubuntu:24.04/noble [amd64])
+Inst cmake-data (3.28.3-1build7 Ubuntu:24.04/noble [all])
+Inst cmake (3.28.3-1build7 Ubuntu:24.04/noble [amd64])
+Inst gcc-13-base (13.3.0-6ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst libisl23 (0.26-3build1.1 Ubuntu:24.04/noble-updates [amd64])
+Inst libmpc3 (1.3.1-1build1.1 Ubuntu:24.04/noble-updates [amd64])
+Inst cpp-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst cpp-13 (13.3.0-6ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst cpp-x86-64-linux-gnu (4:13.2.0-7ubuntu1 Ubuntu:24.04/noble [amd64])
+Inst cpp (4:13.2.0-7ubuntu1 Ubuntu:24.04/noble [amd64])
+Inst libcc1-0 (14.2.0-4ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst libgomp1 (14.2.0-4ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst libitm1 (14.2.0-4ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst libatomic1 (14.2.0-4ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst libasan8 (14.2.0-4ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst liblsan0 (14.2.0-4ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst libtsan2 (14.2.0-4ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst libubsan1 (14.2.0-4ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst libhwasan0 (14.2.0-4ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst libquadmath0 (14.2.0-4ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst libgcc-13-dev (13.3.0-6ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst gcc-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst gcc-13 (13.3.0-6ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst gcc-x86-64-linux-gnu (4:13.2.0-7ubuntu1 Ubuntu:24.04/noble [amd64])
+Inst gcc (4:13.2.0-7ubuntu1 Ubuntu:24.04/noble [amd64])
+Inst libc-dev-bin (2.39-0ubuntu8.9 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst linux-libc-dev (6.8.0-139.139 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst libcrypt-dev (1:4.4.36-4build1 Ubuntu:24.04/noble [amd64])
+Inst rpcsvc-proto (1.4.2-0ubuntu7 Ubuntu:24.04/noble [amd64])
+Inst libc6-dev (2.39-0ubuntu8.9 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst libstdc++-13-dev (13.3.0-6ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst g++-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst g++-13 (13.3.0-6ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst g++-x86-64-linux-gnu (4:13.2.0-7ubuntu1 Ubuntu:24.04/noble [amd64])
+Inst g++ (4:13.2.0-7ubuntu1 Ubuntu:24.04/noble [amd64])
+Inst ninja-build (1.11.1-2 Ubuntu:24.04/noble [amd64])
+Conf libuv1t64 (1.48.0-1.1build1 Ubuntu:24.04/noble [amd64])
+Conf libarchive13t64 (3.7.2-2ubuntu0.8 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf libjsoncpp25 (1.9.5-6build1 Ubuntu:24.04/noble [amd64])
+Conf librhash0 (1.4.3-3build1 Ubuntu:24.04/noble [amd64])
+Conf cmake-data (3.28.3-1build7 Ubuntu:24.04/noble [all])
+Conf cmake (3.28.3-1build7 Ubuntu:24.04/noble [amd64])
+Conf gcc-13-base (13.3.0-6ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf libisl23 (0.26-3build1.1 Ubuntu:24.04/noble-updates [amd64])
+Conf libmpc3 (1.3.1-1build1.1 Ubuntu:24.04/noble-updates [amd64])
+Conf cpp-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf cpp-13 (13.3.0-6ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf cpp-x86-64-linux-gnu (4:13.2.0-7ubuntu1 Ubuntu:24.04/noble [amd64])
+Conf cpp (4:13.2.0-7ubuntu1 Ubuntu:24.04/noble [amd64])
+Conf libcc1-0 (14.2.0-4ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf libgomp1 (14.2.0-4ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf libitm1 (14.2.0-4ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf libatomic1 (14.2.0-4ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf libasan8 (14.2.0-4ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf liblsan0 (14.2.0-4ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf libtsan2 (14.2.0-4ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf libubsan1 (14.2.0-4ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf libhwasan0 (14.2.0-4ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf libquadmath0 (14.2.0-4ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf libgcc-13-dev (13.3.0-6ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf gcc-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf gcc-13 (13.3.0-6ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf gcc-x86-64-linux-gnu (4:13.2.0-7ubuntu1 Ubuntu:24.04/noble [amd64])
+Conf gcc (4:13.2.0-7ubuntu1 Ubuntu:24.04/noble [amd64])
+Conf libc-dev-bin (2.39-0ubuntu8.9 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf linux-libc-dev (6.8.0-139.139 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf libcrypt-dev (1:4.4.36-4build1 Ubuntu:24.04/noble [amd64])
+Conf rpcsvc-proto (1.4.2-0ubuntu7 Ubuntu:24.04/noble [amd64])
+Conf libc6-dev (2.39-0ubuntu8.9 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf libstdc++-13-dev (13.3.0-6ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf g++-13-x86-64-linux-gnu (13.3.0-6ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf g++-13 (13.3.0-6ubuntu2~24.04.1 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf g++-x86-64-linux-gnu (4:13.2.0-7ubuntu1 Ubuntu:24.04/noble [amd64])
+Conf g++ (4:13.2.0-7ubuntu1 Ubuntu:24.04/noble [amd64])
+Conf ninja-build (1.11.1-2 Ubuntu:24.04/noble [amd64])

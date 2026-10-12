@@ -1,0 +1,7 @@
+COMMAND ["qm", "list"]
+      VMID NAME                 STATUS     MEM(MB)    BOOTDISK(GB) PID       
+       102 hermes               running    6112              64.00 1836      
+       103 Webserver            running    8096             200.00 1931      
+       104 DevServer            running    8192             128.00 2049      
+COMMAND ["pvesh", "get", "/cluster/nextid"]
+110

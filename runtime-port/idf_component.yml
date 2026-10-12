@@ -1,0 +1,7 @@
+version: "2.4.5-wasmhome.1"
+description: "WasmHome candidate port of upstream WAMR 2.4.5; independent local package"
+url: https://github.com/bytecodealliance/wasm-micro-runtime
+dependencies:
+  idf: "==5.2.6"
+targets:
+  - esp32s3

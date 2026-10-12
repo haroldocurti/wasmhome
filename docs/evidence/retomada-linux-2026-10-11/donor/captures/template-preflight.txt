@@ -1,0 +1,7 @@
+Read-only verification, host haroldo, 2026-10-10.
+Command: hostname; stat -c "%n %s %y" /var/lib/vz/template/cache/debian-13-standard_13.1-2_amd64.tar.zst; sha256sum /var/lib/vz/template/cache/debian-13-standard_13.1-2_amd64.tar.zst
+Transport: ssh -oBatchMode=yes -oStrictHostKeyChecking=yes root@192.168.0.99
+Exit code: 0
+haroldo
+/var/lib/vz/template/cache/debian-13-standard_13.1-2_amd64.tar.zst 129710398 2025-10-01 11:51:21.000000000 -0300
+ca6dffb91c3239fedc30af2c11389198140de1f1fc3d58082f3d9f4239b92e1b  /var/lib/vz/template/cache/debian-13-standard_13.1-2_amd64.tar.zst
