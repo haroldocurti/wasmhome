@@ -148,7 +148,7 @@ resultados definitivos.
 
 | Decisão | Estado | Critério de resolução |
 |---|---|---|
-| Semântica exata da histerese | Pendente | Definir limiar de ligar, limiar de desligar, estado inicial e resultados esperados para cada entrada |
+| Semântica exata da histerese | Aprovada pelo usuário em 13/10/2026 | Banda total de 1 °C: ligar em limiar +0,5 °C, desligar em limiar −0,5 °C; manter estado dentro da banda; iniciar GPIO baixo |
 | Regra de escolha do timeout funcional | Pendente antes do piloto | Fixar antes de ver os resultados do piloto como a latência de baseline e a taxa máxima de falsos timeouts determinam o valor comum; não escolher um timeout por cenário |
 | Timeout de resposta funcional | Candidato de 300 ms | Aplicar a regra pré-registrada aos dados do piloto; congelar um valor para as campanhas normal e de resiliência |
 | Prazo total da atualização | Pendente | Medir os caminhos nativo, interpretado e AOT no piloto; fixar um prazo operacional comum e classificar sua expiração como falha |
@@ -159,11 +159,10 @@ resultados definitivos.
 | Ordem da campanha | Referência congelável | Gerar uma lista explícita de blocos, balancear as seis permutações e preservar algoritmo, semente e arquivo final |
 | Critério de invalidação instrumental | Pendente | Definir causas observáveis e reproduzíveis antes da coleta; nunca invalidar por resultado desfavorável |
 
-### Regra de controle proposta para fechar a histerese
+### Regra de controle aprovada em 13/10/2026
 
-O glossário fixa limiares de 25 °C para v1 e 30 °C para v2, com histerese de
-1 °C, mas ainda não define a largura exata da banda. Proposta para confirmação
-antes da issue #11: interpretar 1 °C como a largura total da banda, ligar em
+O usuário confirmou em 13/10/2026 a proposta documentada para #11: limiares
+de 25 °C para v1 e 30 °C para v2, com 1 °C como largura total da banda. Ligar em
 limiar + 0,5 °C, desligar em limiar - 0,5 °C e manter o estado anterior dentro
 da banda. Inicializar GPIO em nível baixo. A implementação e o oráculo de
 referência devem usar a mesma definição.

@@ -9,6 +9,15 @@ endif()
 set(SCENARIO_SOURCE "main.c" "platform.c" "sensor.c" "observation_wire.c" "platform_selftest.c" "observer_selftest.c")
 set(SCENARIO_REQUIRES "esp_timer" "esp_wifi" "esp_netif" "esp_event" "nvs_flash" "driver" "esp_system" "onewire_bus")
 
+if(CONFIG_WASMHOME_NATIVE_SERVICES)
+    if(NOT EXPERIMENT_SCENARIO STREQUAL "native")
+        message(FATAL_ERROR "WASMHOME_NATIVE_SERVICES is available only in EXPERIMENT_SCENARIO=native")
+    endif()
+    if(CONFIG_WASMHOME_PLATFORM_SELFTEST OR CONFIG_WASMHOME_OBSERVER_SELFTEST OR CONFIG_WASMHOME_RUN_BENCHMARK)
+        message(FATAL_ERROR "WASMHOME_NATIVE_SERVICES cannot be combined with diagnostics or benchmark")
+    endif()
+endif()
+
 if(NOT EXPERIMENT_SCENARIO STREQUAL "native" AND NOT CMAKE_BUILD_EARLY_EXPANSION)
     execute_process(
         COMMAND "${PYTHON}" "${CMAKE_SOURCE_DIR}/tools/validate_build_config.py" --artifact-integrity
@@ -69,6 +78,10 @@ elseif(EXPERIMENT_SCENARIO STREQUAL "aot")
     list(APPEND SCENARIO_SOURCE "../artifacts/benchmark_aot_embedded.c")
 else()
     message(FATAL_ERROR "EXPERIMENT_SCENARIO must be native, interp or aot")
+endif()
+
+if(CONFIG_WASMHOME_NATIVE_SERVICES)
+    list(APPEND SCENARIO_SOURCE "native_services.c")
 endif()
 
 idf_component_register(

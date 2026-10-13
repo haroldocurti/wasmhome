@@ -33,6 +33,23 @@ UUID criado pelo observador, não uma credencial. Telemetria que chega durante
 uma tentativa pode usar esse UUID; para determinar início e fim da janela, o
 observador usa seu próprio log e não confia somente no campo recebido.
 
+Uma resposta do serviço produzida ao consultar o resultado em cache de um
+pedido repetido é uma nova mensagem de saída: conserva a correlação com o
+pedido no corpo e recebe a próxima sequência de saída do tipo e boot
+correspondentes. Isso não é retransmissão do datagrama de resposta anterior. Se
+um datagrama já enviado for retransmitido na rede, seus bytes e sua sequência
+permanecem iguais.
+
+No serviço nativo sem OTA, a deduplicação de `UPDATE_TRIGGER` identifica UUIDs
+admitidos e compara o pedido completo, incluindo a sequência de entrada. UUID
+conhecido com o mesmo conteúdo consulta o resultado em cache; UUID conhecido
+com qualquer campo diferente resulta em `ATTEMPT_CONFLICT`. Um UUID diferente
+não vira conflito só por reutilizar ou regredir a sequência do cabeçalho: sem
+identificador de sessão do observador no pacote, o dispositivo não impõe
+high-water global de entrada. A monotonicidade continua sendo responsabilidade
+do emissor; esse serviço sem OTA não atesta anti-replay entre UUIDs. Antes de
+adicionar OTA, definir identidade de sessão e política de retenção compatíveis.
+
 Em pacotes do dispositivo, `boot_id` identifica o boot emissor. Em pedidos do
 observador, identifica o boot do dispositivo que o pedido espera alcançar,
 aprendido de uma mensagem válida recente. Assim, pedido atrasado de outro boot

@@ -50,4 +50,21 @@ config WASMHOME_RUN_BENCHMARK
     depends on !WASMHOME_PLATFORM_SELFTEST && !WASMHOME_OBSERVER_SELFTEST
     help
         Benchmark CSV is diagnostic and does not establish service availability.
+config WASMHOME_NATIVE_SERVICES
+    bool "Run native DS18B20 telemetry and GPIO control services"
+    default n
+    depends on !WASMHOME_PLATFORM_SELFTEST && !WASMHOME_OBSERVER_SELFTEST && !WASMHOME_RUN_BENCHMARK
+    help
+        Installs the real native telemetry and versioned hysteresis control
+        services over UDP v1. This option is native-scenario only and is
+        mutually exclusive with diagnostics and benchmark firmware.
+config WASMHOME_CONTROL_VERSION
+    int "Native control policy version fixed in this build"
+    range 1 2
+    default 1
+    depends on WASMHOME_NATIVE_SERVICES
+    help
+        Version 1 uses the 25 C threshold; version 2 uses the 30 C threshold.
+        The selected value is compiled into firmware and cannot be changed at
+        runtime.
 endmenu

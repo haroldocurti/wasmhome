@@ -1,0 +1,17 @@
+{
+  "main/native_services.c": "5877179b15c186d32f610410b72de72a62cb1926f0ee18599a3780ee51546ca4",
+  "main/native_services.h": "2125784bf7d52f3399bc85edc29b9968d65088a67adc493f8f3aedcb4a705f3a",
+  "tests/test_native_services.py": "4e4aa4cde8368c9ae4b8cfc63d2d8b9fdf8648d3dbb13188624ad18f03b64ab1",
+  "tests/test_validate_e1_device.py": "f6a38f94400ea492f573af4ee549422f02e3cc443ec31cb4ce9fdd1469367ab9",
+  "tools/validate_e1_device.py": "93b77513d265b2a8cf73d04deb8e72c9da7ee54f488878fcc3caa0c9564c45ea",
+  "CONTEXT.md": "ac644520ee3b0609c3eac928da0352f74e5972a22908f70ac647de35b54aade4",
+  "docs/checklist-execucao.md": "cbb7bdd34c16248a847c21161e46f792e6a9e33ab187f7d741247eb94fa3b3ca",
+  "docs/plano-detalhado-coleta-analise.md": "9bc982d53ee7a7e69eeec6642d317bdbeae1ab8c41070de7cf80eaebfd248a00",
+  "docs/plano-proximos-passos-agentes.md": "bae42edd2c1fd853440359621f53d4067a757dcf89005b2a95b110154491584a",
+  "docs/protocolo-observacao.md": "ebc6d0cbbdf0707a27bd3ba75b67db7f2941835aba6dca68e11eccf772e7c221",
+  "docs/retomada-linux.md": "76795cdfcd6c5035e69e779605d8e4518f0edc0bb1c7f1675c246bb572063814",
+  "main/CMakeLists.txt": "bb9de99b44b037878e328a1a408fa5bdf73ac07d7a7c9f6d9362f1bc16a818d2",
+  "main/Kconfig.projbuild": "fbf0e50664f39b3dfb7db57ea61cb2b452174e2038c9d9c0ba0db34d7140feb9",
+  "main/main.c": "ad031c6ad9e3a7d4af294a4cbf3c14b09c8bcab6e401e131047c0d3f81ec74e3",
+  "tests/test_e1_runner.py": "b95416fa340dfd81cd5043a5145db987a6b81b2075b1a9f20962ad0959e138c7"
+}

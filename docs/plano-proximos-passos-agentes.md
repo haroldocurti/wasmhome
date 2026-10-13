@@ -160,18 +160,18 @@ respeitando o acesso exclusivo à placa durante os ensaios.
 
 1. Fazer preflight próprio da #11: placa, porta, rede, alimentação, firmware/hash,
    sensor real e loopback. Registrar plano de backup e restauração da sessão.
-   Preparar oráculo e vetores; fechar a decisão humana da semântica da histerese.
-   A proposta é banda total de 1 °C, limites ±0,5 °C e estado inicial baixo;
-   proposta não é decisão aprovada.
+   Preparar oráculo e vetores com a decisão humana de histerese aprovada em 13/10.
+   Decisão aprovada pelo usuário em 13/10/2026: banda total de 1 °C, limites
+   ±0,5 °C, manter estado dentro da banda e estado inicial baixo.
 2. Implementar telemetria DS18B20 e controle GPIO concorrentes no firmware
    monolítico, com versões v1/v2 e IDs/boots conforme o UDP v1. O aceite exige
    firmware dos serviços reais; fixture diagnóstica, microbenchmark E1 e
    `service_not_installed` não demonstram #11.
 3. Validar entradas de fronteira, manutenção de estado na banda, limiares de
-   25/30 °C e vetor que distingue v1/v2. Sob a proposta ainda pendente, usar
+   25/30 °C e vetor que distingue v1/v2. Sob a decisão aprovada em 13/10, usar
    23/32/27 °C → v1 `0,1,1`, v2 `0,1,0`; fronteiras v1
    24/25,5/25/24,5 °C e v2 29/30,5/30/29,5 °C → `0,1,1,0`.
-   Revalidar vetores após a decisão. Conferir IDs/boots, versão, níveis GPIO
+   Conferir os vetores contra a decisão aprovada. Conferir IDs/boots, versão, níveis GPIO
    solicitado/lido, estado e idade da leitura real. Republicar uma amostra não
    autoriza alterar sua temperatura sob o mesmo ID.
 4. Preservar aquisição 500 ms e observação/estímulos 100 ms; timeout candidato
@@ -180,6 +180,14 @@ respeitando o acesso exclusivo à placa durante os ensaios.
 6. C verifica os resultados contra o oráculo, nível solicitado/lido e continuidade
    dos dois serviços. Restaurar a bancada e registrar resultado. Resolver achados
    antes do aceite #11.
+7. Na implementação sem OTA, manter no máximo 16 IDs de `UPDATE_TRIGGER` por
+   boot para replay/conflito exatos; não substituir registros antigos. Quando o
+   pool estiver cheio, UUID desconhecido não recebe `UPDATE_ACCEPTANCE`: o
+   firmware registra `native_update_replay_capacity_full` no canal serial e
+   descarta o pedido. UUID já registrado continua respondendo do cache ou com
+   `ATTEMPT_CONFLICT`. Saturação é controle de admissão, não sucesso de OTA nem
+   tentativa aceita; preservar evento serial, ausência de resposta e timeout no
+   registro bruto sem inventar `ATTEMPT_CONFLICT` para UUID não admitido.
 
 ## Ondas posteriores — distribuição condicionada aos gates
 
@@ -207,7 +215,8 @@ interpreta a tabela como autorização de executar tudo ao mesmo tempo.
 
 ## Decisões necessárias antes do piloto e da campanha
 
-- Aprovar semântica da histerese e vetores antes de #11.
+- Histerese aprovada pelo usuário em 13/10: banda total de 1 °C, limites ±0,5 °C,
+  manter estado dentro da banda e estado inicial baixo. Validar os vetores na #11.
 - Pré-registrar regras para timeout comum, prazo de atualização, janelas,
   aquecimento e invalidação instrumental antes de usar os dados do piloto.
 - Resolver alvo de 90 oportunidades programadas versus 90 tentativas aceitas,
@@ -222,13 +231,14 @@ interpreta a tabela como autorização de executar tudo ao mesmo tempo.
 
 Os relatórios de agentes e as revisões independentes estão preservados em
 [evidence/proximos-passos-2026-10-13](evidence/proximos-passos-2026-10-13/).
-Resultado inicial de P1: codec C compilado e quatro testes específicos aprovados;
-suíte com 60 casos, 56 aprovados, uma falha por ausência de PowerShell e três
-skips de plataforma. A suíte geral ainda não está aprovada. P0 registra os
-achados de proveniência, pendentes de reconciliação. Revisões independentes
-estão vinculadas aos relatórios e não substituem execução física/atestado.
-Nenhum PowerShell portátil foi encontrado no host local; não houve segunda
-execução da suíte. Os resultados de build antigos não foram atribuídos ao HEAD
-testado, e os achados P0 não foram resolvidos nesta sessão.
+O resultado inicial foi superado pelas execuções e revisões registradas no
+[avanço de 13/10](evidence/avanco-e1-2026-10-13/README.md). PowerShell portátil
+foi recuperado e verificado, o codec C real foi compilado e a suíte passou.
+Os `sdkconfig` completos foram preservados fora do repositório. P0 reconciliou
+os snapshots históricos, preservou suas lacunas e repetiu geração e build B
+em diretórios novos. P3 está reconstruindo LLVM/wamrc independentemente.
+A #11 recebeu implementação nativa e testes de host; build ESP-IDF e prova
+na placa continuam necessários. A histerese e a fiação foram confirmadas pelo
+usuário, que também preencheu a configuração privada de rede.
 O plano detalhado de coleta/análise e o checklist E0–E7 continuam sendo as fontes
 para os contratos completos; esta distribuição não altera seus critérios.

@@ -1,0 +1,149 @@
+{
+  "build_source_revision": "801f9381da1a8ed0895adc88e8cd03f3a1df6707",
+  "build_source_tree": "c728d9ed348e7fdefe4dac403a4c42b6916e704a",
+  "created_at": "2026-10-13",
+  "evidence_directory": "/tmp/wasmhome-p2-20261013-r2",
+  "limitations": [
+    "Original 12/10 receipts bind sdkconfig.json by effective_config_sha256, but did not record the raw sdkconfig hash. This report adds raw hashes from CT107 and verifies the JSON normalization against the raw file in the same build directory.",
+    "All three builds remain build_checked_not_device_validated; no MCU flash, serial checksum, or physical acceptance is established."
+  ],
+  "private_directory": "/home/haroldocurti/.local/share/wasmhome-private/p2-20261013-r2",
+  "purpose": "sanitized P2 mapping; full configuration inputs are stored only in the private directory recorded below",
+  "remote_origin": "CT107 read through SSH to host with strict host-key checking, then pct exec 107; guest remained read-only",
+  "scenarios": {
+    "aot": {
+      "artifact_manifest_sha256": "f31158a3b0ce300c498a49469eddcd0f082c137a61a47b89b581408183faf098",
+      "bin_sha256": "18f73a8f108baf2fc61eb178b2b2e948ad8155d83c907ed6d9322913e72ce9d3",
+      "build_directory": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-idf-requirements-r6/build-e1-aot-r6",
+      "compile_commands_sha256": "18f8de330e25a47524a351988bfc9b8ece0ddb5a599383afd71a6816b29f5b86",
+      "elf_sha256": "6d5f28516ad2e8fea5282643e67e4badef649c7abb031d004f78fb26e619fa1e",
+      "private_sdkconfig_json_copy": "/home/haroldocurti/.local/share/wasmhome-private/p2-20261013-r2/sdkconfig-json.aot",
+      "raw_to_json_value_comparison": {
+        "json_only": 0,
+        "json_options": 1338,
+        "mismatches": 0,
+        "raw_only": 189,
+        "raw_options": 1527,
+        "shared_equal": 1338
+      },
+      "receipt_sha256": "58726ecfbf1a52d9607a926e20f0faf1827528acd16c1a81c03de88e5b0630b0",
+      "receipt_status": "build_checked_not_device_validated",
+      "runtime_resolved": {
+        "aot_version": 5,
+        "app_framework_revision": "e97860611e371d91d2ef25101b02b29719476a48",
+        "component": "wasmhome/wasm-micro-runtime",
+        "component_hash": "7d3eba8883eaaefee0457e8593b2a5203050736487fcf62bbf05cd8ce0306251",
+        "port_lock_sha256": "348a5addf014587b24468fe55b44444284ee5d212d7f206c394a9659cf6f9669",
+        "repository_revision": "25bd7eb63e828e4bd242cc9b38d260b4b31c6605",
+        "version": "2.4.5-wasmhome.1"
+      },
+      "safe_config_values": {
+        "COMPILER_OPTIMIZATION_PERF": true,
+        "ESP_DEFAULT_CPU_FREQ_MHZ": 240,
+        "ESP_DEFAULT_CPU_FREQ_MHZ_240": true,
+        "WAMR_ENABLE_AOT": true,
+        "WAMR_ENABLE_INTERP": false,
+        "WASMHOME_OBSERVER_SELFTEST": false,
+        "WASMHOME_PLATFORM_SELFTEST": false,
+        "WASMHOME_RUN_BENCHMARK": true
+      },
+      "sdkconfig_json_effective_config_sha256": "387bebd96b20f914ae0f4b117a022cf8f17028b86bef1eed884d92470b5a593f",
+      "sdkconfig_json_sha256": "387bebd96b20f914ae0f4b117a022cf8f17028b86bef1eed884d92470b5a593f",
+      "sdkconfig_mode": "private original, mode 0600; directory mode 0700",
+      "sdkconfig_sha256": "6f7391a6eab3fb9cd9226bb9f2cf8ba508c3fa45596dcfbf9b105e1ebe5018a5",
+      "sensitive_options_redacted": [
+        "CONFIG_WASMHOME_UDP_PORT",
+        "CONFIG_WASMHOME_WIFI_SSID"
+      ],
+      "source_revision": "801f9381da1a8ed0895adc88e8cd03f3a1df6707",
+      "source_tree": "c728d9ed348e7fdefe4dac403a4c42b6916e704a"
+    },
+    "interp": {
+      "artifact_manifest_sha256": "f31158a3b0ce300c498a49469eddcd0f082c137a61a47b89b581408183faf098",
+      "bin_sha256": "0abe28dc75b9affbaf89c148ca3b2c32dc7ae5c7c5550cc1b578bc9f0721a6fe",
+      "build_directory": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-idf-requirements-r6/build-e1-interp-r6",
+      "compile_commands_sha256": "aa0c2faaf2fb606360f97a1e2222fb88b385b974b5584ad6878e5f33b28084e1",
+      "elf_sha256": "d15565f136a26cf4e9d213533a40dd7d5eba8ad3f0654ab941ac00c4911c5dc5",
+      "private_sdkconfig_json_copy": "/home/haroldocurti/.local/share/wasmhome-private/p2-20261013-r2/sdkconfig-json.interp",
+      "raw_to_json_value_comparison": {
+        "json_only": 0,
+        "json_options": 1342,
+        "mismatches": 0,
+        "raw_only": 189,
+        "raw_options": 1531,
+        "shared_equal": 1342
+      },
+      "receipt_sha256": "cce4848d113e00779266cb4a6ff09dd686d96c4311fec3a74864279b92747eb3",
+      "receipt_status": "build_checked_not_device_validated",
+      "runtime_resolved": {
+        "aot_version": 5,
+        "app_framework_revision": "e97860611e371d91d2ef25101b02b29719476a48",
+        "component": "wasmhome/wasm-micro-runtime",
+        "component_hash": "7d3eba8883eaaefee0457e8593b2a5203050736487fcf62bbf05cd8ce0306251",
+        "port_lock_sha256": "348a5addf014587b24468fe55b44444284ee5d212d7f206c394a9659cf6f9669",
+        "repository_revision": "25bd7eb63e828e4bd242cc9b38d260b4b31c6605",
+        "version": "2.4.5-wasmhome.1"
+      },
+      "safe_config_values": {
+        "COMPILER_OPTIMIZATION_PERF": true,
+        "ESP_DEFAULT_CPU_FREQ_MHZ": 240,
+        "ESP_DEFAULT_CPU_FREQ_MHZ_240": true,
+        "WAMR_ENABLE_AOT": false,
+        "WAMR_ENABLE_INTERP": true,
+        "WAMR_INTERP_CLASSIC": true,
+        "WAMR_INTERP_FAST": false,
+        "WASMHOME_OBSERVER_SELFTEST": false,
+        "WASMHOME_PLATFORM_SELFTEST": false,
+        "WASMHOME_RUN_BENCHMARK": true
+      },
+      "sdkconfig_json_effective_config_sha256": "f5f9f7613deef0b0bd148de64a5cd861cc965ec2c4e6b962a957bb29890a769f",
+      "sdkconfig_json_sha256": "f5f9f7613deef0b0bd148de64a5cd861cc965ec2c4e6b962a957bb29890a769f",
+      "sdkconfig_mode": "private original, mode 0600; directory mode 0700",
+      "sdkconfig_sha256": "473b97e2b27001de171dad269ede4bc47a0a47e96f1391adc34f9900d2721af7",
+      "sensitive_options_redacted": [
+        "CONFIG_WASMHOME_UDP_PORT",
+        "CONFIG_WASMHOME_WIFI_SSID"
+      ],
+      "source_revision": "801f9381da1a8ed0895adc88e8cd03f3a1df6707",
+      "source_tree": "c728d9ed348e7fdefe4dac403a4c42b6916e704a"
+    },
+    "native": {
+      "artifact_manifest_sha256": null,
+      "bin_sha256": "418636ad0a2a6a61857efeb6c2a6f44cddd89ff25f53dda58e2534406ff0a9dd",
+      "build_directory": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-idf-requirements-r6/build-e1-native-r6",
+      "compile_commands_sha256": "650152eb7e100074bf32406675aac9bb91be236ecaa522547f1e6363c4f8ba05",
+      "elf_sha256": "e652811f3ab89a504e922dae328dac0489fcf7e7f8f6df429d21f210dc683c52",
+      "private_sdkconfig_json_copy": "/home/haroldocurti/.local/share/wasmhome-private/p2-20261013-r2/sdkconfig-json.native",
+      "raw_to_json_value_comparison": {
+        "json_only": 0,
+        "json_options": 1324,
+        "mismatches": 0,
+        "raw_only": 189,
+        "raw_options": 1513,
+        "shared_equal": 1324
+      },
+      "receipt_sha256": "0b86ef08592db0b62ac9567d1cd2bdf1646adc16013884af19c8647def73cdf5",
+      "receipt_status": "build_checked_not_device_validated",
+      "runtime_resolved": null,
+      "safe_config_values": {
+        "COMPILER_OPTIMIZATION_PERF": true,
+        "ESP_DEFAULT_CPU_FREQ_MHZ": 240,
+        "ESP_DEFAULT_CPU_FREQ_MHZ_240": true,
+        "WASMHOME_OBSERVER_SELFTEST": false,
+        "WASMHOME_PLATFORM_SELFTEST": false,
+        "WASMHOME_RUN_BENCHMARK": true
+      },
+      "sdkconfig_json_effective_config_sha256": "f1f715b25126a50468329d243ed6a03bb07547252a3745f0fb74dcc846dd411d",
+      "sdkconfig_json_sha256": "f1f715b25126a50468329d243ed6a03bb07547252a3745f0fb74dcc846dd411d",
+      "sdkconfig_mode": "private original, mode 0600; directory mode 0700",
+      "sdkconfig_sha256": "919dab6ada7b62053dc5af0d0b70389e7219b1ebcef66dff74b035760c1f6600",
+      "sensitive_options_redacted": [
+        "CONFIG_WASMHOME_UDP_PORT",
+        "CONFIG_WASMHOME_WIFI_SSID"
+      ],
+      "source_revision": "801f9381da1a8ed0895adc88e8cd03f3a1df6707",
+      "source_tree": "c728d9ed348e7fdefe4dac403a4c42b6916e704a"
+    }
+  },
+  "working_tree_head": "0ba2faab16dc9671f89a663eea8e6d0d1f528997"
+}

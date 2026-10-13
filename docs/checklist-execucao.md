@@ -17,9 +17,11 @@ Ela não constitui aceite das issues ou execução física.
 
 As caixas refletem somente o snapshot indicado. Registros posteriores podem alterar o estado.
 A consulta de 13/10 confirmou #7/#9/#11 abertas. A sincronização documental
-e do rastreador não constitui revisão técnica ou aceite: os testes locais com
-codec C compilado, a preservação dos `sdkconfig` completos, o atestado independente
-do compilador e a prova A/B/C no MCU continuam nos próximos gates.
+e do rastreador não constitui aceite físico. Os `sdkconfig` completos foram
+preservados privadamente e comparados às configurações efetivas; o codec C foi
+compilado e a suíte local passou. O atestado independente do compilador e a
+prova A/B/C no MCU continuam pendentes. O [avanço de 13/10](evidence/avanco-e1-2026-10-13/README.md)
+registra a reconciliação de proveniência, os novos artefatos e os limites.
 
 ### Avanço local em 10/10
 

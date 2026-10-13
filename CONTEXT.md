@@ -166,8 +166,10 @@ ajustado antes da campanha definitiva.
 ## Regra de controle
 
 Transformação determinística de valores de teste em estado do GPIO, com histerese
-de 1 grau Celsius. A versão v1 usa limiar de 25 graus Celsius e a v2 usa limiar
-de 30 graus Celsius. O observador envia uma sequência conhecida que atravessa os
+de 1 grau Celsius como largura total da banda, decisão aprovada pelo usuário
+em 13/10/2026. A versão v1 usa limiar de 25 graus Celsius e a v2 usa limiar
+de 30 graus Celsius. Ligar em limiar +0,5 °C, desligar em limiar −0,5 °C e
+manter o estado anterior dentro da banda; inicializar o GPIO em nível baixo. O observador envia uma sequência conhecida que atravessa os
 dois limiares e verifica o resultado correspondente à versão ativa.
 
 ## Loopback de GPIO

@@ -1,0 +1,3 @@
+6f7391a6eab3fb9cd9226bb9f2cf8ba508c3fa45596dcfbf9b105e1ebe5018a5  /home/haroldocurti/.local/share/wasmhome-private/p2-20261013-r2/sdkconfig.aot
+473b97e2b27001de171dad269ede4bc47a0a47e96f1391adc34f9900d2721af7  /home/haroldocurti/.local/share/wasmhome-private/p2-20261013-r2/sdkconfig.interp
+919dab6ada7b62053dc5af0d0b70389e7219b1ebcef66dff74b035760c1f6600  /home/haroldocurti/.local/share/wasmhome-private/p2-20261013-r2/sdkconfig.native

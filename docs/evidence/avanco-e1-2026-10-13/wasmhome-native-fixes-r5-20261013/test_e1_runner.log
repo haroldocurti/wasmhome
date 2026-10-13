@@ -1,0 +1,14 @@
+test_artifact_manifest_rejects_tampering_and_stale_source (test_e1_runner.EvidenceTests.test_artifact_manifest_rejects_tampering_and_stale_source) ... ok
+test_cmake_rejects_old_payloads_without_manifest (test_e1_runner.EvidenceTests.test_cmake_rejects_old_payloads_without_manifest) ... ok
+test_embedding_requires_nonempty_ascii_identifier (test_e1_runner.EvidenceTests.test_embedding_requires_nonempty_ascii_identifier) ... ok
+test_native_final_optimization_rejects_missing_o2_and_later_override (test_e1_runner.EvidenceTests.test_native_final_optimization_rejects_missing_o2_and_later_override) ... ok
+test_native_runtime_symbols_rejected (test_e1_runner.EvidenceTests.test_native_runtime_symbols_rejected) ... ok
+test_runtime_validator_bounds_and_compiled_source_paths (test_e1_runner.EvidenceTests.test_runtime_validator_bounds_and_compiled_source_paths) ... ok
+test_scenario_mismatch_rejected (test_e1_runner.EvidenceTests.test_scenario_mismatch_rejected) ... ok
+test_toolchain_identity_rejects_missing_sha_changed_binary_or_version (test_e1_runner.EvidenceTests.test_toolchain_identity_rejects_missing_sha_changed_binary_or_version) ... ok
+test_load_failures_traps_and_checksums_release_resources (test_e1_runner.RunnerCompiledTests.test_load_failures_traps_and_checksums_release_resources) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.184s
+
+OK

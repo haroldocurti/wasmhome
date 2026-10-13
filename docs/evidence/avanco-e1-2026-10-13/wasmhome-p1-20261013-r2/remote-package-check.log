@@ -1,0 +1,8 @@
+{
+  "hostname": "wasmhome-bench",
+  "uid": 1000,
+  "path": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/downloads/powershell-7.6.6-linux-x64.tar.gz",
+  "bytes": 75876271,
+  "sha256": "ddbc4a2d113bbd46d283cfedcbcd117a70caefd7673f41f2b4e0000badf103bc",
+  "expected_sha256": "ddbc4a2d113bbd46d283cfedcbcd117a70caefd7673f41f2b4e0000badf103bc"
+}

@@ -1,0 +1,8 @@
+=== preserved ignored bytecode outside the ESP-IDF tree; no source/submodule cleanup ===
+cc91ef8758b2d6c81094e9a0f61ae7bf4dcc735c0b5b5514a5f4095a5cd90480  /home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/p0-r8-idf-pycache-preserved/copied-before-move.pyc
+cc91ef8758b2d6c81094e9a0f61ae7bf4dcc735c0b5b5514a5f4095a5cd90480  /home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/p0-r8-idf-pycache-preserved/moved-original.pyc
+/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/p0-r8-idf-pycache-preserved/copied-before-move.pyc|wasmhome:wasmhome|644|1559|2026-10-13 01:01:51.897600359 -0300
+/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/p0-r8-idf-pycache-preserved/moved-original.pyc|wasmhome:wasmhome|644|1559|2026-10-13 00:49:49.585520085 -0300
+=== IDF top-level status and dry-run clean preview after moving exactly one pyc ===
+=== recursive submodule dry-run clean previews ===
+=== preserved files are outside IDF ===

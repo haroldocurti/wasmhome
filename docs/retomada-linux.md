@@ -312,3 +312,21 @@ do projeto foram arquivados; a exclusão e seus motivos constam em `source-map.j
 As árvores de trabalho originais não foram apagadas. Esta execução criou builds e
 evidências apenas nos diretórios dedicados do CT107; não instalou pacotes do
 sistema, não gravou firmware nem iniciou coleta experimental.
+
+## Avanço em 13/10/2026
+
+O [pacote de avanço](evidence/avanco-e1-2026-10-13/README.md) registra a
+recuperação privada das configurações completas, a comparação com os hashes
+e valores efetivos dos recibos, a reconciliação R6/R7 e novas gerações R8/R9
+com cinco saídas idênticas. Um novo build B foi validado; não foi gravado.
+A cronologia histórica de B inclui build anterior a `801f938` e recompilação
+incremental posterior. O log de geração do manifesto final histórico não foi
+recuperado; o nativo também mantém sua lacuna de revalidação histórica.
+As novas provas não alteram esses registros antigos.
+
+A implementação da #11 e a instrumentação de memória da #9 são preparações
+testadas no host. A configuração de rede preenchida pelo usuário está fora
+do Git, com acesso restrito. Sensor GPIO4 e loopback GPIO5→GPIO6 foram
+reconfirmados. A reconstrução independente LLVM/wamrc continua em andamento;
+builds ESP-IDF da fonte nova e validação física ainda não estão demonstrados.
+Endereços históricos acima precisam ser reconfirmados antes da sessão física.

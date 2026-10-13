@@ -1,0 +1,45 @@
+=== P0 artifact generation R8: clean source commit 801f938 ===
++ git rev-parse HEAD 'HEAD^{tree}'
+801f9381da1a8ed0895adc88e8cd03f3a1df6707
+c728d9ed348e7fdefe4dac403a4c42b6916e704a
++ git status --short --branch
+## HEAD (no branch)
++ /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf526-py313/bin/python -B tools/runtime_package.py
+{
+  "component": "wasmhome/wasm-micro-runtime",
+  "version": "2.4.5-wasmhome.1",
+  "component_hash": "7d3eba8883eaaefee0457e8593b2a5203050736487fcf62bbf05cd8ce0306251",
+  "repository_revision": "25bd7eb63e828e4bd242cc9b38d260b4b31c6605",
+  "app_framework_revision": "e97860611e371d91d2ef25101b02b29719476a48",
+  "port_lock_sha256": "348a5addf014587b24468fe55b44444284ee5d212d7f206c394a9659cf6f9669",
+  "aot_version": 5
+}
++ /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/powershell-7.6.6/pwsh -NoProfile -NonInteractive -File tools/build-artifacts.ps1 -WasiSdkPackage /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/downloads/wasi-sdk-27.0-x86_64-linux.tar.gz -WamrcBuildReceipt /home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-r5/wamrc-build-receipt.json
+Create AoT compiler with:
+  target:        xtensa
+  target cpu:    
+  target triple: xtensa-pc-linux-gnu
+  cpu features:  
+  opt level:     3
+  size level:    3
+  output format: AoT file
+Compile success, file /home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-p0-r8/build-artifacts-stage-107bf47b43f2416fba20c204c88d5844/benchmark.aot was generated.
+{"directory": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-p0-r8/artifacts", "previous_preserved": null}
++ sha256sum artifacts/benchmark.wasm artifacts/benchmark.aot artifacts/benchmark.wasm.s artifacts/benchmark_wasm_embedded.c artifacts/benchmark_aot_embedded.c artifacts/build-manifest.json
+d4cc0e280d02a697bb52c391e3b225a0691bc24d14cefb2883e51e085e466847  artifacts/benchmark.wasm
+c4c94777e5f9460b8e60065d5cb89c7e79907cac61720a61f5ebd5467b512d88  artifacts/benchmark.aot
+eab49c09c9c22c1075837f268087e72f536472415abd6812c2292b19a2cf50cf  artifacts/benchmark.wasm.s
+0c1ad886ae451e8affa974ee79fd0377ab7b77c312039b3c78be331dade5e59b  artifacts/benchmark_wasm_embedded.c
+b1e3bc1965b71c4c44a0132cb4cda37f64d521d9a57414949a59d9bde522bb21  artifacts/benchmark_aot_embedded.c
+1a8c85d288cd08eb8bc600fc69c6211c5b7137070c2ee6e8fd92d78a3ec926d1  artifacts/build-manifest.json
++ /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf526-py313/bin/python -B - artifacts/build-manifest.json
+manifest_source= 801f9381da1a8ed0895adc88e8cd03f3a1df6707 c728d9ed348e7fdefe4dac403a4c42b6916e704a
+clang_flags= ['--target=wasm32-wasi', '-O3', '-nostdlib', '-I', '/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-p0-r8/workload', '-Wl,--no-entry', '-Wl,--export=benchmark_run', '-Wl,--strip-all', '-Wl,-z,stack-size=8192', '-Wl,--initial-memory=65536']
+aot_flags= ['--target=xtensa', '--bounds-checks=1', '--disable-llvm-lto', '--opt-level=3']
+runtime= {'component': 'wasmhome/wasm-micro-runtime', 'version': '2.4.5-wasmhome.1', 'component_hash': '7d3eba8883eaaefee0457e8593b2a5203050736487fcf62bbf05cd8ce0306251', 'repository_revision': '25bd7eb63e828e4bd242cc9b38d260b4b31c6605', 'app_framework_revision': 'e97860611e371d91d2ef25101b02b29719476a48', 'port_lock_sha256': '348a5addf014587b24468fe55b44444284ee5d212d7f206c394a9659cf6f9669', 'aot_version': 5}
+status= generated_not_device_validated
++ git rev-parse HEAD 'HEAD^{tree}'
+801f9381da1a8ed0895adc88e8cd03f3a1df6707
+c728d9ed348e7fdefe4dac403a4c42b6916e704a
++ git status --short --branch
+## HEAD (no branch)

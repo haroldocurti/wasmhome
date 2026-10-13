@@ -1,0 +1,13 @@
+ssh -i /home/haroldocurti/.ssh/haroldo-dev -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/home/haroldocurti/.ssh/known_hosts root@192.168.0.99 'pct exec 107 -- cat /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/downloads/powershell-7.6.6-linux-x64.tar.gz' > /tmp/wasmhome-p1-20261013-r2/downloads/powershell-7.6.6-linux-x64.tar.gz
+{
+  "hostname": "wasmhome-bench",
+  "uid": 1000,
+  "path": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/downloads/powershell-7.6.6-linux-x64.tar.gz",
+  "bytes": 75876271,
+  "sha256": "ddbc4a2d113bbd46d283cfedcbcd117a70caefd7673f41f2b4e0000badf103bc",
+  "expected_sha256": "ddbc4a2d113bbd46d283cfedcbcd117a70caefd7673f41f2b4e0000badf103bc"
+}
+7.6.6
+cc -std=c11 -Wall -Wextra -Werror -fPIC -shared main/observation_wire.c -o /tmp/wasmhome-p1-20261013-r2/libobservation_wire.so
+env PATH=/tmp/wasmhome-p1-20261013-r2/pwsh:/usr/bin:/bin WASMHOME_WIRE_LIBRARY=/tmp/wasmhome-p1-20261013-r2/libobservation_wire.so /usr/bin/python3 -m unittest discover -s tests -v
+env PATH=/home/haroldocurti/wasmhome-toolchain-e1-2.4.5-xtensa18-20261012/tools/cmake/bin:/home/haroldocurti/wasmhome-toolchain-e1-2.4.5-xtensa18-20261012/tools/ninja:/tmp/wasmhome-p1-20261013-r2/pwsh:/usr/bin:/bin WASMHOME_WIRE_LIBRARY=/tmp/wasmhome-p1-20261013-r2/libobservation_wire.so /usr/bin/python3 -m unittest discover -s tests -v

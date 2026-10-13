@@ -1,6 +1,7 @@
 import pathlib
 import json
 import hashlib
+import os
 import shutil
 import subprocess
 import sys
@@ -147,7 +148,10 @@ class EvidenceTests(unittest.TestCase):
     def test_cmake_rejects_old_payloads_without_manifest(self):
         cmake = pathlib.Path(r"C:\esp\tools-task8\tools\cmake\3.30.2\bin\cmake.exe")
         if not cmake.is_file():
-            self.skipTest("CMake unavailable; integration gate needs verification separately")
+            available_cmake = shutil.which("cmake")
+            if available_cmake is None:
+                self.skipTest("CMake unavailable; integration gate needs verification separately")
+            cmake = pathlib.Path(available_cmake)
         with tempfile.TemporaryDirectory(prefix="wasmhome-cmake-") as temporary:
             root = pathlib.Path(temporary)
             (root / "tools").mkdir()
@@ -168,28 +172,138 @@ STUB = r'''
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #define CONFIG_WASMHOME_RUN_BENCHMARK 1
 #define CONFIG_WAMR_ENABLE_INTERP 1
 #define CONFIG_WAMR_INTERP_CLASSIC 1
+#ifdef WASMHOME_TEST_SPIRAM
+#define CONFIG_SPIRAM 1
+#endif
 #define MALLOC_CAP_INTERNAL 1
+#define MALLOC_CAP_SPIRAM 2
 #define ESP_ERROR_CHECK(x) assert((x) == 0)
 #define ESP_LOGE(tag, fmt, ...) ((void)tag)
 #define ESP_LOGI(tag, fmt, ...) ((void)tag)
 static int stage, calls, frees, unloads, deinsts, exec_frees, destroys;
 static void *allocated;
+static bool memory_output_active;
+static int memory_output_printf_calls, memory_output_events;
+static size_t heap_total_internal_calls, heap_total_psram_calls;
+static size_t heap_info_internal_calls, heap_info_psram_calls;
+static size_t heap_info_internal_sum_changes, heap_info_psram_sum_changes;
+static size_t heap_info_internal_previous_sum, heap_info_psram_previous_sum;
+static size_t legacy_largest_calls;
+typedef struct {
+    size_t total_free_bytes;
+    size_t total_allocated_bytes;
+    size_t largest_free_block;
+    size_t minimum_free_bytes;
+    size_t allocated_blocks;
+    size_t free_blocks;
+    size_t total_blocks;
+} multi_heap_info_t;
+static int test_printf(const char *format, ...) {
+    bool starts_memory = strncmp(format, "WASMHOME_MEMORY,", 15) == 0;
+    if (strcmp(format, "%s\n") == 0) {
+        va_list peek;
+        va_start(peek, format);
+        const char *value = va_arg(peek, const char *);
+        starts_memory = value && strncmp(value, "WASMHOME_MEMORY,", 15) == 0;
+        va_end(peek);
+    }
+    if (starts_memory) {
+        assert(!memory_output_active);
+        memory_output_active = true;
+        memory_output_printf_calls = 0;
+        memory_output_events++;
+    }
+    if (memory_output_active) memory_output_printf_calls++;
+    va_list arguments;
+    va_start(arguments, format);
+    int result = vprintf(format, arguments);
+    va_end(arguments);
+    if (memory_output_active) {
+        fputs("\nWASMHOME_EVENT,{\"event\":\"concurrent_log_probe\"}\n", stdout);
+        if (strchr(format, '\n')) {
+            assert(memory_output_printf_calls == 1);
+            memory_output_active = false;
+        }
+    }
+    return result;
+}
+static int test_puts(const char *value) {
+    int result = fputs(value, stdout);
+    if (memory_output_active) {
+        memory_output_printf_calls++;
+        assert(memory_output_printf_calls == 1);
+        memory_output_active = false;
+        fputs("\nWASMHOME_EVENT,{\"event\":\"concurrent_log_probe\"}\n", stdout);
+    }
+    return result;
+}
+#define printf test_printf
+#define puts test_puts
 typedef void *wasm_module_t;
 typedef void *wasm_module_inst_t;
 typedef void *wasm_exec_env_t;
 typedef void *wasm_function_inst_t;
 typedef struct { int mem_alloc_type; struct { struct { void *malloc_func, *realloc_func, *free_func; } allocator; } mem_alloc_option; } RuntimeInitArgs;
 enum { Alloc_With_Allocator };
-static size_t heap_caps_get_free_size(int x) { return 1000; }
+static size_t heap_caps_get_total_size(uint32_t x) {
+    if (x == MALLOC_CAP_INTERNAL) {
+        heap_total_internal_calls++;
+        return 2048;
+    }
+    assert(x == MALLOC_CAP_SPIRAM);
+    heap_total_psram_calls++;
+    return 4096;
+}
+static size_t heap_caps_get_free_size(uint32_t x) {
+    return x == MALLOC_CAP_INTERNAL ? 800 : 2800;
+}
+static size_t heap_caps_get_largest_free_block(uint32_t x) {
+    legacy_largest_calls++;
+    return x == MALLOC_CAP_INTERNAL ? 900 : 2900;
+}
+static void heap_caps_get_info(multi_heap_info_t *info, uint32_t caps) {
+    size_t snapshot;
+    if (caps == MALLOC_CAP_INTERNAL) {
+        snapshot = heap_info_internal_calls++;
+        assert(snapshot < 100);
+        info->total_free_bytes = 1000 + snapshot;
+        info->total_allocated_bytes = 500 + (snapshot % 7) * 13;
+        info->largest_free_block = 800 + snapshot;
+        if (snapshot > 0 &&
+            info->total_free_bytes + info->total_allocated_bytes != heap_info_internal_previous_sum) {
+            heap_info_internal_sum_changes++;
+        }
+        heap_info_internal_previous_sum = info->total_free_bytes + info->total_allocated_bytes;
+    } else {
+        assert(caps == MALLOC_CAP_SPIRAM);
+        snapshot = heap_info_psram_calls++;
+        assert(snapshot < 100);
+        info->total_free_bytes = 3000 + snapshot;
+        info->total_allocated_bytes = 700 + (snapshot % 7) * 17;
+        info->largest_free_block = 2400 + snapshot;
+        if (snapshot > 0 &&
+            info->total_free_bytes + info->total_allocated_bytes != heap_info_psram_previous_sum) {
+            heap_info_psram_sum_changes++;
+        }
+        heap_info_psram_previous_sum = info->total_free_bytes + info->total_allocated_bytes;
+    }
+    info->minimum_free_bytes = info->total_free_bytes;
+    info->allocated_blocks = 1;
+    info->free_blocks = 1;
+    info->total_blocks = 2;
+}
 static size_t heap_caps_get_minimum_free_size(int x) { return 900; }
 static int64_t esp_timer_get_time(void) { static int64_t t; return ++t; }
 static int wh_platform_start(void) { return 0; }
+static uint64_t wh_platform_boot_id(void) { return UINT64_C(0x0102030405060708); }
 static void *os_malloc(unsigned size) { if(stage == 1) return NULL; return allocated = malloc(size); }
 static void *os_realloc(void *p, unsigned s) { return realloc(p,s); }
 static void os_free(void *p) { assert(p == allocated); assert(!unloads || unloads == 1); free(p); frees++; }
@@ -223,6 +337,18 @@ int main(int argc, char **argv) {
     stage = argc > 1 ? atoi(argv[1]) : 0;
     app_main();
     assert(benchmark_wasm[0] == 0);
+    assert(heap_total_internal_calls == (size_t)memory_output_events);
+    assert(heap_info_internal_calls == (size_t)memory_output_events);
+    assert(heap_info_internal_sum_changes > 0);
+    assert(legacy_largest_calls == 0);
+#ifdef CONFIG_SPIRAM
+    assert(heap_total_psram_calls == (size_t)memory_output_events);
+    assert(heap_info_psram_calls == (size_t)memory_output_events);
+    assert(heap_info_psram_sum_changes > 0);
+#else
+    assert(heap_total_psram_calls == 0);
+    assert(heap_info_psram_calls == 0);
+#endif
     assert(frees == ((stage == 1 || stage == 8) ? 0 : 1));
     assert(unloads == ((stage == 1 || stage == 2 || stage == 8) ? 0 : 1));
     assert(deinsts == ((stage >= 1 && stage <= 3) || stage == 8 ? 0 : 1));
@@ -236,8 +362,6 @@ int main(int argc, char **argv) {
 class RunnerCompiledTests(unittest.TestCase):
     def test_load_failures_traps_and_checksums_release_resources(self):
         vcvars = pathlib.Path(r"C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat")
-        if not vcvars.is_file():
-            self.skipTest("MSVC setup unavailable; compiled runner check required separately")
         with tempfile.TemporaryDirectory(prefix="wasmhome-e1-") as temporary:
             folder = pathlib.Path(temporary)
             shutil.copyfile(ROOT / "main/main.c", folder / "main.c")
@@ -245,18 +369,114 @@ class RunnerCompiledTests(unittest.TestCase):
             for header in ("esp_heap_caps.h", "esp_log.h", "esp_timer.h", "platform.h", "sdkconfig.h", "bh_platform.h", "wasm_export.h"):
                 (folder / header).write_text('#include "stub.h"\n')
             (folder / "runner.c").write_text(HARNESS)
-            command = f'""{vcvars}" >nul && cl /nologo /std:c11 /DWASMHOME_SCENARIO_INTERP=1 /I"{ROOT / "workload"}" runner.c /Fe:runner.exe"'
-            build = subprocess.run(f'cmd /d /s /c {command}', cwd=folder, capture_output=True, text=True)
+            if vcvars.is_file():
+                command = f'""{vcvars}" >nul && cl /nologo /std:c11 /DWASMHOME_SCENARIO_INTERP=1 /I"{ROOT / "workload"}" runner.c /Fe:runner.exe"'
+                build = subprocess.run(f'cmd /d /s /c {command}', cwd=folder, capture_output=True, text=True)
+                executable = folder / "runner.exe"
+            else:
+                if os.name == "nt":
+                    self.skipTest("MSVC setup unavailable; compiled runner check required separately")
+                compiler = shutil.which("cc") or shutil.which("gcc")
+                if compiler is None:
+                    self.skipTest("C compiler unavailable; compiled runner check required separately")
+                executable = folder / "runner"
+                build = subprocess.run(
+                    [compiler, "-std=c11", "-DWASMHOME_SCENARIO_INTERP=1", f"-I{ROOT / 'workload'}", "runner.c", "-o", str(executable)],
+                    cwd=folder,
+                    capture_output=True,
+                    text=True,
+                )
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             for stage in range(10):
                 with self.subTest(stage=stage):
-                    run = subprocess.run([str(folder / "runner.exe"), str(stage)], capture_output=True, text=True)
+                    run = subprocess.run([str(executable), str(stage)], capture_output=True, text=True)
                     self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+                    memory = [json.loads(line.split("WASMHOME_MEMORY,", 1)[1])
+                              for line in run.stdout.splitlines() if "WASMHOME_MEMORY," in line]
+                    self.assertGreaterEqual(len(memory), 3)
+                    self.assertEqual(
+                        run.stdout.count('WASMHOME_EVENT,{"event":"concurrent_log_probe"}'),
+                        len(memory),
+                    )
+                    for index, event in enumerate(memory):
+                        self.assertEqual(event["scenario"], "interp")
+                        self.assertEqual(event["boot_id"], "0102030405060708")
+                        self.assertEqual(event["units"], "bytes")
+                        self.assertEqual(event["internal"], {
+                            "capability": "MALLOC_CAP_INTERNAL", "status": "measured", "total_bytes": 2048,
+                            "free_bytes": 1000 + index, "largest_free_block_bytes": 800 + index,
+                            "phase_peak_free_bytes": None, "phase_peak_status": "not_instrumented",
+                        })
+                        self.assertLessEqual(event["internal"]["largest_free_block_bytes"],
+                                             event["internal"]["free_bytes"])
+                        self.assertLessEqual(event["internal"]["free_bytes"],
+                                             event["internal"]["total_bytes"])
+                        self.assertEqual(event["psram"], {
+                            "capability": "MALLOC_CAP_SPIRAM", "status": "not_applicable",
+                            "total_bytes": None, "free_bytes": None,
+                            "largest_free_block_bytes": None, "phase_peak_free_bytes": None,
+                            "phase_peak_status": "not_applicable",
+                        })
+                        self.assertEqual(event["static_memory"], {
+                            "status": "external_elf", "source": "ELF", "bytes": None,
+                        })
+                    phases = [event["phase"] for event in memory]
+                    self.assertEqual(phases.count("before_runtime"), 1)
+                    self.assertEqual(phases.count("after_init"), 1)
+                    self.assertEqual(phases.count("after_release"), 1)
                     if stage in (6, 7):
                         self.assertNotIn("WASMHOME_CSV", run.stdout)
+                        self.assertEqual(phases.count("after_warmup"), 1)
+                        self.assertEqual(next(event for event in memory
+                                              if event["phase"] == "after_warmup")["phase_status"], "failed")
                     if stage == 9:
                         self.assertIn("0x00000000,invalid", run.stdout)
                         self.assertEqual(run.stdout.count("WASMHOME_CSV,interp,"), 30)
+                    if stage == 0:
+                        for phase in ("after_load", "after_instantiate", "after_exec_env_lookup", "after_warmup"):
+                            self.assertEqual(phases.count(phase), 1)
+                        before_execution = [event for event in memory if event["phase"] == "before_execution"]
+                        execution = [event for event in memory if event["phase"] == "execution"]
+                        self.assertEqual([event["repetition"] for event in before_execution], list(range(1, 31)))
+                        self.assertEqual([event["repetition"] for event in execution], list(range(1, 31)))
+                        self.assertTrue(all(event["phase_status"] == "ok" for event in execution))
+                        rows = [line.split("WASMHOME_CSV,", 1)[1].split(",")
+                                for line in run.stdout.splitlines() if "WASMHOME_CSV,interp," in line]
+                        self.assertEqual([row[4] for row in rows], ["1"] * 30)
+                    if stage == 8:
+                        self.assertEqual(next(event for event in memory
+                                              if event["phase"] == "after_init")["phase_status"], "failed")
+                        self.assertEqual(next(event for event in memory
+                                              if event["phase"] == "after_release")["phase_status"], "not_applicable")
+
+            if vcvars.is_file():
+                command = f'""{vcvars}" >nul && cl /nologo /std:c11 /DWASMHOME_SCENARIO_INTERP=1 /DWASMHOME_TEST_SPIRAM=1 /I"{ROOT / "workload"}" runner.c /Fe:runner-psram.exe"'
+                build_psram = subprocess.run(f"cmd /d /s /c {command}", cwd=folder, capture_output=True, text=True)
+                psram_executable = folder / "runner-psram.exe"
+            else:
+                build_psram = subprocess.run(
+                    [compiler, "-std=c11", "-DWASMHOME_SCENARIO_INTERP=1", "-DWASMHOME_TEST_SPIRAM=1",
+                     f"-I{ROOT / 'workload'}", "runner.c", "-o", "runner-psram"],
+                    cwd=folder,
+                    capture_output=True,
+                    text=True,
+                )
+                psram_executable = folder / "runner-psram"
+            self.assertEqual(build_psram.returncode, 0, build_psram.stdout + build_psram.stderr)
+            psram_run = subprocess.run([str(psram_executable), "0"], capture_output=True, text=True)
+            self.assertEqual(psram_run.returncode, 0, psram_run.stdout + psram_run.stderr)
+            psram_events = [json.loads(line.split("WASMHOME_MEMORY,", 1)[1])
+                            for line in psram_run.stdout.splitlines() if "WASMHOME_MEMORY," in line]
+            self.assertEqual(len(psram_events), 67)
+            for index, event in enumerate(psram_events):
+                self.assertEqual(event["psram"], {
+                    "capability": "MALLOC_CAP_SPIRAM", "status": "measured", "total_bytes": 4096,
+                    "free_bytes": 3000 + index, "largest_free_block_bytes": 2400 + index,
+                    "phase_peak_free_bytes": None, "phase_peak_status": "not_instrumented",
+                })
+                self.assertLessEqual(event["psram"]["largest_free_block_bytes"],
+                                     event["psram"]["free_bytes"])
+                self.assertLessEqual(event["psram"]["free_bytes"], event["psram"]["total_bytes"])
 
 
 if __name__ == "__main__":
