@@ -1,0 +1,9 @@
+{
+  "independent_crc32": "0x4743989a",
+  "match": true,
+  "method": "independent bitwise reflected CRC-32; ROM API complements seed and result",
+  "ota_seq": "0x00000001",
+  "polynomial_reflected": "0xedb88320",
+  "record_index": 0,
+  "stored_crc32": "0x4743989a"
+}

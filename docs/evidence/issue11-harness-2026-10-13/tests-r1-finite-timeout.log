@@ -1,0 +1,48 @@
+test_execute_rejects_nonfinite_telemetry_wait_before_output_or_socket (__main__.Issue11HarnessTests.test_execute_rejects_nonfinite_telemetry_wait_before_output_or_socket) ... usage: test_issue11_harness.py [-h] [--execute] [--device-ip DEVICE_IP]
+                               [--bind-ip BIND_IP] [--device-port DEVICE_PORT]
+                               [--bind-port BIND_PORT] --control-version {1,2}
+                               [--boot-id BOOT_ID | --discover-boot]
+                               [--boot-evidence BOOT_EVIDENCE]
+                               --source-revision SOURCE_REVISION --elf ELF
+                               --bin BIN [--sdkconfig SDKCONFIG]
+                               --output OUTPUT
+                               [--response-timeout-ms RESPONSE_TIMEOUT_MS]
+                               [--silence-ms SILENCE_MS]
+                               [--telemetry-wait-seconds TELEMETRY_WAIT_SECONDS]
+test_issue11_harness.py: error: timeouts must be positive and telemetry wait must be finite and at most 120 seconds
+usage: test_issue11_harness.py [-h] [--execute] [--device-ip DEVICE_IP]
+                               [--bind-ip BIND_IP] [--device-port DEVICE_PORT]
+                               [--bind-port BIND_PORT] --control-version {1,2}
+                               [--boot-id BOOT_ID | --discover-boot]
+                               [--boot-evidence BOOT_EVIDENCE]
+                               --source-revision SOURCE_REVISION --elf ELF
+                               --bin BIN [--sdkconfig SDKCONFIG]
+                               --output OUTPUT
+                               [--response-timeout-ms RESPONSE_TIMEOUT_MS]
+                               [--silence-ms SILENCE_MS]
+                               [--telemetry-wait-seconds TELEMETRY_WAIT_SECONDS]
+test_issue11_harness.py: error: timeouts must be positive and telemetry wait must be finite and at most 120 seconds
+usage: test_issue11_harness.py [-h] [--execute] [--device-ip DEVICE_IP]
+                               [--bind-ip BIND_IP] [--device-port DEVICE_PORT]
+                               [--bind-port BIND_PORT] --control-version {1,2}
+                               [--boot-id BOOT_ID | --discover-boot]
+                               [--boot-evidence BOOT_EVIDENCE]
+                               --source-revision SOURCE_REVISION --elf ELF
+                               --bin BIN [--sdkconfig SDKCONFIG]
+                               --output OUTPUT
+                               [--response-timeout-ms RESPONSE_TIMEOUT_MS]
+                               [--silence-ms SILENCE_MS]
+                               [--telemetry-wait-seconds TELEMETRY_WAIT_SECONDS]
+test_issue11_harness.py: error: argument --telemetry-wait-seconds: expected one argument
+ok
+test_full_v1_matrix_replay_wrong_boot_conflict_busy_and_fresh_sensor (__main__.Issue11HarnessTests.test_full_v1_matrix_replay_wrong_boot_conflict_busy_and_fresh_sensor) ... ok
+test_full_v2_matrix_uses_30000_millicelsius_threshold (__main__.Issue11HarnessTests.test_full_v2_matrix_uses_30000_millicelsius_threshold) ... ok
+test_plan_only_does_not_open_socket_or_create_output (__main__.Issue11HarnessTests.test_plan_only_does_not_open_socket_or_create_output) ... ok
+test_serial_boot_evidence_must_match_boot_observed_event (__main__.Issue11HarnessTests.test_serial_boot_evidence_must_match_boot_observed_event) ... ok
+test_stale_ds18b20_samples_do_not_satisfy_freshness_gate (__main__.Issue11HarnessTests.test_stale_ds18b20_samples_do_not_satisfy_freshness_gate) ... ok
+test_wrong_boot_response_is_a_failure (__main__.Issue11HarnessTests.test_wrong_boot_response_is_a_failure) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.077s
+
+OK

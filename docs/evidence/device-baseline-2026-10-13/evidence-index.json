@@ -1,0 +1,66 @@
+{
+  "artifacts": {
+    "check_crc_independent.py": {
+      "bytes": 1686,
+      "sha256": "6643ce89388fdddbe0458471ab0485118d3cd02daa6b8cb1a1ac2dd558f20969"
+    },
+    "crc-independent-check-final.json": {
+      "bytes": 266,
+      "sha256": "5b7b38444323809de0a5b59f376a615066ef05c3e69d085fe61d64cfa2fef7e0"
+    },
+    "decode_snapshot.py": {
+      "bytes": 26647,
+      "sha256": "d944012fc3f74f2ddab2792b62dc625cbeea95a42b79c8349685d116b75b4919"
+    },
+    "sanitized-device-map.json": {
+      "bytes": 8439,
+      "sha256": "63a71fba9862284167e7218eb0468f68e3c86969c9cc0f18f5521f83881a2c56"
+    },
+    "sanitized-device-map.md": {
+      "bytes": 4704,
+      "sha256": "92cb649e236e572a9f2c81c81e88278029205b0eccc6b92c86caf5b3cb12cdef"
+    },
+    "test_decode_snapshot.py": {
+      "bytes": 3500,
+      "sha256": "65e6cec4ee7176b37c6d18f9b6ef1da953a73a8b08660249413a935d461badb2"
+    }
+  },
+  "bootloader_observation": {
+    "action": "reset-and-capture-current-app-no-flash-write",
+    "bytes": 26459,
+    "matches_offline_ota_candidate": true,
+    "observed_loaded_app_offset": "0x20000",
+    "sha256": "d61559750c0f1efde7540deb558daaa7637ed5cb5f52e3ed51310948ff9b3a7b",
+    "started_utc": "2026-10-13T13:08:57.835257+00:00"
+  },
+  "capture": {
+    "bytes": 16777216,
+    "chip": "ESP32-S3 rev0.2",
+    "completed_utc": "2026-10-13T12:55:50.421394+00:00",
+    "sha256": "102a383238010aca383878a22584fead6a67b8114f26ff46973799591688e95d"
+  },
+  "decoder": {
+    "independent_crc_checker_sha256": "6643ce89388fdddbe0458471ab0485118d3cd02daa6b8cb1a1ac2dd558f20969",
+    "independent_physical_crc_check": "passed: ota_seq 1 computed 0x4743989a equals stored CRC",
+    "sha256": "d944012fc3f74f2ddab2792b62dc625cbeea95a42b79c8349685d116b75b4919",
+    "synthetic_tests": "passed",
+    "synthetic_tests_sha256": "65e6cec4ee7176b37c6d18f9b6ef1da953a73a8b08660249413a935d461badb2"
+  },
+  "privacy": "Raw full-flash image, partition extracts, and UART log remain in the private baseline directory; this evidence pack contains sanitized metadata, hashes, and decoder source only.",
+  "result": "complete",
+  "schema": "wasmhome-sanitized-device-map-evidence-v1",
+  "source_urls": [
+    "https://raw.githubusercontent.com/espressif/esp-idf/v5.2.6/components/bootloader_support/src/bootloader_common_loader.c",
+    "https://raw.githubusercontent.com/espressif/esp-idf/v5.2.6/components/bootloader_support/src/bootloader_utility.c",
+    "https://raw.githubusercontent.com/espressif/esp-idf/v5.2.6/components/bootloader_support/include/esp_flash_partitions.h",
+    "https://raw.githubusercontent.com/espressif/esp-idf/v5.2.6/components/esp_rom/include/esp_rom_crc.h",
+    "https://raw.githubusercontent.com/espressif/esp-idf/v5.2.6/components/bootloader_support/include/esp_image_format.h",
+    "https://raw.githubusercontent.com/espressif/esp-idf/v5.2.6/components/esp_app_format/include/esp_app_desc.h"
+  ],
+  "tools": {
+    "esp_idf_tag": "v5.2.6",
+    "esptool_version": "4.12.0",
+    "partition_parser_sha256": "f03c790e19713f7d747a38e600c025f5f109de1ad05c0e43978ad846bcb6ea4f",
+    "partition_parser_source_commit": "9ef24e3e2a2c96e720d83c574a3f8699177573da"
+  }
+}

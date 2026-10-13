@@ -1,0 +1,192 @@
+{
+  "app_partitions": [
+    {
+      "app_version": "6d7382b-dirty",
+      "appended_sha256": "valid",
+      "idf_version": "v5.2.6",
+      "image_checksum": "valid",
+      "image_info_exit_code": 0,
+      "image_integrity_ok": true,
+      "image_parse_ok": true,
+      "offset": "0x20000",
+      "partition": "ota_0",
+      "partition_erased_all_ff": false,
+      "partition_sha256": "67860a5f2a36c67fa36a19ca34badaf795dd003bd1240ebd2fc0dce375a2a48b",
+      "project_name": "wasmhome_bench",
+      "secure_version": 0,
+      "size": "0x700000",
+      "subtype": "ota_0"
+    },
+    {
+      "app_version": null,
+      "appended_sha256": null,
+      "idf_version": null,
+      "image_checksum": null,
+      "image_info_exit_code": 2,
+      "image_integrity_ok": false,
+      "image_parse_ok": false,
+      "offset": "0x720000",
+      "partition": "ota_1",
+      "partition_erased_all_ff": true,
+      "partition_sha256": "17a0b2007d7d2b63b065904a3ced14cc1a0c3b104eadfcca65ccf80c8dfac7d9",
+      "project_name": null,
+      "secure_version": null,
+      "size": "0x700000",
+      "subtype": "ota_1"
+    }
+  ],
+  "boot_selection_candidate": {
+    "app_version": "6d7382b-dirty",
+    "idf_version": "v5.2.6",
+    "image_integrity_ok": true,
+    "offset": "0x20000",
+    "partition": "ota_0",
+    "partition_erased_all_ff": false,
+    "partition_sha256": "67860a5f2a36c67fa36a19ca34badaf795dd003bd1240ebd2fc0dce375a2a48b",
+    "project_name": "wasmhome_bench",
+    "secure_version": 0,
+    "size": "0x700000",
+    "status": "OTA selection candidate from captured bytes; bootloader UART load offset independently observed after reset",
+    "subtype": "ota_0"
+  },
+  "bootloader_observation": {
+    "capture_action": "reset-and-capture-current-app-no-flash-write",
+    "capture_basename": "baseline-boot-serial.log",
+    "capture_bytes": 26459,
+    "capture_sha256": "d61559750c0f1efde7540deb558daaa7637ed5cb5f52e3ed51310948ff9b3a7b",
+    "capture_started_utc": "2026-10-13T13:08:57.835257+00:00",
+    "evidence_type": "read-only UART capture after normal hard reset",
+    "loaded_app_offset": "0x20000",
+    "matches_candidate_offset": true,
+    "matching_load_lines": 1,
+    "observation_scope": "confirms the bootloader reported loading this partition at capture time; does not establish later runtime health"
+  },
+  "capture": {
+    "captured_utc": "2026-10-13T12:55:50.421394+00:00",
+    "chip": "ESP32-S3 rev0.2",
+    "flash_bytes": 16777216,
+    "raw_flash_sha256": "102a383238010aca383878a22584fead6a67b8114f26ff46973799591688e95d"
+  },
+  "limits": [
+    "A tabela \u00e9 encontrada ao varrer offsets alinhados a 4 KiB e validada pelo parser local ESP-IDF 5.2.6 gen_esp32part.py; nenhum offset fixo de tabela ou app \u00e9 presumido.",
+    "CRC e validade de otadata seguem bootloader_common_ota_select_* do ESP-IDF 5.2.6. A sequ\u00eancia identifica o candidato OTA selecionado pelas c\u00f3pias v\u00e1lidas.",
+    "A captura UART privada posterior a reset normal informa o offset carregado pelo bootloader e seu hash est\u00e1 registrado; isso n\u00e3o prova sa\u00fade posterior do processo nem exclui fallback ap\u00f3s essa observa\u00e7\u00e3o.",
+    "esptool image_info verifica estrutura, checksum e hash anexado quando presente; pol\u00edtica eFuse de revis\u00e3o do chip e anti-rollback n\u00e3o foram estabelecidos independentemente por esta leitura offline.",
+    "NVS e strings arbitr\u00e1rias do firmware nunca s\u00e3o impressos nem copiados para o relat\u00f3rio sanitizado."
+  ],
+  "otadata": {
+    "crc_crosscheck": "zlib seed UINT32_MAX agrees with independent ROM complement/polynomial bitwise implementation on both records",
+    "offset": "0xf000",
+    "partition": "otadata",
+    "records": [
+      {
+        "absolute_offset": 61440,
+        "copy": 0,
+        "crc_bitwise32": "4743989a",
+        "crc_implementations_agree": true,
+        "crc_valid": true,
+        "crc_zlib32": "4743989a",
+        "invalid_by_idf_rules": false,
+        "ota_seq": 1,
+        "ota_state": "VALID",
+        "ota_state_value": 2,
+        "record_bytes": 32,
+        "stored_crc32": "4743989a",
+        "valid_by_idf_rules": true
+      },
+      {
+        "absolute_offset": 65536,
+        "copy": 1,
+        "crc_bitwise32": "2144df1c",
+        "crc_implementations_agree": true,
+        "crc_valid": false,
+        "crc_zlib32": "2144df1c",
+        "invalid_by_idf_rules": true,
+        "ota_seq": 4294967295,
+        "ota_state": "UNDEFINED",
+        "ota_state_value": 4294967295,
+        "record_bytes": 32,
+        "stored_crc32": "ffffffff",
+        "valid_by_idf_rules": false
+      }
+    ],
+    "selected_ota_seq": 1,
+    "selected_record_copy": 0,
+    "selection_basis": "highest valid OTA sequence; slot=(ota_seq-1) modulo OTA app count",
+    "sha256": "8ba3b110139f45443d4f268d1a3373ef99a1718b71d51664531b83ee2d4b91a3",
+    "size": "0x2000"
+  },
+  "partition_table": {
+    "offset": "0x8000",
+    "partitions": [
+      {
+        "flags": "",
+        "name": "nvs",
+        "offset": "0x9000",
+        "sha256": "af485682398fd0d14404d654af79c097fe5345ee4acbe35b8b9e9cdfd106e996",
+        "size": "0x6000",
+        "subtype": "nvs",
+        "type": "data"
+      },
+      {
+        "flags": "",
+        "name": "otadata",
+        "offset": "0xf000",
+        "sha256": "8ba3b110139f45443d4f268d1a3373ef99a1718b71d51664531b83ee2d4b91a3",
+        "size": "0x2000",
+        "subtype": "ota",
+        "type": "data"
+      },
+      {
+        "flags": "",
+        "name": "phy_init",
+        "offset": "0x11000",
+        "sha256": "102457c71ee90603298f4259315d961b44b16547ed22ef11444d854087e16da3",
+        "size": "0x1000",
+        "subtype": "phy",
+        "type": "data"
+      },
+      {
+        "flags": "",
+        "name": "ota_0",
+        "offset": "0x20000",
+        "sha256": "67860a5f2a36c67fa36a19ca34badaf795dd003bd1240ebd2fc0dce375a2a48b",
+        "size": "0x700000",
+        "subtype": "ota_0",
+        "type": "app"
+      },
+      {
+        "flags": "",
+        "name": "ota_1",
+        "offset": "0x720000",
+        "sha256": "17a0b2007d7d2b63b065904a3ced14cc1a0c3b104eadfcca65ccf80c8dfac7d9",
+        "size": "0x700000",
+        "subtype": "ota_1",
+        "type": "app"
+      }
+    ],
+    "sha256": "f385526438c35a25ca68d738504ad24852a0b3dbc1b2d8d47740614ee3dca557",
+    "size": "0x1000"
+  },
+  "physical_bench_plan": {
+    "ota_flow": "This is manual app-slot programming and exact restoration, not OTA rollout or slot selection.",
+    "preserve": "Keep bootloader, partition table, otadata, ota_1 and NVS untouched. Compare the complete post-test flash against the baseline and accept differences only inside ota_0 before restoring; after restoration require the full-flash SHA-256 to match the baseline.",
+    "restore": "After the test, restore the exact original ota_0 bytes from this private full-flash baseline and verify the restored partition SHA-256 equals the captured baseline hash.",
+    "scope": "A planned bench test uses a manually written test image at the currently active ota_0 slot; firmware OTA selection is not implemented for this run.",
+    "test_write_region": {
+      "offset": "0x20000",
+      "partition": "ota_0",
+      "size": "0x700000"
+    }
+  },
+  "restore_guidance": {
+    "app_only": "After the planned manual test write to ota_0, exact-restore all captured 0x700000 bytes to ota_0 at 0x20000 and verify its SHA-256 matches the baseline. Sequence 1 already selects ota_0, so leave otadata unchanged.",
+    "bootloader": "Leave the bootloader untouched during this bench run; the map does not separately establish its exact region for restoration.",
+    "device_security": "Flags read for the capture report Secure Boot and Flash Encryption disabled; this offline map does not read all eFuses or prove anti-rollback is disabled.",
+    "nvs": "Leave NVS untouched and do not expose its contents; compare it against the captured baseline to detect unintended writes.",
+    "otadata": "Leave otadata untouched during this bench run; compare it against the captured baseline to detect unintended writes.",
+    "partition_table": "Leave the partition table untouched during this bench run; compare it against the captured baseline to detect unintended writes.",
+    "principle": "For this bench run, only the test app region may be written; exact-restore that region from the private baseline. The decoder performs no writes."
+  },
+  "schema": "wasmhome-device-active-app-map-v1"
+}
