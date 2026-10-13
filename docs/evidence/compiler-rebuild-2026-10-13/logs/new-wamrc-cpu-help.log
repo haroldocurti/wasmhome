@@ -1,0 +1,57 @@
+Available CPUs for this target:
+
+  cnl     - Select the cnl processor.
+  esp32   - Select the esp32 processor.
+  esp32s2 - Select the esp32s2 processor.
+  esp32s3 - Select the esp32s3 processor.
+  esp8266 - Select the esp8266 processor.
+  generic - Select the generic processor.
+
+Available features for this target:
+
+  atomctl           - Enable Xtensa ATOMCTL option.
+  bool              - Enable Xtensa Boolean extension.
+  clamps            - Enable Xtensa CLAMPS option.
+  coprocessor       - Enable Xtensa Coprocessor option.
+  debug             - Enable Xtensa Debug option.
+  density           - Enable Density instructions.
+  dfpaccel          - Enable Xtensa Double Precision FP acceleration.
+  div32             - Enable Xtensa Div32 option.
+  esp32s2           - Support Xtensa esp32-s2 ISA extension.
+  esp32s3           - Support Xtensa esp32-s3 ISA extension.
+  exception         - Enable Xtensa Exception option.
+  extendedl32r      - Enable Xtensa Extended L32R option.
+  forced-atomics    - Assume that lock-free native-width atomics are available.
+  fp                - Enable Xtensa Single FP instructions.
+  hifi3             - Enable Xtensa HIFI3 instructions.
+  highpriinterrupts - Enable Xtensa HighPriInterrupts option.
+  interrupt         - Enable Xtensa Interrupt option.
+  loop              - Enable Xtensa Loop extension.
+  mac16             - Enable Xtensa MAC16 instructions.
+  memctl            - Enable Xtensa MEMCTL option.
+  minmax            - Enable Xtensa MINMAX option.
+  miscsr            - Enable Xtensa Miscellaneous SR option.
+  mul16             - Enable Xtensa Mul16 option.
+  mul32             - Enable Xtensa Mul32 option.
+  mul32high         - Enable Xtensa Mul32High option.
+  nsa               - Enable Xtensa NSA option.
+  prid              - Enable Xtensa Processor ID option.
+  regprotect        - Enable Xtensa Region Protection option.
+  rvector           - Enable Xtensa Relocatable Vector option.
+  s32c1i            - Enable Xtensa S32C1I option.
+  sext              - Enable Xtensa Sign Extend option.
+  threadptr         - Enable Xtensa THREADPTR option.
+  timerint          - Enable Xtensa Timer Interrupt option.
+  windowed          - Enable Xtensa Windowed Register option.
+
+Use +feature to enable a feature, or -feature to disable it.
+For example, llc -mcpu=mycpu -mattr=+feature1,-feature2
+Create AoT compiler with:
+  target:        xtensa
+  target cpu:    help
+  target triple: xtensa-pc-linux-gnu
+  cpu features:  
+  opt level:     3
+  size level:    3
+  output format: AoT file
+

@@ -1,0 +1,15 @@
+origin	https://github.com/espressif/llvm-project.git (fetch) [blob:none]
+origin	https://github.com/espressif/llvm-project.git (push)
+344b928e67bfc1d07cb150609c55548e86a9bf19
+3607a15bed086254c2941197f93ace85317c079d
+0ba2faab16dc9671f89a663eea8e6d0d1f528997
+76cd12437c7bf7351880ee7ee03d969248ec5e51
+{
+  "component": "wasmhome/wasm-micro-runtime",
+  "version": "2.4.5-wasmhome.1",
+  "component_hash": "7d3eba8883eaaefee0457e8593b2a5203050736487fcf62bbf05cd8ce0306251",
+  "repository_revision": "25bd7eb63e828e4bd242cc9b38d260b4b31c6605",
+  "app_framework_revision": "e97860611e371d91d2ef25101b02b29719476a48",
+  "port_lock_sha256": "348a5addf014587b24468fe55b44444284ee5d212d7f206c394a9659cf6f9669",
+  "aot_version": 5
+}

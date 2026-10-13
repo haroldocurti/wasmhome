@@ -1,0 +1,16 @@
+2026-10-13T03:43:57Z
+Filesystem        Size  Used Avail Use% Mounted on
+/dev/mapper/root  930G   80G  850G   9% /home
+               total        used        free      shared  buff/cache   available
+Mem:            27Gi        12Gi       2.3Gi       638Mi        14Gi        14Gi
+Swap:           54Gi          0B        54Gi
+16
+gcc (GCC) 16.2.1 20260810
+g++ (GCC) 16.2.1 20260810
+cmake version 4.4.4
+1.13.2
+8aac907d6fbf40394b424b5fa4a2ad1aa291dac7d3a0315c5b415c1f5ace1287  /usr/bin/gcc
+f04191f6a7b2cd7d9a62e1745872b8a6088791e5af6955488c69c9b2c4668bc9  /usr/bin/g++
+2257947562d1b76967b665551a2f00e4955d7ebba2381f2e6ccdec522b1c07d5  /home/haroldocurti/wasmhome-toolchain-e1-2.4.5-xtensa18-20261012/tools/cmake/bin/cmake
+607e668f90dd6cd82e1a42ae572647ad1b1fd43063964295b9547836d8c15d99  /home/haroldocurti/wasmhome-toolchain-e1-2.4.5-xtensa18-20261012/tools/ninja/ninja
+759506ba4ed410f7b926704547db1bd31896ffb4f1a79d6b75884af239bcf21b  /home/haroldocurti/.local/share/wasmhome-p3-20261013-r2/inputs/libm-debian13.so.6

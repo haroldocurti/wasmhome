@@ -1,0 +1,92 @@
+{
+  "schema": "p3-independent-comparison-v1",
+  "basis": {
+    "r5_receipt_sha256": "86f27302e6e7e79930333cf5486fd51d5471b77f55907d3fec8ea9500026acf2",
+    "r5_receipt_bytes": 3627510,
+    "r5_wamrc_sha256": "ff1bf482570dbab67521e0bbb0c682fdbd74f5e784f364eb34bfc9de735861fb",
+    "r5_ct107_wamrc_sha256": "ff1bf482570dbab67521e0bbb0c682fdbd74f5e784f364eb34bfc9de735861fb"
+  },
+  "source_pins": {
+    "wasmhome": {
+      "commit": "0ba2faab16dc9671f89a663eea8e6d0d1f528997",
+      "tree": "76cd12437c7bf7351880ee7ee03d969248ec5e51"
+    },
+    "llvm": {
+      "origin": "https://github.com/espressif/llvm-project.git",
+      "commit": "344b928e67bfc1d07cb150609c55548e86a9bf19",
+      "tree": "3607a15bed086254c2941197f93ace85317c079d"
+    },
+    "runtime": {
+      "component": "wasmhome/wasm-micro-runtime",
+      "version": "2.4.5-wasmhome.1",
+      "component_hash": "7d3eba8883eaaefee0457e8593b2a5203050736487fcf62bbf05cd8ce0306251",
+      "repository_revision": "25bd7eb63e828e4bd242cc9b38d260b4b31c6605",
+      "app_framework_revision": "e97860611e371d91d2ef25101b02b29719476a48",
+      "port_lock_sha256": "348a5addf014587b24468fe55b44444284ee5d212d7f206c394a9659cf6f9669",
+      "aot_version": 5
+    }
+  },
+  "builds": {
+    "initial_exact_flags": {
+      "receipt_sha256": "5fc3bed77cecb6b4d47e81a7788041053ba5d16fd5a6a328b31dce4bf80a8b6a",
+      "receipt_bytes": 3785672,
+      "binary_sha256": "0252950733b336102655126821b1d0005d5163950886f630ca4ce4bf8007c8df",
+      "binary_exact_match_R5": false,
+      "linked_llvm_libraries": {
+        "count_old": 98,
+        "count_new": 98,
+        "missing": [],
+        "extra": [],
+        "mismatch": []
+      },
+      "libvmlib_matches_R5": false,
+      "libaotclib_matches_R5": true,
+      "vmlib_member_diffs_vs_R5": [
+        {
+          "member": "aot_intrinsic.c.o",
+          "r5_sha256": "2cee8389bf6185f50c09a96baf044882e668c7ba6bb40a266954a07d9b4449a8",
+          "initial_sha256": "0029e7750828b764b9d094579d649c57b7a6d51458fa6959ca299a4a925422c3"
+        }
+      ]
+    },
+    "prefixmap_wamrc_only": {
+      "receipt_sha256": "7e29bb53ef440710e23fbcc4c608597cdc160d4ec2af7c87f29408a60e715158",
+      "receipt_bytes": 3805276,
+      "binary_sha256": "ff1bf482570dbab67521e0bbb0c682fdbd74f5e784f364eb34bfc9de735861fb",
+      "binary_exact_match_R5": true,
+      "linked_llvm_libraries": {
+        "count_old": 98,
+        "count_new": 98,
+        "missing": [],
+        "extra": [],
+        "mismatch": []
+      },
+      "libvmlib_matches_R5": true,
+      "libaotclib_matches_R5": true,
+      "prefix_map": "-ffile-prefix-map=/home/haroldocurti/.local/share/wasmhome-p3-20261013-r2/checkout/wasmhome/build-runtime-port/component=/home/haroldocurti/Documents/wasmhome/build-runtime-port/component",
+      "reused_llvm_build": "/home/haroldocurti/.local/share/wasmhome-p3-20261013-r2/build/llvm-independent-01",
+      "vmlib_member_diffs_vs_R5": []
+    },
+    "archive_member_union_diff_count": 1,
+    "archive_member_union_diffs": [
+      {
+        "member": "aot_intrinsic.c.o",
+        "R5": "2cee8389bf6185f50c09a96baf044882e668c7ba6bb40a266954a07d9b4449a8",
+        "initial": "0029e7750828b764b9d094579d649c57b7a6d51458fa6959ca299a4a925422c3",
+        "prefixmap": "2cee8389bf6185f50c09a96baf044882e668c7ba6bb40a266954a07d9b4449a8"
+      }
+    ]
+  },
+  "reference_input": {
+    "sha256": "d4cc0e280d02a697bb52c391e3b225a0691bc24d14cefb2883e51e085e466847",
+    "expected_sha256": "d4cc0e280d02a697bb52c391e3b225a0691bc24d14cefb2883e51e085e466847",
+    "exact_source_copy": true
+  },
+  "aot_probe": {
+    "first_sha256": "c4c94777e5f9460b8e60065d5cb89c7e79907cac61720a61f5ebd5467b512d88",
+    "second_prefixmap_sha256": "c4c94777e5f9460b8e60065d5cb89c7e79907cac61720a61f5ebd5467b512d88",
+    "known_reference_sha256": "c4c94777e5f9460b8e60065d5cb89c7e79907cac61720a61f5ebd5467b512d88",
+    "both_exact_match": true
+  },
+  "interpretation": "Initial clean build differs only at aot_intrinsic.c.o due embedded absolute __FILE__ source prefix; independent prefix-map wamrc-only build matches CT R5 wamrc exactly. All 98 linked LLVM libraries and both WAMR static archives match R5. Reference AOT output from both new binaries matches the known artifact. This supports deterministic rebuild/relink for these pins/flags/inputs, not provenance of the historical R5 compiler archive itself or package origin of the transferred libm."
+}

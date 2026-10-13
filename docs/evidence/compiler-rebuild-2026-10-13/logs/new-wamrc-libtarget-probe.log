@@ -1,0 +1,72 @@
+    230811:	find library=libz.so.1 [0]; searching
+    230811:	 search cache=/etc/ld.so.cache
+    230811:	  trying file=/usr/lib/libz.so.1
+    230811:	
+    230811:	find library=libzstd.so.1 [0]; searching
+    230811:	 search cache=/etc/ld.so.cache
+    230811:	  trying file=/usr/lib/libzstd.so.1
+    230811:	
+    230811:	find library=libstdc++.so.6 [0]; searching
+    230811:	 search cache=/etc/ld.so.cache
+    230811:	  trying file=/usr/lib/libstdc++.so.6
+    230811:	
+    230811:	find library=libgcc_s.so.1 [0]; searching
+    230811:	 search cache=/etc/ld.so.cache
+    230811:	  trying file=/usr/lib/libgcc_s.so.1
+    230811:	
+    230811:	find library=libc.so.6 [0]; searching
+    230811:	 search cache=/etc/ld.so.cache
+    230811:	  trying file=/usr/lib/libc.so.6
+    230811:	
+    230811:	
+    230811:	calling init: /lib64/ld-linux-x86-64.so.2
+    230811:	
+    230811:	
+    230811:	calling init: /usr/lib/libc.so.6
+    230811:	
+    230811:	
+    230811:	calling init: /usr/lib/libgcc_s.so.1
+    230811:	
+    230811:	
+    230811:	calling init: /home/haroldocurti/.local/share/wasmhome-p3-20261013-r2/inputs/libm-debian13.so.6
+    230811:	
+    230811:	
+    230811:	calling init: /usr/lib/libstdc++.so.6
+    230811:	
+    230811:	
+    230811:	calling init: /usr/lib/libzstd.so.1
+    230811:	
+    230811:	
+    230811:	calling init: /usr/lib/libz.so.1
+    230811:	
+    230811:	
+    230811:	initialize program: /home/haroldocurti/.local/share/wasmhome-p3-20261013-r2/build/wamrc-independent-01/wamrc
+    230811:	
+    230811:	
+    230811:	transferring control: /home/haroldocurti/.local/share/wasmhome-p3-20261013-r2/build/wamrc-independent-01/wamrc
+    230811:	
+    230811:	
+    230811:	calling fini:  [0]
+    230811:	
+    230811:	
+    230811:	calling fini: /usr/lib/libz.so.1 [0]
+    230811:	
+    230811:	
+    230811:	calling fini: /usr/lib/libzstd.so.1 [0]
+    230811:	
+    230811:	
+    230811:	calling fini: /usr/lib/libstdc++.so.6 [0]
+    230811:	
+wamrc 2.4.5
+    230811:	
+    230811:	calling fini: /home/haroldocurti/.local/share/wasmhome-p3-20261013-r2/inputs/libm-debian13.so.6 [0]
+    230811:	
+    230811:	
+    230811:	calling fini: /usr/lib/libgcc_s.so.1 [0]
+    230811:	
+    230811:	
+    230811:	calling fini: /usr/lib/libc.so.6 [0]
+    230811:	
+    230811:	
+    230811:	calling fini: /lib64/ld-linux-x86-64.so.2 [0]
+    230811:	

@@ -236,9 +236,11 @@ O resultado inicial foi superado pelas execuções e revisões registradas no
 foi recuperado e verificado, o codec C real foi compilado e a suíte passou.
 Os `sdkconfig` completos foram preservados fora do repositório. P0 reconciliou
 os snapshots históricos, preservou suas lacunas e repetiu geração e build B
-em diretórios novos. P3 está reconstruindo LLVM/wamrc independentemente.
+em diretórios novos. P3 concluiu a [reconstrução comparativa revisada](evidence/compiler-rebuild-2026-10-13/README.md): binário R5 reproduzido após normalização explícita de caminho, 98 archives LLVM e AOT de referência iguais.
 A #11 recebeu implementação nativa e testes de host; build ESP-IDF e prova
 na placa continuam necessários. A histerese e a fiação foram confirmadas pelo
 usuário, que também preencheu a configuração privada de rede.
 O plano detalhado de coleta/análise e o checklist E0–E7 continuam sendo as fontes
 para os contratos completos; esta distribuição não altera seus critérios.
+
+O [fix do adapter nativo](evidence/native-adapter-fix-2026-10-13/README.md) corrige uma chamada incompleta detectada no build ESP-IDF real; o novo teste compila o ramo ESP_PLATFORM inteiro. Serviços v1/v2 precisam de builds corrigidos antes da placa.

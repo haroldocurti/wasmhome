@@ -1,0 +1,1 @@
+/home/haroldocurti/.local/share/wasmhome-p3-20261013-r2/build/wamrc-independent-prefixmap-02/wamrc --version

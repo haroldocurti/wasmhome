@@ -1,0 +1,6 @@
+test_complete_esp_adapter_compiles_and_decodes_target_version (__main__.NativeServicesAdapterCompileTests.test_complete_esp_adapter_compiles_and_decodes_target_version) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.095s
+
+OK

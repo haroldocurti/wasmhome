@@ -1,0 +1,35 @@
+{
+  "fresh_build_directory": true,
+  "reused_llvm_build": "/home/haroldocurti/.local/share/wasmhome-p3-20261013-r2/build/llvm-independent-01",
+  "prefix_map": "-ffile-prefix-map=/home/haroldocurti/.local/share/wasmhome-p3-20261013-r2/checkout/wasmhome/build-runtime-port/component=/home/haroldocurti/Documents/wasmhome/build-runtime-port/component",
+  "commands": {
+    "wamrc_configure": [
+      "/home/haroldocurti/wasmhome-toolchain-e1-2.4.5-xtensa18-20261012/tools/cmake/bin/cmake",
+      "-S",
+      "/home/haroldocurti/.local/share/wasmhome-p3-20261013-r2/checkout/wasmhome/build-runtime-port/component/wasm-micro-runtime/wamr-compiler",
+      "-B",
+      "/home/haroldocurti/.local/share/wasmhome-p3-20261013-r2/build/wamrc-independent-prefixmap-02",
+      "-G",
+      "Ninja",
+      "-DCMAKE_BUILD_TYPE=Release",
+      "-DCMAKE_C_COMPILER=/usr/bin/gcc",
+      "-DCMAKE_CXX_COMPILER=/usr/bin/g++",
+      "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+      "-DWAMR_BUILD_PLATFORM=linux",
+      "-DWAMR_BUILD_TARGET=X86_64",
+      "-DWAMR_BUILD_WITH_CUSTOM_LLVM=ON",
+      "-DLLVM_DIR=/home/haroldocurti/.local/share/wasmhome-p3-20261013-r2/build/llvm-independent-01/lib/cmake/llvm",
+      "-DCMAKE_MAKE_PROGRAM=/home/haroldocurti/wasmhome-toolchain-e1-2.4.5-xtensa18-20261012/tools/ninja/ninja",
+      "-DCMAKE_CXX_FLAGS=-include cstdint",
+      "-DCMAKE_C_FLAGS=-ffile-prefix-map=/home/haroldocurti/.local/share/wasmhome-p3-20261013-r2/checkout/wasmhome/build-runtime-port/component=/home/haroldocurti/Documents/wasmhome/build-runtime-port/component",
+      "-DCMAKE_EXE_LINKER_FLAGS=-L/home/haroldocurti/.local/share/wasmhome-p3-20261013-r2/inputs/libm-link"
+    ],
+    "wamrc_build": [
+      "/home/haroldocurti/wasmhome-toolchain-e1-2.4.5-xtensa18-20261012/tools/cmake/bin/cmake",
+      "--build",
+      "/home/haroldocurti/.local/share/wasmhome-p3-20261013-r2/build/wamrc-independent-prefixmap-02",
+      "--parallel",
+      "1"
+    ]
+  }
+}

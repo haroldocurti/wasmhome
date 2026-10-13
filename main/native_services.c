@@ -292,7 +292,7 @@ static void receive_request(const uint8_t *data, size_t length)
         wh_native_update_disposition_t disposition = wh_native_update_reject(
             &service_state, data + 8, request_boot_id, request_sequence,
             target_sequence, data[WH_HEADER_SIZE + 8], data[WH_HEADER_SIZE + 9],
-            (uint16_t)wh_read_be(data + WH_HEADER_SIZE + 10),
+            (uint16_t)wh_read_be(data + WH_HEADER_SIZE + 10, 2),
             wh_platform_boot_id(), &reason);
         xSemaphoreGive(service_lock);
         if (disposition == WH_NATIVE_UPDATE_INVALID) {

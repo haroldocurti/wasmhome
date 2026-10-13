@@ -327,6 +327,10 @@ As novas provas não alteram esses registros antigos.
 A implementação da #11 e a instrumentação de memória da #9 são preparações
 testadas no host. A configuração de rede preenchida pelo usuário está fora
 do Git, com acesso restrito. Sensor GPIO4 e loopback GPIO5→GPIO6 foram
-reconfirmados. A reconstrução independente LLVM/wamrc continua em andamento;
-builds ESP-IDF da fonte nova e validação física ainda não estão demonstrados.
+reconfirmados. A reconstrução comparativa LLVM/wamrc foi concluída e revisada, com binário R5
+reproduzido após normalização explícita de caminho e AOT idêntico. A
+[prova completa](evidence/compiler-rebuild-2026-10-13/README.md) preserva o build
+inicial divergente e os limites. Novos builds ESP-IDF estão em andamento;
+uma chamada incompleta do adapter nativo foi corrigida e testada após a primeira
+compilação real. Validação física ainda não está demonstrada.
 Endereços históricos acima precisam ser reconfirmados antes da sessão física.

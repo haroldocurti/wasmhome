@@ -19,8 +19,8 @@ As caixas refletem somente o snapshot indicado. Registros posteriores podem alte
 A consulta de 13/10 confirmou #7/#9/#11 abertas. A sincronização documental
 e do rastreador não constitui aceite físico. Os `sdkconfig` completos foram
 preservados privadamente e comparados às configurações efetivas; o codec C foi
-compilado e a suíte local passou. O atestado independente do compilador e a
-prova A/B/C no MCU continuam pendentes. O [avanço de 13/10](evidence/avanco-e1-2026-10-13/README.md)
+compilado e a suíte local passou. A reconstrução comparativa do compilador foi
+concluída e revisada; a prova A/B/C no MCU continua pendente. O [avanço de 13/10](evidence/avanco-e1-2026-10-13/README.md)
 registra a reconciliação de proveniência, os novos artefatos e os limites.
 
 ### Avanço local em 10/10
@@ -46,7 +46,8 @@ registra a reconciliação de proveniência, os novos artefatos e os limites.
 - [x] Preparar o Linux físico, compilar LLVM/wamrc real e transferir/conferir R5 no CT107; o executável host e as consultas de target/CPU passaram. [Registro e recibos de 12/10](evidence/retomada-linux-2026-10-12/README.md).
 - [x] Gerar os artefatos Wasm/AOT duas vezes no CT107, em R6/R7; as cinco saídas têm hashes idênticos.
 - [x] Compilar firmware A/B/C no mesmo snapshot de código, em diretórios e `sdkconfig` separados; validar configuração efetiva, símbolos, runtime e limites do AOT. Inspecionar objeto AOT Xtensa e confirmar o laço no código.
-- [ ] Executar checksum A/B/C no ESP32-S3 e obter atestado/reconstrução independente do recibo `wamrc`. #7/#9 permanecem abertas.
+- [x] Reproduzir independentemente o compilador R5 com normalização explícita de caminho, comparar 98 archives LLVM e AOT e obter revisão independente. [Prova de 13/10](evidence/compiler-rebuild-2026-10-13/README.md).
+- [ ] Concluir/revisar os novos builds A/B/C e executar checksum no ESP32-S3. #7/#9 permanecem abertas.
 
 O [complemento E1 de 12/10](evidence/retomada-linux-2026-10-12/e1-scenarios/README.md) contém hashes de ELF/BIN e configurações efetivas, recibos de validação, manifests, logs e disassembly. Os ELF/BIN completos permanecem nos diretórios dedicados do CT107. Nenhum firmware foi gravado, nenhum checksum foi executado na placa e nenhuma suíte de testes foi executada nesta retomada.
 
@@ -94,7 +95,7 @@ O conteúdo original do parágrafo de delimitação em [plano-de-execucao.md](pl
 
 ## E1. Viabilidade dos três cenários
 
-- [~] **#7, toolchain reproduzível no LXC.** Dependência: #6. Em 12/10, LLVM/wamrc real, geração e repetição dos artefatos Wasm/AOT e builds de firmware A/B/C foram conferidos no CT107, com versões fixadas, hashes e `sdkconfig` separados. As cinco saídas de R6/R7 coincidem. Permanecem pendentes revisão/aceite e atestado independente que associe o recibo unsigned ao binário `wamrc`.
+- [~] **#7, toolchain reproduzível no LXC.** Dependência: #6. Em 12/10, LLVM/wamrc real, geração e repetição dos artefatos Wasm/AOT e builds de firmware A/B/C foram conferidos no CT107, com versões fixadas, hashes e `sdkconfig` separados. As cinco saídas de R6/R7 coincidem. A reprodução comparativa do binário foi concluída e revisada em 13/10. Novos builds A/B/C na fonte publicada estão em andamento; o aceite será conferido após seus recibos.
 - [x] **#8, plataforma comum.** Dependências satisfeitas: #2 e #3. Evidência integrada na `main` pela PR #27: build nativo ESP-IDF 5.2.6, 17 testes locais e logs físicos de DS18B20, GPIO, PSRAM, Wi-Fi/UDP e watchdog. O firmware diagnóstico não implementa os serviços da campanha. A reconexão de Wi-Fi no mesmo boot, OTA, WAMR/AOT e módulos continuam sem prova.
 - [~] **#9, WAMR interpretado e AOT no MCU.** Dependências: #7 e #8. Os firmware A/B/C foram compilados e validados no CT107; B usa intérprete clássico, C usa AOT v5, validator AOT ligado e bounds checks explícitos. O objeto Xtensa do AOT preserva o laço. Ainda falta executar a mesma função nos dois modos no ESP32-S3, confirmar checksum e registrar SRAM/PSRAM, erros e limites físicos. Até lá, não há prova de execução no MCU.
 - [~] **Carga mínima nativa da etapa E1.** Dependências: #7 e #8. Em 09/10, o build local com `-O3` efetivo executou cinco aquecimentos verificados pelo runner e 30 chamadas no ESP32-S3 com checksum `0xDBB2F0D4`, em uma única sessão de carga. [Log serial](evidence/execucao-2026-10-09/native/serial.log) e [derivação](evidence/execucao-2026-10-09/native/derived-native.json) preservam a prova preparatória de A. Em 12/10, A/B/C foram compilados na mesma revisão e validados no CT107; falta repetir a execução controlada no MCU e confirmar o checksum. O ensaio de 09/10 não demonstrou transporte funcional e continua limitado àquela única sessão. A prova diagnóstica da #8 não substitui esta carga nem os dois serviços da #11.

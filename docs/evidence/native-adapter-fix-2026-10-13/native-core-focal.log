@@ -1,0 +1,12 @@
+test_concurrent_duplicate_requests_execute_gpio_once (__main__.NativeServicesHostTests.test_concurrent_duplicate_requests_execute_gpio_once) ... ok
+test_control_duplicate_replay_conflict_and_stale_suppression (__main__.NativeServicesHostTests.test_control_duplicate_replay_conflict_and_stale_suppression) ... ok
+test_gpio_execution_errors_and_udp_v1_codec (__main__.NativeServicesHostTests.test_gpio_execution_errors_and_udp_v1_codec) ... ok
+test_telemetry_sample_age_status_saturation_and_wire_validation (__main__.NativeServicesHostTests.test_telemetry_sample_age_status_saturation_and_wire_validation) ... ok
+test_update_replay_pool_saturates_without_evicting_or_false_conflicts (__main__.NativeServicesHostTests.test_update_replay_pool_saturates_without_evicting_or_false_conflicts) ... ok
+test_update_requests_are_rejected_without_side_effects_and_deduplicated (__main__.NativeServicesHostTests.test_update_requests_are_rejected_without_side_effects_and_deduplicated) ... ok
+test_v1_v2_hysteresis_edges_and_distinguishing_vector (__main__.NativeServicesHostTests.test_v1_v2_hysteresis_edges_and_distinguishing_vector) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.108s
+
+OK
