@@ -1,0 +1,58 @@
+{
+  "schema": "wasmhome-e1-generation-reproduction-v1",
+  "source": {
+    "commit": "91f11f715ea7dc2c3a670e55d7f31c7356fdc0f4",
+    "tree": "86afd5816215e07f71d04eee0781631eb9dc6cd1",
+    "tracked_status": "clean"
+  },
+  "original_generation": {
+    "log_sha256": "62f6f5406925d6c1d749e9b27c9632b8229f3cdb0a6c013616cbbc204c076ecb",
+    "manifest_sha256": "22b5975f18832b0b3e010fb07c09385c58f229d4ef61dd049275301c4e5c0222",
+    "argv_recorded": false
+  },
+  "reproduction": {
+    "exit_code": 0,
+    "invocation_file": "generation-repro-r1/invocation.json",
+    "invocation_sha256": "5b19cadbe3a9437003c00e9664bc6cfa7ea8c48c4eea9b595519325d1a0f62f2",
+    "wrapper_file": "generation-repro-r1/run-generation-repro-r1.sh",
+    "wrapper_sha256": "602eb914543d9863d9efcdfcbd4db4970057064e1114347186300e0dd923ea18",
+    "generator_sha256": "ddad6508ae5455db9fa7b407109b779682071ea042d540f5a0a75f6d7af49308",
+    "stdout_file": "generation-repro-r1/generation.stdout.log",
+    "stdout_sha256": "b758b253524dc951a62fa54a34b4d1af32f6c8b14c3f2ef281b4f30ac332386a",
+    "new_manifest_sha256": "17b2c4a0a8fe07a5e2bea52e063821a9199e10cce0cedd97128ea16cb9d8994f"
+  },
+  "manifest_identity_equal": false,
+  "payload_comparison": [
+    {
+      "file": "benchmark.wasm",
+      "sha256": "d4cc0e280d02a697bb52c391e3b225a0691bc24d14cefb2883e51e085e466847",
+      "size_bytes": 174,
+      "equal": true
+    },
+    {
+      "file": "benchmark.aot",
+      "sha256": "c4c94777e5f9460b8e60065d5cb89c7e79907cac61720a61f5ebd5467b512d88",
+      "size_bytes": 812,
+      "equal": true
+    },
+    {
+      "file": "benchmark.wasm.s",
+      "sha256": "eab49c09c9c22c1075837f268087e72f536472415abd6812c2292b19a2cf50cf",
+      "size_bytes": 2185,
+      "equal": true
+    },
+    {
+      "file": "benchmark_wasm_embedded.c",
+      "sha256": "0c1ad886ae451e8affa974ee79fd0377ab7b77c312039b3c78be331dade5e59b",
+      "size_bytes": 1235,
+      "equal": true
+    },
+    {
+      "file": "benchmark_aot_embedded.c",
+      "sha256": "b1e3bc1965b71c4c44a0132cb4cda37f64d521d9a57414949a59d9bde522bb21",
+      "size_bytes": 5272,
+      "equal": true
+    }
+  ],
+  "interpretation": "The new run is a fresh generation event from the exact source pin. All five payload bytes match the earlier recorded payloads, while manifest SHA differs. This does not recover or retroactively assign argv to the earlier generation event."
+}

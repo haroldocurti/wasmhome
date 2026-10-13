@@ -1,0 +1,28 @@
+{
+  "schema": "wasmhome-issue11-harness-review-v1",
+  "files": [
+    {
+      "path": "tools/issue11_harness.py",
+      "sha256": "3b4f59e3e05097b0e03b614a88c06de7a48834a89e7a02a7fb73b5199562c038"
+    },
+    {
+      "path": "tests/test_issue11_harness.py",
+      "sha256": "8060bcad184b9d59b0691a96dc16cf445e3a471d96d5d641ae32d3f0f568607d"
+    },
+    {
+      "path": "docs/issue11-harness.md",
+      "sha256": "d85aee1e476a95ae2221cdeff666c92c26e8db425df0e874d9a63f731a2863cf"
+    }
+  ],
+  "verification": {
+    "command": "PYTHONDONTWRITEBYTECODE=1 python3 -B tests/test_issue11_harness.py -v",
+    "passed": 7,
+    "failed": 0,
+    "physical_udp_or_serial_opened": false
+  },
+  "review_report": {
+    "path": "/tmp/wasmhome-issue11-harness-20261013-r3.md",
+    "sha256": "8ed07fc226806d1ecd4ac6c81dbc55b6147ac45cc6875724619a8e102b9784f8"
+  },
+  "scope": "Harness/test/docs integrity only. Boot identity evidence does not prove reset recency; coordinator must correlate boot telemetry. No physical execution is claimed."
+}

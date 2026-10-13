@@ -1,0 +1,10 @@
+Create AoT compiler with:
+  target:        xtensa
+  target cpu:    
+  target triple: xtensa-pc-linux-gnu
+  cpu features:  
+  opt level:     3
+  size level:    3
+  output format: AoT file
+Compile success, file /home/wasmhome/.local/toolchains/wasmhome-e1-20261013-reviewed-91f11f7/generation-repro-r1/source/build-artifacts-stage-ce56b7842126483c87d8d2fca46bcdc2/benchmark.aot was generated.
+{"directory": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261013-reviewed-91f11f7/generation-repro-r1/source/artifacts", "previous_preserved": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261013-reviewed-91f11f7/generation-repro-r1/source/build-artifacts-previous-ce56b7842126483c87d8d2fca46bcdc2"}

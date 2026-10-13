@@ -1,0 +1,9 @@
+{
+  "cwd": "/tmp",
+  "argv": [
+    "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-tools/tools/xtensa-esp-elf/esp-13.2.0_20250707/xtensa-esp-elf/bin/xtensa-esp32s3-elf-objdump",
+    "-d",
+    "--disassemble=benchmark_run",
+    "/home/wasmhome/.local/toolchains/wasmhome-e1-20261013-reviewed-91f11f7/build-e1-native/wasmhome_bench.elf"
+  ]
+}

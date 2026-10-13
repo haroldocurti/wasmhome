@@ -1,0 +1,18 @@
+{
+  "cwd": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261013-reviewed-91f11f7/generation-repro-r1/source",
+  "argv": [
+    "python3",
+    "-B",
+    "tools/generate_artifacts.py",
+    "--wasi-sdk",
+    "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/wasi-sdk/wasi-sdk-27.0-x86_64-linux",
+    "--wasi-sdk-package",
+    "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/downloads/wasi-sdk-27.0-x86_64-linux.tar.gz",
+    "--wamrc",
+    "/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-r5/wamrc",
+    "--wamrc-build-receipt",
+    "/home/wasmhome/.local/toolchains/wasmhome-e1-20261013-reviewed-91f11f7/generation-repro-r1/source/docs/evidence/retomada-linux-2026-10-12/wamrc-build-receipt-r5.json",
+    "--idf",
+    "/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/esp-idf"
+  ]
+}

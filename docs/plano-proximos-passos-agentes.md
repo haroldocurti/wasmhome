@@ -244,3 +244,12 @@ O plano detalhado de coleta/análise e o checklist E0–E7 continuam sendo as fo
 para os contratos completos; esta distribuição não altera seus critérios.
 
 O [fix do adapter nativo](evidence/native-adapter-fix-2026-10-13/README.md) corrige uma chamada incompleta detectada no build ESP-IDF real; o novo teste compila o ramo ESP_PLATFORM inteiro. Serviços v1/v2 precisam de builds corrigidos antes da placa.
+
+## Gate #7 concluído em 13/10
+
+A/B/C foram compilados/validados em 91f11f7. A repetição de geração registrou
+argv antes da execução e reproduziu os cinco payloads; disassembly nativo/AOT
+e configurações foram conferidos. A [revisão independente](evidence/gate7-builds-2026-10-13/independent-review.md) aceitou o gate de toolchain.
+Os serviços v1/v2 também foram compilados em 7b00b15, após corrigir o adapter.
+As provas físicas #9/#11 continuam necessárias; os status dos recibos
+conservam `build_checked_not_device_validated`.

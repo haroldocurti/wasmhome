@@ -1,0 +1,9 @@
+Sanitized E1 command template (the concrete build-specific paths and scenario values are in the private CT107 log):
+
+1. `python -B tools/validate_build_config.py --artifact-integrity`
+2. `idf.py -B BUILD -DSDKCONFIG=BUILD/sdkconfig -DEXPERIMENT_SCENARIO=SCENARIO -DSDKCONFIG_DEFAULTS=DEFAULTS -DIDF_TARGET=esp32s3 -DCCACHE_ENABLE=0 reconfigure`
+3. `ninja -C BUILD -j 1`
+4. `python -B tools/validate_build_config.py --build-dir BUILD --scenario SCENARIO --nm XTENSA_NM --output BUILD/e1-build.json`
+5. SHA-256 was recorded for `compile_commands.json`, `config/sdkconfig.json`, `e1-build.json`, and `source/artifacts/build-manifest.json`.
+
+The public copy intentionally excludes the concrete absolute paths, raw compile commands, private sdkconfig and binary artifacts. The full command logs stay private on CT107.

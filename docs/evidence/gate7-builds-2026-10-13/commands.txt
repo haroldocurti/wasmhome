@@ -1,0 +1,20 @@
+E1 build evidence command record (sanitized)
+
+Source pin: 91f11f715ea7dc2c3a670e55d7f31c7356fdc0f4, tree 86afd5816215e07f71d04eee0781631eb9dc6cd1.
+Build driver SHA-256: 67f9608097cf72d898eb738b9ad0dca3a7f56c42d49555421b9c3ecab343a297.
+The driver is private on CT107. Its public command shape and exact build-gate steps are listed below; per-run raw logs and compile databases remain private.
+
+Each scenario:
+1. python -B tools/validate_build_config.py --artifact-integrity
+2. idf.py -B BUILD -DSDKCONFIG=BUILD/sdkconfig -DEXPERIMENT_SCENARIO=SCENARIO -DSDKCONFIG_DEFAULTS=DEFAULTS -DIDF_TARGET=esp32s3 -DCCACHE_ENABLE=0 reconfigure
+3. ninja -C BUILD -j 1
+4. python -B tools/validate_build_config.py --build-dir BUILD --scenario SCENARIO --nm XTENSA_NM --output BUILD/e1-build.json
+5. Record SHA-256 for compile_commands.json, config/sdkconfig.json, e1-build.json and source/artifacts/build-manifest.json.
+
+Fresh generation reproduction:
+Exact cwd and argv were written immediately before subprocess launch in generation-repro-r1/invocation.json. The wrapper hash is in generation-reproduction.json; the complete argv is preserved in that invocation file. This is a new run on the same source pin; the old generation event did not preserve argv.
+
+Static inspection:
+Exact native objdump, WAMRC object-generation and object-disassembly argv are preserved in workload-inspection-r1/{native-disassembly-argv,aot-object-argv,aot-disassembly-argv}.json. The AOT object is a derivative generated from the repeated benchmark.wasm with the recorded WAMRC, not an included firmware binary.
+
+Build receipts remain build_checked_not_device_validated. No flash or physical runtime test is claimed.

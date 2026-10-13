@@ -1,0 +1,136 @@
+{
+  "idf": {
+    "git_clean_dry_run": "empty",
+    "revision": "9ef24e3e2a2c96e720d83c574a3f8699177573da",
+    "status": "clean",
+    "tree": "e74c4c35593551e612df306248b403a92ec8a403",
+    "version": "5.2.6"
+  },
+  "logs": {
+    "aot_build": {
+      "mode": "0600",
+      "sha256": "fe1d86379e87659442cd3c0c191b04cf5f28b70287819a418156f9a5ad868688"
+    },
+    "artifact_generation": {
+      "mode": "0600",
+      "sha256": "62f6f5406925d6c1d749e9b27c9632b8229f3cdb0a6c013616cbbc204c076ecb",
+      "size_bytes": 504
+    },
+    "artifact_manifest": {
+      "retained_privately_on_ct": true,
+      "sha256": "22b5975f18832b0b3e010fb07c09385c58f229d4ef61dd049275301c4e5c0222",
+      "size_bytes": 3636126
+    },
+    "interp_build": {
+      "mode": "0600",
+      "sha256": "cb61f451267ef01739cfa955961f390cf62f3cc26e0627546e1ef73ff7c1cac0"
+    },
+    "native_build": {
+      "mode": "0600",
+      "sha256": "9137715385abc13ce5fa1fe6b95d2edc1657d7f0ba108fd254d69b542735ce11"
+    }
+  },
+  "scenarios": {
+    "aot": {
+      "artifact_manifest_sha256": "22b5975f18832b0b3e010fb07c09385c58f229d4ef61dd049275301c4e5c0222",
+      "bin": {
+        "mode": "0600",
+        "sha256": "e22380c0e75ef3f09cf20f033550acfddc8706cfc3797142e40479cba6c13bef",
+        "size_bytes": 823312
+      },
+      "compile_commands_sha256": "dc76f972f47af1dc878a846ea5cfbc9e39614d9150e48bcd31c9deb01f2d5b0e",
+      "effective_config_sha256": "387bebd96b20f914ae0f4b117a022cf8f17028b86bef1eed884d92470b5a593f",
+      "elf": {
+        "mode": "0700",
+        "sha256": "4bc5f9802b81642d845afd3c090e1c9e3505c36332016eadce61dbbfc500c876",
+        "size_bytes": 10552140
+      },
+      "idf_revision": "9ef24e3e2a2c96e720d83c574a3f8699177573da",
+      "idf_tree": "e74c4c35593551e612df306248b403a92ec8a403",
+      "receipt_mode": "0600",
+      "receipt_sha256": "88c18f005092d8dc864582745e0de19b4418b75aad88882e3079617767fda046",
+      "runtime_resolved": {
+        "aot_version": 5,
+        "app_framework_revision": "e97860611e371d91d2ef25101b02b29719476a48",
+        "component": "wasmhome/wasm-micro-runtime",
+        "component_hash": "7d3eba8883eaaefee0457e8593b2a5203050736487fcf62bbf05cd8ce0306251",
+        "port_lock_sha256": "348a5addf014587b24468fe55b44444284ee5d212d7f206c394a9659cf6f9669",
+        "repository_revision": "25bd7eb63e828e4bd242cc9b38d260b4b31c6605",
+        "version": "2.4.5-wasmhome.1"
+      },
+      "source_revision": "91f11f715ea7dc2c3a670e55d7f31c7356fdc0f4",
+      "source_tree": "86afd5816215e07f71d04eee0781631eb9dc6cd1",
+      "status": "build_checked_not_device_validated",
+      "workload_optimization": "-O3"
+    },
+    "interp": {
+      "artifact_manifest_sha256": "22b5975f18832b0b3e010fb07c09385c58f229d4ef61dd049275301c4e5c0222",
+      "bin": {
+        "mode": "0600",
+        "sha256": "9dc0091a409bde7016ad2be4f3c0ad7a1b1b3a5cfb85a74ec0d4327a5ba60abb",
+        "size_bytes": 840304
+      },
+      "compile_commands_sha256": "b602442a6ff1f8cc78f5c1208bf898e4a234d603f42ccfe0ab1bea39c3f9efa0",
+      "effective_config_sha256": "f5f9f7613deef0b0bd148de64a5cd861cc965ec2c4e6b962a957bb29890a769f",
+      "elf": {
+        "mode": "0700",
+        "sha256": "10773ca54a7d77f7bdb1e920c4b23fae5617474509a8292339f15e2fe526dff4",
+        "size_bytes": 10547856
+      },
+      "idf_revision": "9ef24e3e2a2c96e720d83c574a3f8699177573da",
+      "idf_tree": "e74c4c35593551e612df306248b403a92ec8a403",
+      "receipt_mode": "0600",
+      "receipt_sha256": "bcffe4d71ed198a13cb5b0594a6f0cb06a58a3b8c54ab04f47b0f54862efa160",
+      "runtime_resolved": {
+        "aot_version": 5,
+        "app_framework_revision": "e97860611e371d91d2ef25101b02b29719476a48",
+        "component": "wasmhome/wasm-micro-runtime",
+        "component_hash": "7d3eba8883eaaefee0457e8593b2a5203050736487fcf62bbf05cd8ce0306251",
+        "port_lock_sha256": "348a5addf014587b24468fe55b44444284ee5d212d7f206c394a9659cf6f9669",
+        "repository_revision": "25bd7eb63e828e4bd242cc9b38d260b4b31c6605",
+        "version": "2.4.5-wasmhome.1"
+      },
+      "source_revision": "91f11f715ea7dc2c3a670e55d7f31c7356fdc0f4",
+      "source_tree": "86afd5816215e07f71d04eee0781631eb9dc6cd1",
+      "status": "build_checked_not_device_validated",
+      "workload_optimization": "-O3"
+    },
+    "native": {
+      "artifact_manifest_sha256": null,
+      "bin": {
+        "mode": "0600",
+        "sha256": "deecedc20bd7584c2afdb848220c7dda75bb7e65596e6d3a30138642641ac777",
+        "size_bytes": 747408
+      },
+      "compile_commands_sha256": "d0a2ef74423b40baa54d8125066e63c15cd652e8b18fb24c09e740fe1e7dc22a",
+      "effective_config_sha256": "f1f715b25126a50468329d243ed6a03bb07547252a3745f0fb74dcc846dd411d",
+      "elf": {
+        "mode": "0700",
+        "sha256": "14831bd1a804539fa0c21305fd80ca89425c9d67025823e3fea4cfa1198c46dd",
+        "size_bytes": 9218268
+      },
+      "idf_revision": "9ef24e3e2a2c96e720d83c574a3f8699177573da",
+      "idf_tree": "e74c4c35593551e612df306248b403a92ec8a403",
+      "receipt_mode": "0644",
+      "receipt_sha256": "a4ebfc7beda6b3d3db55596f519b39996ecf9186c2cc60a70fc2ec89723a9c5f",
+      "runtime_resolved": null,
+      "source_revision": "91f11f715ea7dc2c3a670e55d7f31c7356fdc0f4",
+      "source_tree": "86afd5816215e07f71d04eee0781631eb9dc6cd1",
+      "status": "build_checked_not_device_validated",
+      "workload_optimization": "-O3"
+    }
+  },
+  "schema": "wasmhome-public-e1-build-summary-v1",
+  "secrets_policy": {
+    "firmware_bin_or_elf_copied": false,
+    "raw_compile_commands_copied": false,
+    "sdkconfig_copied": false,
+    "wifi_ssid_or_password_included": false
+  },
+  "source": {
+    "commit": "91f11f715ea7dc2c3a670e55d7f31c7356fdc0f4",
+    "tracked_worktree_status": "clean",
+    "tree": "86afd5816215e07f71d04eee0781631eb9dc6cd1"
+  },
+  "status": "build_checked_not_device_validated"
+}

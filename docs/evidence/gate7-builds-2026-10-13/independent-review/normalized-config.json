@@ -1,0 +1,55 @@
+{
+  "scenarios": {
+    "aot": {
+      "ESP_DEFAULT_CPU_FREQ_MHZ": 240,
+      "IDF_TARGET": "esp32s3",
+      "SPIRAM": true,
+      "WAMR_BUILD_RELEASE": true,
+      "WAMR_ENABLE_AOT": true,
+      "WAMR_ENABLE_INTERP": false,
+      "WASMHOME_CONTROL_GPIO": 5,
+      "WASMHOME_LOOPBACK_GPIO": 6,
+      "WASMHOME_NATIVE_SERVICES": false,
+      "WASMHOME_OBSERVER_SELFTEST": false,
+      "WASMHOME_PLATFORM_SELFTEST": false,
+      "WASMHOME_RUN_BENCHMARK": true,
+      "WASMHOME_SENSOR_GPIO": 4,
+      "WASMHOME_UDP_PORT": 3333
+    },
+    "interp": {
+      "ESP_DEFAULT_CPU_FREQ_MHZ": 240,
+      "IDF_TARGET": "esp32s3",
+      "SPIRAM": true,
+      "WAMR_BUILD_RELEASE": true,
+      "WAMR_ENABLE_AOT": false,
+      "WAMR_ENABLE_INTERP": true,
+      "WASMHOME_CONTROL_GPIO": 5,
+      "WASMHOME_LOOPBACK_GPIO": 6,
+      "WASMHOME_NATIVE_SERVICES": false,
+      "WASMHOME_OBSERVER_SELFTEST": false,
+      "WASMHOME_PLATFORM_SELFTEST": false,
+      "WASMHOME_RUN_BENCHMARK": true,
+      "WASMHOME_SENSOR_GPIO": 4,
+      "WASMHOME_UDP_PORT": 3333
+    },
+    "native": {
+      "ESP_DEFAULT_CPU_FREQ_MHZ": 240,
+      "IDF_TARGET": "esp32s3",
+      "SPIRAM": true,
+      "WASMHOME_CONTROL_GPIO": 5,
+      "WASMHOME_LOOPBACK_GPIO": 6,
+      "WASMHOME_NATIVE_SERVICES": false,
+      "WASMHOME_OBSERVER_SELFTEST": false,
+      "WASMHOME_PLATFORM_SELFTEST": false,
+      "WASMHOME_RUN_BENCHMARK": true,
+      "WASMHOME_SENSOR_GPIO": 4,
+      "WASMHOME_UDP_PORT": 3333
+    }
+  },
+  "schema": "wasmhome-public-e1-normalized-config-v1",
+  "secret_fields_excluded": [
+    "WASMHOME_WIFI_SSID",
+    "WASMHOME_WIFI_PASSWORD",
+    "WASMHOME_OBSERVER_IPV4"
+  ]
+}

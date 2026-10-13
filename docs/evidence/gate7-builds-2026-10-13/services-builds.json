@@ -1,0 +1,67 @@
+{
+  "schema": "wasmhome-native-services-builds-v1",
+  "source": {
+    "commit": "7b00b1585e1b27819979a6d82dd4144dc6f19682",
+    "tree": "aec4c9e07d909f42adfa20009c8018775e74e297"
+  },
+  "builds": [
+    {
+      "version": 1,
+      "status": "services_build_checked_not_device_validated",
+      "directory": "/home/wasmhome/.local/toolchains/wasmhome-services-20261013-7b00/build-services-v1-r3",
+      "elf": {
+        "path": "wasmhome_bench.elf",
+        "sha256": "28a4ea9f1a1f5de4eb6d732c39cdfbf3f786a4216865e4d1825bc04aa765445e"
+      },
+      "bin": {
+        "path": "wasmhome_bench.bin",
+        "sha256": "fb0d55f9b319bf91137b34467b4342f21fb37e049db32a662721e6391b02a4f8"
+      },
+      "receipt_sha256": "650c57379f71b5639f235db4adbb2501d400a1b746367ba9f6ad137e2b076c7a",
+      "build_log_sha256": "f1dcb5ef5f944404ab9f9239c8907f72d00183564dde628d0c7ca2c9e2dd776c",
+      "compile_commands_sha256": "1767b15cc79afc2f92a19f8b3a8b7606106dda63db58d83065a9fdf4d644774f"
+    },
+    {
+      "version": 2,
+      "status": "services_build_checked_not_device_validated",
+      "directory": "/home/wasmhome/.local/toolchains/wasmhome-services-20261013-7b00/build-services-v2-r1",
+      "elf": {
+        "path": "wasmhome_bench.elf",
+        "sha256": "1f9216151996d71cc7736174642d19c2b2037085c5bf4d3f788e7d671c0f0f03"
+      },
+      "bin": {
+        "path": "wasmhome_bench.bin",
+        "sha256": "2cba645ebfd3b6fc8c2997a20b569b7c681f81f3c6a3d579faecd5c840511ee7"
+      },
+      "receipt_sha256": "6d4ce7972bc266a2ceabfc2b37cfbb6b3a7feb3355282680040ef8bea8ee0d99",
+      "build_log_sha256": "09c5ff9d1ff4cba367ca0b002d3e5ce26b8f527c332f19f7a872f92f281209fe",
+      "compile_commands_sha256": "85dcc620861a6c6d847ed03a07d16929d0ba44d0779fd951425d1484538ba7e8"
+    }
+  ],
+  "normalized_config": {
+    "IDF_TARGET": "esp32s3",
+    "WASMHOME_NATIVE_SERVICES": true,
+    "WASMHOME_RUN_BENCHMARK": false,
+    "WASMHOME_OBSERVER_SELFTEST": false,
+    "WASMHOME_PLATFORM_SELFTEST": false,
+    "ESP_DEFAULT_CPU_FREQ_MHZ": 240,
+    "WASMHOME_SENSOR_GPIO": 4,
+    "WASMHOME_CONTROL_GPIO": 5,
+    "WASMHOME_LOOPBACK_GPIO": 6,
+    "secret_fields_excluded": [
+      "WASMHOME_WIFI_SSID",
+      "WASMHOME_WIFI_PASSWORD",
+      "WASMHOME_OBSERVER_IPV4"
+    ],
+    "WASMHOME_CONTROL_VERSION": {
+      "v1": 1,
+      "v2": 2
+    }
+  },
+  "verification": {
+    "compile_command_count_per_build": 903,
+    "native_service_sources_compiled": true,
+    "wamr_execution_sources_or_symbols_present": false
+  },
+  "scope": "Firmware build evidence only; no device validation, flashing, or runtime result."
+}

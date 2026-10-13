@@ -1,0 +1,14 @@
+{
+  "cwd": "/tmp",
+  "argv": [
+    "/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-r5/wamrc",
+    "--target=xtensa",
+    "--bounds-checks=1",
+    "--disable-llvm-lto",
+    "--opt-level=3",
+    "--format=object",
+    "-o",
+    "/home/wasmhome/.local/toolchains/wasmhome-e1-20261013-reviewed-91f11f7/workload-inspection-r1/benchmark_xtensa.o",
+    "/home/wasmhome/.local/toolchains/wasmhome-e1-20261013-reviewed-91f11f7/generation-repro-r1/source/artifacts/benchmark.wasm"
+  ]
+}
