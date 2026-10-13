@@ -1,6 +1,13 @@
 # Preparação da viabilidade WAMR
 
-Status em 09/10/2026: preparação de E1, sem prova de execução de B/C na placa.
+Sincronização em 13/10/2026: #6 foi aceita; o candidato atual usa runtime
+2.4.5-wasmhome.1 e `wamrc` 2.4.5 R5. Geração/repetição Wasm/AOT e builds A/B/C
+no CT107 estão nos [recibos de 12/10](evidence/retomada-linux-2026-10-12/e1-scenarios/README.md).
+Faltam testes locais da revisão recente, atestado independente e revisão/aceite
+#7, além da execução A/B/C no ESP32-S3 (#9). O texto abaixo preserva o histórico
+de 09/10 e não define o pin atual.
+
+Status histórico em 09/10/2026: preparação de E1, sem prova de execução de B/C na placa.
 As issues #7 e #9 dependem do aceite de #6. Os testes abaixo não encerram essa
 dependência nem constituem dados da campanha.
 

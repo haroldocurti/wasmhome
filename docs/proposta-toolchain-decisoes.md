@@ -1,8 +1,13 @@
 # Suplemento de decisões da toolchain #7
 
-Atualização de estado em 11/10: o [registro de retomada pelo Linux](retomada-linux.md)
-supera os estados históricos abaixo. SDKs/venv e build nativo no CT107 foram
-executados; LLVM/wamrc real, geração/repetição A/B/C e aceite #7/#9 seguem pendentes.
+Sincronização em 13/10/2026, baseada nas evidências de 12/10: o
+[registro de retomada pelo Linux](retomada-linux.md) supera os estados históricos
+abaixo. SDKs/venv, LLVM/wamrc R5 compatível com o CT107, geração e repetição
+Wasm/AOT e builds de firmware A/B/C foram executados. Consulte os
+[recibos E1](evidence/retomada-linux-2026-10-12/e1-scenarios/README.md).
+Permanecem pendentes testes locais da revisão recente, revisão/aceite da #7,
+atestado independente do compilador e execução A/B/C no ESP32-S3 (#9).
+Nenhum firmware foi gravado na retomada de 12/10; compilação não comprova execução.
 
 
 10/10/2026. Somente preparação. Complementa [proposta-toolchain.md](proposta-toolchain.md) sem alterar

@@ -1,13 +1,19 @@
 # Port candidato WAMR 2.4.5 para E1
 
-Atualização de estado em 11/10: o [registro de retomada pelo Linux](retomada-linux.md)
-supera os estados históricos abaixo. SDKs/venv e build nativo no CT107 foram
-executados; LLVM/wamrc real, geração/repetição A/B/C e aceite #7/#9 seguem pendentes.
+Sincronização em 13/10/2026, baseada nas evidências de 12/10: o
+[registro de retomada pelo Linux](retomada-linux.md) supera os estados históricos
+abaixo. SDKs/venv, LLVM/wamrc R5 compatível com o CT107, geração e repetição
+Wasm/AOT e builds de firmware A/B/C foram executados. Consulte os
+[recibos E1](evidence/retomada-linux-2026-10-12/e1-scenarios/README.md).
+Permanecem pendentes testes locais da revisão recente, revisão/aceite da #7,
+atestado independente do compilador e execução A/B/C no ESP32-S3 (#9).
+Nenhum firmware foi gravado na retomada de 12/10; compilação não comprova execução.
 
 
-Preparação local em 10/10/2026, no worktree `codex/issue-7-runtime-port`.
-Adoção, instalação da toolchain, origem do binário `wamrc`, builds ESP-IDF B/C e
-execução física continuam pendentes. Este pacote não encerra #7 nem #9.
+Estado histórico da preparação local em 10/10/2026, no worktree
+`codex/issue-7-runtime-port`: adoção, instalação da toolchain, origem do binário
+`wamrc`, builds ESP-IDF B/C e execução física ainda estavam pendentes naquela
+data. O avanço posterior está resumido acima; este pacote não encerra #7 nem #9.
 
 ## Identidade e escopo
 

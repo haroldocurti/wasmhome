@@ -1,10 +1,14 @@
 # Plano de execução dos experimentos
 
-Status: execução iniciada, com preparação e diagnóstico físico registrados. Este
+Status sincronizado em 13/10/2026: execução iniciada, com preparação e diagnóstico físico registrados. Este
 plano prevalece sobre o protocolo inicial e sobre os comandos provisórios do
 README. Plataforma comum e observador têm evidências de diagnóstico no ESP32-S3;
 os serviços definitivos, a execução WAMR e as atualizações dos três cenários
-permanecem pendentes. O [checklist de execução](checklist-execucao.md) detalha
+permanecem pendentes. As [evidências de 12/10](evidence/retomada-linux-2026-10-12/e1-scenarios/README.md)
+confirmam LLVM/wamrc R5 compatível com CT107, artefatos Wasm/AOT reproduzidos e
+builds de firmware A/B/C. Ainda faltam testes locais da revisão recente,
+atestado independente do compilador, revisão/aceite #7 e execução no MCU #9.
+O [checklist de execução](checklist-execucao.md) detalha
 as dependências, os critérios de aceite e as revisões de cada entrega.
 
 ## Objetivo e delimitação
@@ -54,8 +58,10 @@ Kalman, dashboard, frotas e múltiplos dispositivos ficam fora da campanha.
    `status=ok` sem conferir checksum. Não distingue sessões ou tentativas.
 5. Diretórios de build separados precisam também de arquivos `sdkconfig`
    independentes. As configurações efetivas devem constar das evidências.
-6. A combinação de versões atual e os comandos AOT ainda não foram executados.
-   Os testes locais não compilam o C nem comprovam os artefatos na placa.
+6. No plano inicial, a combinação de versões e os comandos AOT não tinham
+   sido executados. Em 12/10, geração/repetição Wasm/AOT e builds A/B/C foram
+   validados no CT107. Faltam os testes locais da revisão recente e a prova
+   dos artefatos na placa; compilação não comprova execução no MCU.
 
 ## Etapas e critérios de conclusão
 
@@ -118,8 +124,10 @@ Guardar também a execução nativa da carga mínima e seu checksum na mesma pla
 O diagnóstico físico da plataforma comum não executa essa carga. Compilar um
 firmware com benchmark habilitado tampouco comprova sua execução no dispositivo.
 
-Revisar os avisos oficiais das versões antes de manter o pin WAMR 2.4.0. Fixar
-versões exatas e origem dos componentes após a prova. Guardar flags e hashes.
+O pin histórico WAMR 2.4.0 foi substituído no candidato E1 por
+`wasmhome/wasm-micro-runtime` 2.4.5-wasmhome.1 e `wamrc` 2.4.5, com fontes
+fixadas no lock e nos recibos de 12/10. Revisar as versões e a proveniência no
+aceite da #7 e comprovar compatibilidade física na #9. Guardar flags e hashes.
 Isolar `sdkconfig`; verificar interpretador clássico em B e AOT em C, clock,
 otimização e o que efetivamente foi ligado em A. Revisar buffers graváveis,
 alinhamento, pilha e limpeza de recursos. Verificar no código gerado que a carga

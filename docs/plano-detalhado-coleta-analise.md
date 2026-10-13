@@ -1,7 +1,7 @@
 # Planejamento detalhado para coleta e análise
 
 Status: plano operacional complementar ao [plano de execução](plano-de-execucao.md).
-Redigido em 09/10/2026; estado de execução atualizado em 11/10/2026. Este documento especifica trabalho futuro, sem comprovar campanha ou análise executada.
+Redigido em 09/10/2026; estado de execução sincronizado em 13/10/2026 com as evidências de 12/10. Este documento especifica trabalho futuro, sem comprovar campanha ou análise executada.
 
 O plano de execução e o glossário CONTEXT.md definem o escopo científico. Este
 documento organiza o trabalho restante, os critérios para iniciar cada fase e
@@ -73,12 +73,14 @@ ligada ao slot original e não apaga o primeiro registro.
 
 ## Posição atual e dependências
 
-Estado reconfirmado em 11/10/2026 no [mapa Wayfinder #1](https://github.com/haroldocurti/wasmhome/issues/1) e nas issues:
+Estado sincronizado em 13/10/2026: issues #1/#7/#9/#11 consultadas no GitHub e
+avanço técnico baseado nos [recibos de 12/10](evidence/retomada-linux-2026-10-12/e1-scenarios/README.md).
+O rastreador não substitui os registros de compilação e execução:
 
 - #8 e #10 estão integradas na `main`; a #10 entrou pela PR #28.
 - #6 foi encerrada após a PR #29, com reconstrução no CT109, rede e reserva DHCP registradas.
-- #7 permanece aberta. CT107 tem SDKs/venv preparados e build nativo real; LLVM/wamrc e geração reproduzida A/B/C ainda faltam.
-- #9 permanece aberta e exige participação humana na prova B/C no ESP32-S3.
+- #7 permanece aberta. SDKs/venv e `wamrc` R5 foram verificados no CT107; os artefatos Wasm/AOT foram gerados e repetidos com hashes idênticos e os firmware A/B/C foram compilados na mesma revisão. Faltam testes locais das alterações recentes, revisão/aceite e atestado independente do recibo unsigned do compilador. As configurações foram validadas e seus hashes preservados; os `sdkconfig` completos ainda não foram exportados para o pacote versionado.
+- #9 permanece aberta e exige participação humana na prova no ESP32-S3. B/C têm build e inspeção estática, sem flash ou checksum na placa na retomada de 12/10. Repetir A/B/C na mesma placa e registrar checksum, memória, erros e configurações.
 - #11–#24 continuam abertas. O serviço nativo #11 pode avançar pelas dependências #8/#10 cumpridas; não precisa aguardar #9.
 - O usuário optou por iniciar o PC pelo Linux para o doador. CT110 não foi criado e nenhum guest foi desligado. O [registro de retomada](retomada-linux.md) contém as provas e os próximos passos.
 
@@ -558,8 +560,11 @@ Entregas da issue #24:
 2. Fechar a decisão da histerese e executar a #11 em uma sessão própria assim que
    a #10 estiver integrada e a placa estiver disponível. A #11 não espera #6, #7
    ou #9.
-3. Avançar #6 → #7. Agendar a participação humana da #9 durante a espera externa
-   e executá-la assim que #7 cumprir seus critérios. Depois de #7 e #4, iniciar
+3. Com #6 concluída e os builds de 12/10 preservados, executar os testes locais
+   com codec C compilado; preservar as configurações efetivas, obter o atestado
+   independente do compilador e concluir revisão/aceite da #7. Agendar a
+   participação humana da #9 e executar A/B/C na mesma placa assim que #7 cumprir
+   seus critérios. Depois de #7 e #4, iniciar
    #15 sem esperar #9, #12, #13 ou #14.
 4. Com #9 aprovada, seguir #12 → #13/#14. Fazer #16 quando #11 e #15 estiverem
    prontas; fazer #17/#18 quando suas demonstrações e #15 estiverem prontas.

@@ -17,10 +17,15 @@ campaign compares the common telemetry and GPIO-control services defined in
 
 ## Current state
 
-The [Linux handoff record](docs/retomada-linux.md), updated on 2026-10-11,
-records the integrated observer/LXC deliveries, the CT107 SDK preparation and
-real native build, the candidate runtime, preserved reviews and remaining work.
-LLVM/wamrc, modular firmware and campaign execution are still pending.
+Status synchronized on 2026-10-13 from the 2026-10-12 evidence. The
+[Linux handoff record](docs/retomada-linux.md) records the integrated observer/LXC
+deliveries, SDK preparation, compatible LLVM/wamrc R5 and verified A/B/C firmware
+builds on CT107. Wasm/AOT artifacts were reproduced with identical hashes; see
+the [E1 build evidence](docs/evidence/retomada-linux-2026-10-12/e1-scenarios/README.md).
+Local tests for the latest changes, independent compiler attestation and #7
+review/acceptance remain pending. A/B/C execution on the ESP32-S3 (#9), campaign
+services, updates and experimental campaigns are still pending. No firmware was
+flashed during the 2026-10-12 handoff.
 
 The UDP observation contract, host-side reference codec, firmware harness,
 workload, artifact builder, log collector and automated local tests are present.
@@ -37,8 +42,10 @@ be validated in their respective stages.
 Thirty current calls are not thirty updates; loading occurs once per boot.
 The common platform built locally with ESP-IDF 5.2.6 on 2026-10-02; the
 [verification record](docs/evidence/plataforma-comum-2026-10-02.md) identifies
-the tool versions and image hashes. CT107 now has verified SDKs and a real native build. `wamrc`, interpreted/AOT
-execution and complete artifact reproduction remain to be validated.
+the tool versions and image hashes. The 2026-10-12 evidence additionally records
+verified SDKs, `wamrc` host execution and A/B/C builds on CT107. Interpreted/AOT
+execution on the device remains to be validated; host compilation and artifact
+reproduction do not establish physical viability.
 
 ## Prerequisites
 

@@ -1,6 +1,6 @@
 # Checklist de execução do plano
 
-Atualização em 12/10/2026; snapshots históricos de 09/10 e 11/10 preservados abaixo. Este guia segue as etapas E0–E7 de [plano-de-execucao.md](plano-de-execucao.md), as decisões em [CONTEXT.md](../CONTEXT.md), o protocolo UDP, as decisões de envelope e resiliência, e as issues #1–#24 de `haroldocurti/wasmhome`. As dependências listadas por issue refletem a consulta GraphQL preservada no snapshot de 11/10.
+Sincronização em 13/10/2026 com evidências de 12/10; snapshots históricos de 09/10 e 11/10 preservados abaixo. Este guia segue as etapas E0–E7 de [plano-de-execucao.md](plano-de-execucao.md), as decisões em [CONTEXT.md](../CONTEXT.md), o protocolo UDP, as decisões de envelope e resiliência, e as issues #1–#24 de `haroldocurti/wasmhome`. As dependências listadas por issue refletem a consulta GraphQL preservada no snapshot de 11/10.
 
 ## Como usar
 
@@ -11,6 +11,10 @@ Atualização em 12/10/2026; snapshots históricos de 09/10 e 11/10 preservados 
 - Antes de uma sessão física, reconfirmar placa, porta serial, rede, endereços, alimentação e ambiente. Valores de inventário podem mudar.
 
 As caixas refletem somente o snapshot indicado. Registros posteriores podem alterar o estado.
+A consulta de 13/10 confirmou #7/#9/#11 abertas. A sincronização documental
+e do rastreador não constitui revisão técnica ou aceite: os testes locais com
+codec C compilado, a preservação dos `sdkconfig` completos, o atestado independente
+do compilador e a prova A/B/C no MCU continuam nos próximos gates.
 
 ### Avanço local em 10/10
 
