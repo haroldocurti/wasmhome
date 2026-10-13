@@ -1,0 +1,9 @@
+# Calibração PHY e ensaio físico interrompido
+
+O ensaio A/B/C de 13/10/2026 executou apenas o firmware nativo da revisão `91f11f715ea7dc2c3a670e55d7f31c7356fdc0f4`. A verificação offline do log confirmou cinco aquecimentos, 30 chamadas com checksum `0xDBB2F0D4`, 67 eventos de memória e resultado final válido. O pacote contém um recorte sanitizado, com hash próprio; o log UART completo e os dumps de flash permanecem privados.
+
+A inicialização renovou a calibração PHY persistida. A comparação integral detectou 5.982 bytes alterados em três páginas NVS e interrompeu o roteiro antes dos modos interpretado e AOT. As duas tentativas de restauração recuperaram exatamente os bytes originais de `ota_0`, mas a flash completa permaneceu diferente pela alteração NVS. O ensaio está registrado como falho; não houve captura do boot restaurado nem execução dos serviços v1/v2. As issues #9 e #11 continuam pendentes.
+
+O ESP-IDF 5.2.6 mantém o armazenamento de calibração habilitado por padrão. Desabilitar `CONFIG_ESP_PHY_CALIBRATION_AND_DATA_STORAGE` seleciona calibração completa sem o caminho de carregar e salvar a calibração NVS. Isso não impede outros escritores NVS, portanto a comparação integral continua necessária. Fontes primárias: [Kconfig PHY](https://github.com/espressif/esp-idf/blob/v5.2.6/components/esp_phy/Kconfig) e [phy_init.c](https://github.com/espressif/esp-idf/blob/v5.2.6/components/esp_phy/src/phy_init.c).
+
+O perfil padrão foi ajustado para desabilitar essa persistência. É necessário gerar configurações novas, comprovar a opção efetiva desabilitada, recompilar os cinco firmwares, registrar novos hashes e executar novamente A/B/C e v1/v2. Nenhum recibo anterior foi reclassificado como prova da correção. O firmware original poderá voltar a atualizar sua calibração após a restauração; essa atividade deve ser registrada separadamente da integridade verificada antes do seu boot.

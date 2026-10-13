@@ -1,0 +1,42 @@
+{
+  "changed_bytes_outside_nvs_and_ota0": 0,
+  "changed_sectors": {
+    "0xa000": 953,
+    "0xb000": 1077,
+    "0xd000": 3952
+  },
+  "excerpt_scope": "Only benchmark CSV/memory/boot/count/final markers and the PHY calibration save message; original raw UART retained privately.",
+  "excerpt_sha256": "09b769ade0ceefd1263afd1c3d95ff244580d74995dd1f23f33ff9ce00690d52",
+  "failure": "Full-flash comparison detected 5982 changed NVS bytes after native startup; stopped before interp/AOT.",
+  "fix_status": "sdkconfig.defaults now disables persistent PHY calibration; five fresh builds and new physical runs are required.",
+  "issue11_executed": false,
+  "issue9_complete": false,
+  "native_log_consistency": {
+    "bin_sha256": "deecedc20bd7584c2afdb848220c7dda75bb7e65596e6d3a30138642641ac777",
+    "boot_id": "e7570ba88b7c796e",
+    "checked_warmups": 5,
+    "checksum": "0xDBB2F0D4",
+    "elf_sha256": "14831bd1a804539fa0c21305fd80ca89425c9d67025823e3fea4cfa1198c46dd",
+    "log_sha256": "8b3fffd89a9a108e32c963cec63acb77bf980103ae73662aa32ccaef3f7508b7",
+    "measured_calls": 30,
+    "memory_events": 67,
+    "scenario": "native"
+  },
+  "overall_status": "failed",
+  "raw_log_public": false,
+  "remaining_scenarios": [
+    "interp",
+    "aot"
+  ],
+  "restore": {
+    "attempts": 2,
+    "both_ota0_readbacks_match_original": true,
+    "full_flash_matches_pretest": false,
+    "latest_full_flash_sha256": "d7710994f0c310eb5a33cf8aafa56a80b255df35ff56c80bcaa52b4f5f70bf1c",
+    "ota0_restored_sha256": "67860a5f2a36c67fa36a19ca34badaf795dd003bd1240ebd2fc0dce375a2a48b",
+    "restored_boot_captured": false
+  },
+  "schema": "wasmhome-phy-storage-failure-summary-v1",
+  "source_revision": "91f11f715ea7dc2c3a670e55d7f31c7356fdc0f4",
+  "successful_abc_session": false
+}

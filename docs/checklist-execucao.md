@@ -50,6 +50,8 @@ registra a reconciliação de proveniência, os novos artefatos e os limites.
 - [x] Concluir e revisar os novos builds A/B/C na mesma revisão 91f11f7, repetir geração com argv registrados e conferir os cinco payloads/disassembly. [Gate #7](evidence/gate7-builds-2026-10-13/README.md).
 - [ ] Executar checksum A/B/C no ESP32-S3 e concluir #9.
 
+O ensaio de 13/10 executou A nativo com cinco aquecimentos e 30 chamadas válidas, mas foi interrompido pela gravação de calibração PHY em NVS. Os bytes originais da aplicação foram restaurados; a flash completa diferiu nos dados de calibração. A [evidência sanitizada e a correção do perfil](evidence/phy-storage-fix-2026-10-13/README.md) registram a falha e a necessidade de cinco builds novos com persistência PHY desabilitada. B/C e os serviços v1/v2 continuam sem prova física nesta retomada.
+
 O [complemento E1 de 12/10](evidence/retomada-linux-2026-10-12/e1-scenarios/README.md) contém hashes de ELF/BIN e configurações efetivas, recibos de validação, manifests, logs e disassembly. Os ELF/BIN completos permanecem nos diretórios dedicados do CT107. Nenhum firmware foi gravado, nenhum checksum foi executado na placa e nenhuma suíte de testes foi executada nesta retomada.
 
 O [registro de retomada](retomada-linux.md) reúne comandos, caminhos, SHAs, revisões, falhas preservadas e limites. CT110 fica arquivado como alternativa substituída; nenhum guest foi desligado. Os itens históricos abaixo não anulam esta atualização.
