@@ -1,0 +1,35 @@
+{
+  "host": {
+    "distribution": "Omarchy 4.0.4 / Arch Linux",
+    "glibc": "2.44",
+    "compiler": "GCC/G++ 16.2.1"
+  },
+  "ct107": {
+    "guest": "wasmhome-bench",
+    "distribution": "Debian 13.1",
+    "address": "192.168.0.138",
+    "libc6": "2.41-12",
+    "glibc": "2.41",
+    "libm_path": "/usr/lib/x86_64-linux-gnu/libm.so.6",
+    "libm_sha256": "759506ba4ed410f7b926704547db1bd31896ffb4f1a79d6b75884af239bcf21b"
+  },
+  "r4": {
+    "binary_sha256": "e844197822726712f4903489a78cfbedc71b7de89d9b7529fb55ffa0edf33bd6",
+    "result": "wamrc --version/help failed on CT107: required cosh/sinh GLIBC_2.44 and sqrtf GLIBC_2.43 versions are absent from Debian glibc 2.41"
+  },
+  "r5": {
+    "binary_sha256": "ff1bf482570dbab67521e0bbb0c682fdbd74f5e784f364eb34bfc9de735861fb",
+    "max_glibc_symbol_requirement": "GLIBC_2.38",
+    "linker_flag": "-L/home/haroldocurti/wasmhome-toolchain-e1-2.4.5-xtensa18-20261012/debian13-libm-link",
+    "result": "version, target/CPU/features queries, dependency resolution and SHA-256 passed on CT107"
+  },
+  "ct107_destinations": {
+    "r4": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-r4",
+    "r5": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-r5"
+  },
+  "limits": [
+    "No package installation or system-library replacement on CT107.",
+    "No AOT output generation, firmware build, MCU write, or test suite in this checkpoint.",
+    "The build receipt is unsigned; its hashes provide integrity records, not an independent signature."
+  ]
+}

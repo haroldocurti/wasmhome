@@ -1,0 +1,35 @@
+wamrc: OK
+wamrc-build-receipt.json: OK
+
+===version===
+EXIT=1
+
+===target_help===
+EXIT=1
+
+===xtensa_cpu_help===
+EXIT=1
+
+===xtensa_cpu_features_help===
+EXIT=1
+
+===ldd===
+./wamrc: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.43' not found (required by ./wamrc)
+./wamrc: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.44' not found (required by ./wamrc)
+	linux-vdso.so.1 (0x00007b6ee9fbb000)
+	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007b6ee9ebd000)
+	libz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (0x00007b6ee69dd000)
+	libzstd.so.1 => /lib/x86_64-linux-gnu/libzstd.so.1 (0x00007b6ee690d000)
+	libstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007b6ee6600000)
+	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007b6ee68dd000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007b6ee6405000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007b6ee9fbd000)
+EXIT=0
+./wamrc: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.43' not found (required by ./wamrc)
+./wamrc: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.44' not found (required by ./wamrc)
+./wamrc: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.43' not found (required by ./wamrc)
+./wamrc: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.44' not found (required by ./wamrc)
+./wamrc: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.43' not found (required by ./wamrc)
+./wamrc: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.44' not found (required by ./wamrc)
+./wamrc: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.43' not found (required by ./wamrc)
+./wamrc: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.44' not found (required by ./wamrc)

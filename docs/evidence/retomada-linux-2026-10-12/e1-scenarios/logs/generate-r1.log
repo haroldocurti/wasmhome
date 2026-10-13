@@ -1,0 +1,128 @@
+source revision: a7c4f72dad00bd8e9c9e116a7ef88635b2588ca3
+source tree: f8e3ad5b4a37391bdc5142b8e1e67397863011a8
+runtime identity:
+{
+  "component": "wasmhome/wasm-micro-runtime",
+  "version": "2.4.5-wasmhome.1",
+  "component_hash": "7d3eba8883eaaefee0457e8593b2a5203050736487fcf62bbf05cd8ce0306251",
+  "repository_revision": "25bd7eb63e828e4bd242cc9b38d260b4b31c6605",
+  "app_framework_revision": "e97860611e371d91d2ef25101b02b29719476a48",
+  "port_lock_sha256": "348a5addf014587b24468fe55b44444284ee5d212d7f206c394a9659cf6f9669",
+  "aot_version": 5
+}
+Usage: wamrc [options] -o output_file wasm_file
+  --target=<arch-name>      Set the target arch, which has the general format: <arch><sub>
+                            <arch> = x86_64, i386, aarch64, arm, thumb, xtensa, mips,
+                                     riscv64, riscv32.
+                              Default is host arch, e.g. x86_64
+                            <sub> = for ex. on arm or thumb: v5, v6m, v7a, v7m, etc.
+                            Use --target=help to list supported targets
+                            Or, provide a triple in the format of <arch>-<vendor>-<os>-<abi>.
+                            By doing this, --target-abi, --cpu, and --cpu-features will be ignored.
+                            The triple will only be normalized without any further verification.
+  --target-abi=<abi>        Set the target ABI, e.g. gnu, eabi, gnueabihf, msvc, etc.
+                              Default is gnu if target isn't riscv64 or riscv32
+                              For target riscv64 and riscv32, default is lp64d and ilp32d
+                            Use --target-abi=help to list all the ABI supported
+  --cpu=<cpu>               Set the target CPU (default: host CPU, e.g. skylake)
+                            Use --cpu=help to list all the CPU supported
+  --cpu-features=<features> Enable or disable the CPU features
+                            Use +feature to enable a feature, or -feature to disable it
+                            For example, --cpu-features=+feature1,-feature2
+                            Use --cpu-features=+help to list all the features supported
+  --opt-level=n             Set the optimization level (0 to 3, default is 3)
+  --size-level=n            Set the code size level (0 to 3, default is 3)
+                              0 - Large code model
+                              1 - Medium code model
+                              2 - Kernel code model
+                              3 - Small code model
+  -sgx                      Generate code for SGX platform (Intel Software Guard Extensions)
+  --bounds-checks=1/0       Enable or disable the bounds checks for memory access:
+                              This flag controls bounds checking with a software check. 
+                              On 64-bit platforms, it is disabled by default, using a hardware 
+                              trap if supported, except when SGX or memory64 is enabled,
+                              which defaults to a software check.
+                              On 32-bit platforms, the flag is enabled by default, using a software check
+                              due to the lack of hardware support.
+                            CAVEAT: --bounds-checks=0 enables some optimizations
+                              which make the compiled AOT module incompatible
+                              with a runtime without the hardware bounds checks.
+  --stack-bounds-checks=1/0 Enable or disable the bounds checks for native stack:
+                              if the option isn't set, the status is same as `--bounds-check`,
+                              if the option is set, the status is same as the option value
+  --stack-usage=<file>      Generate a stack-usage file.
+                              Similarly to `clang -fstack-usage`.
+  --format=<format>         Specifies the format of the output file
+                            The format supported:
+                              aot (default)  AoT file
+                              object         Native object file
+                              llvmir-unopt   Unoptimized LLVM IR
+                              llvmir-opt     Optimized LLVM IR
+  --disable-bulk-memory     Disable the MVP bulk memory feature
+  --enable-multi-thread     Enable multi-thread feature, the dependent features bulk-memory and
+                            thread-mgr will be enabled automatically
+  --enable-tail-call        Enable the post-MVP tail call feature
+  --disable-simd            Disable the post-MVP 128-bit SIMD feature:
+                              currently 128-bit SIMD is supported for x86-64 and aarch64 targets,
+                              and by default it is enabled in them and disabled in other targets
+  --disable-ref-types       Disable the MVP reference types feature, it will be disabled forcibly if
+                              GC is enabled
+  --disable-aux-stack-check Disable auxiliary stack overflow/underflow check
+  --enable-dump-call-stack  Enable stack trace feature
+  --call-stack-features=<features>
+                            A comma-separated list of features when generating call stacks.
+                            By default, all features are enabled. To disable all features,
+                            provide an empty list (i.e. --call-stack-features=). This flag
+                            only only takes effect when --enable-dump-call-stack is set.
+                            Available features: bounds-checks, ip, func-idx, trap-ip, values.
+  --enable-perf-profiling   Enable function performance profiling
+  --enable-memory-profiling Enable memory usage profiling
+  --xip                     A shorthand of --enable-indirect-mode --disable-llvm-intrinsics
+  --enable-indirect-mode    Enable call function through symbol table but not direct call
+  --enable-gc               Enable GC (Garbage Collection) feature
+  --disable-llvm-intrinsics Disable the LLVM built-in intrinsics
+  --enable-builtin-intrinsics=<flags>
+                            Enable the specified built-in intrinsics, it will override the default
+                              settings. It only takes effect when --disable-llvm-intrinsics is set.
+                            Available flags: all, i32.common, i64.common, f32.common, f64.common,
+                              i32.clz, i32.ctz, etc, refer to doc/xip.md for full list
+                            Use comma to separate, please refer to doc/xip.md for full list.
+  --disable-llvm-jump-tables Disable the LLVM jump tables similarly to clang's -fno-jump-tables
+  --disable-llvm-lto        Disable the LLVM link time optimization
+  --enable-llvm-pgo         Enable LLVM PGO (Profile-Guided Optimization)
+  --enable-llvm-passes=<passes>
+                            Enable the specified LLVM passes, using comma to separate
+  --use-prof-file=<file>    Use profile file collected by LLVM PGO (Profile-Guided Optimization)
+  --enable-segue[=<flags>]  Enable using segment register GS as the base address of linear memory,
+                            only available on linux x86-64, which may improve performance,
+                            flags can be: i32.load, i64.load, f32.load, f64.load, v128.load,
+                                          i32.store, i64.store, f32.store, f64.store, v128.store
+                            Use comma to separate, e.g. --enable-segue=i32.load,i64.store
+                            and --enable-segue means all flags are added.
+  --emit-custom-sections=<section names>
+                            Emit the specified custom sections to AoT file, using comma to separate
+                            multiple names, e.g.
+                                --emit-custom-sections=section1,section2,sectionN
+  --native-lib=<lib>        Register native libraries to the WASM module, which
+                            are shared object (.so) files, for example:
+                              --native-lib=test1.so --native-lib=test2.so
+  --invoke-c-api-import     Treat unknown import function as wasm-c-api import function and
+                            quick call it from AOT code
+  --enable-linux-perf       Enable linux perf support
+  --mllvm=<option>          Add the LLVM command line option
+  --enable-shared-heap      Enable shared heap feature, assuming only one shared heap will be attached
+  --enable-shared-chain     Enable shared heap chain feature, works for more than one shared heap
+                            WARNING: enable this feature will largely increase code size
+  -v=n                      Set log verbose level (0 to 5, default is 2), larger with more log
+  --version                 Show version information
+Examples: wamrc -o test.aot test.wasm
+          wamrc --target=i386 -o test.aot test.wasm
+          wamrc --target=i386 --format=object -o test.o test.wasm
+          wamrc --target-abi=help
+          wamrc --target=x86_64 --cpu=help
+Artifact generation failed: Command '['/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-r5/wamrc', '--target=xtensa', '--bounds-checks=1', '--disable-llvm-lto', '-O3', '-o', '/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-a7c4f72-r1/build-artifacts-stage-9285a71eb71a496cad6db1c90cc9c383/benchmark.aot', '/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-a7c4f72-r1/build-artifacts-stage-9285a71eb71a496cad6db1c90cc9c383/benchmark.wasm']' returned non-zero exit status 1.
+[31;1mException: [0m/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-a7c4f72-r1/tools/build-artifacts.ps1:16[0m
+[31;1m[0m[36;1mLine |[0m
+[31;1m[0m[36;1m[36;1m  16 | [0m … DE -ne 0) { [36;1mthrow 'Artifact generation/recovery failed; inspect the p[0m …[0m
+[31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m     | [31;1m               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m     | [31;1mArtifact generation/recovery failed; inspect the preserved previous set and transaction journal.[0m

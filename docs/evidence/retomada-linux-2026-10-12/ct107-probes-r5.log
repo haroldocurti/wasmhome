@@ -1,0 +1,147 @@
+===glibc===
+glibc 2.41
+wamrc: OK
+wamrc-build-receipt.json: OK
+
+===version===
+wamrc 2.4.5
+EXIT=0
+
+===target_help===
+Supported targets:
+  xtensa
+  x86_64
+  i386
+
+EXIT=1
+
+===xtensa_cpu_help===
+Create AoT compiler with:
+  target:        xtensa
+  target cpu:    help
+  target triple: xtensa-pc-linux-gnu
+  cpu features:  
+  opt level:     3
+  size level:    3
+  output format: AoT file
+
+EXIT=1
+
+===xtensa_cpu_features_help===
+Create AoT compiler with:
+  target:        xtensa
+  target cpu:    esp32
+  target triple: xtensa-pc-linux-gnu
+  cpu features:  +help
+  opt level:     3
+  size level:    3
+  output format: AoT file
+
+EXIT=1
+
+===ldd===
+	linux-vdso.so.1 (0x00007e1f705e3000)
+	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007e1f704e5000)
+	libz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (0x00007e1f704c5000)
+	libzstd.so.1 => /lib/x86_64-linux-gnu/libzstd.so.1 (0x00007e1f6cf35000)
+	libstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007e1f6cc00000)
+	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007e1f6cf05000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007e1f6ca05000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007e1f705e5000)
+EXIT=0
+Available CPUs for this target:
+
+  cnl     - Select the cnl processor.
+  esp32   - Select the esp32 processor.
+  esp32s2 - Select the esp32s2 processor.
+  esp32s3 - Select the esp32s3 processor.
+  esp8266 - Select the esp8266 processor.
+  generic - Select the generic processor.
+
+Available features for this target:
+
+  atomctl           - Enable Xtensa ATOMCTL option.
+  bool              - Enable Xtensa Boolean extension.
+  clamps            - Enable Xtensa CLAMPS option.
+  coprocessor       - Enable Xtensa Coprocessor option.
+  debug             - Enable Xtensa Debug option.
+  density           - Enable Density instructions.
+  dfpaccel          - Enable Xtensa Double Precision FP acceleration.
+  div32             - Enable Xtensa Div32 option.
+  esp32s2           - Support Xtensa esp32-s2 ISA extension.
+  esp32s3           - Support Xtensa esp32-s3 ISA extension.
+  exception         - Enable Xtensa Exception option.
+  extendedl32r      - Enable Xtensa Extended L32R option.
+  forced-atomics    - Assume that lock-free native-width atomics are available.
+  fp                - Enable Xtensa Single FP instructions.
+  hifi3             - Enable Xtensa HIFI3 instructions.
+  highpriinterrupts - Enable Xtensa HighPriInterrupts option.
+  interrupt         - Enable Xtensa Interrupt option.
+  loop              - Enable Xtensa Loop extension.
+  mac16             - Enable Xtensa MAC16 instructions.
+  memctl            - Enable Xtensa MEMCTL option.
+  minmax            - Enable Xtensa MINMAX option.
+  miscsr            - Enable Xtensa Miscellaneous SR option.
+  mul16             - Enable Xtensa Mul16 option.
+  mul32             - Enable Xtensa Mul32 option.
+  mul32high         - Enable Xtensa Mul32High option.
+  nsa               - Enable Xtensa NSA option.
+  prid              - Enable Xtensa Processor ID option.
+  regprotect        - Enable Xtensa Region Protection option.
+  rvector           - Enable Xtensa Relocatable Vector option.
+  s32c1i            - Enable Xtensa S32C1I option.
+  sext              - Enable Xtensa Sign Extend option.
+  threadptr         - Enable Xtensa THREADPTR option.
+  timerint          - Enable Xtensa Timer Interrupt option.
+  windowed          - Enable Xtensa Windowed Register option.
+
+Use +feature to enable a feature, or -feature to disable it.
+For example, llc -mcpu=mycpu -mattr=+feature1,-feature2
+Available CPUs for this target:
+
+  cnl     - Select the cnl processor.
+  esp32   - Select the esp32 processor.
+  esp32s2 - Select the esp32s2 processor.
+  esp32s3 - Select the esp32s3 processor.
+  esp8266 - Select the esp8266 processor.
+  generic - Select the generic processor.
+
+Available features for this target:
+
+  atomctl           - Enable Xtensa ATOMCTL option.
+  bool              - Enable Xtensa Boolean extension.
+  clamps            - Enable Xtensa CLAMPS option.
+  coprocessor       - Enable Xtensa Coprocessor option.
+  debug             - Enable Xtensa Debug option.
+  density           - Enable Density instructions.
+  dfpaccel          - Enable Xtensa Double Precision FP acceleration.
+  div32             - Enable Xtensa Div32 option.
+  esp32s2           - Support Xtensa esp32-s2 ISA extension.
+  esp32s3           - Support Xtensa esp32-s3 ISA extension.
+  exception         - Enable Xtensa Exception option.
+  extendedl32r      - Enable Xtensa Extended L32R option.
+  forced-atomics    - Assume that lock-free native-width atomics are available.
+  fp                - Enable Xtensa Single FP instructions.
+  hifi3             - Enable Xtensa HIFI3 instructions.
+  highpriinterrupts - Enable Xtensa HighPriInterrupts option.
+  interrupt         - Enable Xtensa Interrupt option.
+  loop              - Enable Xtensa Loop extension.
+  mac16             - Enable Xtensa MAC16 instructions.
+  memctl            - Enable Xtensa MEMCTL option.
+  minmax            - Enable Xtensa MINMAX option.
+  miscsr            - Enable Xtensa Miscellaneous SR option.
+  mul16             - Enable Xtensa Mul16 option.
+  mul32             - Enable Xtensa Mul32 option.
+  mul32high         - Enable Xtensa Mul32High option.
+  nsa               - Enable Xtensa NSA option.
+  prid              - Enable Xtensa Processor ID option.
+  regprotect        - Enable Xtensa Region Protection option.
+  rvector           - Enable Xtensa Relocatable Vector option.
+  s32c1i            - Enable Xtensa S32C1I option.
+  sext              - Enable Xtensa Sign Extend option.
+  threadptr         - Enable Xtensa THREADPTR option.
+  timerint          - Enable Xtensa Timer Interrupt option.
+  windowed          - Enable Xtensa Windowed Register option.
+
+Use +feature to enable a feature, or -feature to disable it.
+For example, llc -mcpu=mycpu -mattr=+feature1,-feature2

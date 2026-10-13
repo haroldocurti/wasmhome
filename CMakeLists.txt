@@ -8,7 +8,14 @@ add_compile_definitions(WASM_CONFIGURABLE_BOUNDS_CHECKS=0)
 
 # Independent candidate source is acquired and verified before configuration.
 # Keep its name local; it is not the Espressif registry component.
-if(NOT DEFINED EXPERIMENT_SCENARIO OR EXPERIMENT_SCENARIO STREQUAL "native")
+if(NOT DEFINED EXPERIMENT_SCENARIO)
+    set(EXPERIMENT_SCENARIO "native")
+endif()
+# ESP-IDF 5.2 resolves component requirements in a separate CMake context,
+# which does not inherit project cache variables. Pass the selected scenario
+# through the process environment so the component graph matches the build.
+set(ENV{WASMHOME_EXPERIMENT_SCENARIO} "${EXPERIMENT_SCENARIO}")
+if(EXPERIMENT_SCENARIO STREQUAL "native")
     # Native A does not require acquiring or linking the candidate runtime.
 else()
     set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/build-runtime-port/component/wasm-micro-runtime")

@@ -116,7 +116,7 @@ declara CPU `esp32s3` e features windowed para ela; `generic` tem lista de featu
 vazia. Isso é pista para a revisão ABI, não autorização para mudar o comando
 sem observar help, logs e código gerado do binário real. Preservar a CPU atual.
 
-A geração futura usa `--target=xtensa --bounds-checks=1 --disable-llvm-lto -O3`.
+A geração futura usa `--target=xtensa --bounds-checks=1 --disable-llvm-lto --opt-level=3`.
 Não desativar checks de pilha ou aux stack. Em 2.4.0, o CLI faz a configuração
 de stack bounds seguir memory bounds quando não há override. Preservar no MCU
 `WASM_ENABLE_AOT_VALIDATOR=1` e `WASM_CONFIGURABLE_BOUNDS_CHECKS=0`.

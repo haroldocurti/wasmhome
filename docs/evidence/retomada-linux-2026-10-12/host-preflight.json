@@ -1,0 +1,84 @@
+{
+  "captured_at": "2026-10-12",
+  "host": {
+    "os_release": {
+      "NAME": "Omarchy",
+      "PRETTY_NAME": "Omarchy",
+      "ID": "omarchy",
+      "ID_LIKE": "arch",
+      "BUILD_ID": "4.0.4",
+      "VERSION_ID": "4.0.4",
+      "ANSI_COLOR": "38;2;158;206;106",
+      "HOME_URL": "https://omarchy.org/",
+      "DOCUMENTATION_URL": "https://learn.omacom.io/2/the-omarchy-manual",
+      "SUPPORT_URL": "https://discord.gg/tXFUdasqhY",
+      "BUG_REPORT_URL": "https://github.com/basecamp/omarchy/issues",
+      "LOGO": "omarchy"
+    },
+    "kernel": "7.2.3-arch1-3",
+    "machine": "x86_64",
+    "uid": 1000,
+    "logical_cpus": 16,
+    "virtualization": "none"
+  },
+  "memory": {
+    "MemTotal": "28453928 kB",
+    "MemAvailable": "19817860 kB",
+    "SwapTotal": "56908100 kB",
+    "SwapFree": "56908100 kB"
+  },
+  "filesystem": {
+    "path": "/home/haroldocurti/wasmhome-toolchain-e1-2.4.5-xtensa18-20261012",
+    "device": "btrfs root volume /dev/mapper/root",
+    "total_bytes": 998037782528,
+    "available_bytes": 914509647872
+  },
+  "tools": {
+    "git": {
+      "path": "/usr/bin/git",
+      "version": "git version 2.55.0"
+    },
+    "gcc": {
+      "path": "/usr/bin/gcc",
+      "version": "gcc (GCC) 16.2.1 20260810"
+    },
+    "g++": {
+      "path": "/usr/bin/g++",
+      "version": "g++ (GCC) 16.2.1 20260810"
+    },
+    "python3": {
+      "path": "/usr/bin/python3",
+      "version": "Python 3.14.7"
+    },
+    "tar": {
+      "path": "/usr/bin/tar",
+      "version": "tar (GNU tar) 1.35"
+    },
+    "xz": {
+      "path": "/usr/bin/xz",
+      "version": "xz (XZ Utils) 5.8.3"
+    },
+    "pkg-config": {
+      "path": "/usr/bin/pkg-config",
+      "version": "3.0.7"
+    }
+  },
+  "local_build_tools": {
+    "cmake": {
+      "path": "/home/haroldocurti/wasmhome-toolchain-e1-2.4.5-xtensa18-20261012/tools/cmake/bin/cmake",
+      "version": "cmake version 4.4.4",
+      "archive_sha256": "e5bb807f7728cb60cd8b27ebc97a2edb469b68655f21e844a600c3575b76f5bb"
+    },
+    "ninja": {
+      "path": "/home/haroldocurti/wasmhome-toolchain-e1-2.4.5-xtensa18-20261012/tools/ninja/ninja",
+      "version": "1.13.2",
+      "archive_sha256": "5749cbc4e668273514150a80e387a957f933c6ed3f5f11e03fb30955e2bbead6"
+    }
+  },
+  "project": {
+    "head": "a7c4f72dad00bd8e9c9e116a7ef88635b2588ca3",
+    "tree": "f8e3ad5b4a37391bdc5142b8e1e67397863011a8",
+    "shallow": true,
+    "runtime_component_hash": "7d3eba8883eaaefee0457e8593b2a5203050736487fcf62bbf05cd8ce0306251"
+  }
+}

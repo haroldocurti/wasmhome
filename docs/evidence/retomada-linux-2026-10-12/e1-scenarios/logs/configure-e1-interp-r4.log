@@ -1,0 +1,99 @@
+Detecting the Python interpreter
+Checking "python3" ...
+Python 3.13.5
+"python3" has been detected
+Checking Python compatibility
+Checking other ESP-IDF version.
+WARNING: No IDF variables to remove from environment found. Deactivation of previous esp-idf version was not successful.
+Adding ESP-IDF tools to PATH...
+WARNING: The following issue occurred while accessing the ESP-IDF version file in the Python environment: [Errno 2] No such file or directory: '/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf526-py313/idf_version.txt'. (Diagnostic information. It can be ignored.)
+Checking if Python packages are up to date...
+Python requirements are satisfied.
+Constraint file: /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-tools/espidf.constraints.v5.2.txt
+Requirement files:
+ - /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/esp-idf/tools/requirements/requirements.core.txt
+Python being checked: /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf526-py313/bin/python
+Added the following directories to PATH:
+  /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/esp-idf/components/espcoredump
+  /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/esp-idf/components/partition_table
+  /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/esp-idf/components/app_update
+  /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-tools/tools/xtensa-esp-elf-gdb/16.2_20250324/xtensa-esp-elf-gdb/bin
+  /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-tools/tools/xtensa-esp-elf/esp-13.2.0_20250707/xtensa-esp-elf/bin
+  /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-tools/tools/riscv32-esp-elf/esp-13.2.0_20250707/riscv32-esp-elf/bin
+  /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-tools/tools/esp32ulp-elf/2.35_20220830/esp32ulp-elf/bin
+  /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-tools/tools/openocd-esp32/v0.12.0-esp32-20250707/openocd-esp32/bin
+  /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/esp-idf/tools
+Done! You can now compile ESP-IDF projects.
+Go to the project directory and run:
+
+  idf.py build
+
+Adding "set-target"'s dependency "fullclean" to list of commands with default set of options.
+Executing action: fullclean
+Build directory '/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-idf-scenario-r4/build-e1-interp-r4' not found. Nothing to clean.
+Executing action: set-target
+Set Target to: esp32s3, new sdkconfig will be created.
+Running cmake in directory /home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-idf-scenario-r4/build-e1-interp-r4
+Executing "cmake -G Ninja -DPYTHON_DEPS_CHECKED=1 -DPYTHON=/home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf526-py313/bin/python -DESP_PLATFORM=1 -DSDKCONFIG=/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-idf-scenario-r4/build-e1-interp-r4/sdkconfig -DEXPERIMENT_SCENARIO=interp -DSDKCONFIG_DEFAULTS=/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-idf-scenario-r4/sdkconfig.defaults;/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-idf-scenario-r4/sdkconfig.interp;/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/config-overrides/e1-common.defaults -DIDF_TARGET=esp32s3 -DCCACHE_ENABLE=0 /home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-idf-scenario-r4"...
+-- Found Git: /bin/git (found version "2.47.3")
+-- Component directory /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/esp-idf/components/esp_vfs_console does not contain a CMakeLists.txt file. No component will be added
+-- The C compiler identification is GNU 13.2.0
+-- The CXX compiler identification is GNU 13.2.0
+-- The ASM compiler identification is GNU
+-- Found assembler: /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-tools/tools/xtensa-esp-elf/esp-13.2.0_20250707/xtensa-esp-elf/bin/xtensa-esp32s3-elf-gcc
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-tools/tools/xtensa-esp-elf/esp-13.2.0_20250707/xtensa-esp-elf/bin/xtensa-esp32s3-elf-gcc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/idf-tools/tools/xtensa-esp-elf/esp-13.2.0_20250707/xtensa-esp-elf/bin/xtensa-esp32s3-elf-g++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Building ESP-IDF components for target esp32s3
+NOTICE: Dependencies lock doesn't exist, solving dependencies.
+....NOTICE: Updating lock file at /home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-idf-scenario-r4/dependencies.lock
+NOTICE: Processing 2 dependencies:
+NOTICE: [1/2] espressif/onewire_bus (1.0.2)
+NOTICE: [2/2] idf (5.2.6)
+CMake Error at /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/esp-idf/tools/cmake/component.cmake:228 (message):
+  CMake Warning (dev) at build_properties.temp.cmake:8:
+
+    Syntax Warning in cmake code at column 106
+
+  
+
+    Argument not separated from preceding token by whitespace.
+
+  Call Stack (most recent call first):
+
+    /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/esp-idf/tools/cmake/scripts/component_get_requirements.cmake:3 (include)
+
+  This warning is for project developers.  Use -Wno-dev to suppress it.
+
+
+
+  CMake Error at
+  /home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-idf-scenario-r4/main/CMakeLists.txt:52
+  (message):
+
+    Run tools/build-artifacts.ps1 before the interpreted build
+
+  Call Stack (most recent call first):
+
+    /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/esp-idf/tools/cmake/scripts/component_get_requirements.cmake:107 (include)
+    /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/esp-idf/tools/cmake/scripts/component_get_requirements.cmake:160 (__component_get_requirements)
+
+  
+
+
+
+Call Stack (most recent call first):
+  /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/esp-idf/tools/cmake/build.cmake:606 (__component_get_requirements)
+  /home/wasmhome/.local/toolchains/wasmhome-e1-20261010-187ff962/esp-idf/tools/cmake/project.cmake:612 (idf_build_process)
+  CMakeLists.txt:27 (project)
+
+
+-- Configuring incomplete, errors occurred!
+cmake failed with exit code 1, output of the command is in the /home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-idf-scenario-r4/build-e1-interp-r4/log/idf_py_stderr_output_21371 and /home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-idf-scenario-r4/build-e1-interp-r4/log/idf_py_stdout_output_21371

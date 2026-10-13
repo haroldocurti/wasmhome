@@ -1,0 +1,4 @@
+Input: run-idf-requirements-r6/artifacts/benchmark.wasm
+Input SHA-256: d4cc0e280d02a697bb52c391e3b225a0691bc24d14cefb2883e51e085e466847
+Command: wamrc --target=xtensa --bounds-checks=1 --disable-llvm-lto --opt-level=3 --format=object -o benchmark_xtensa.o benchmark.wasm
+The four generation flags match artifacts/build-manifest-r6.json; --format=object emits an ELF relocatable object for Xtensa disassembly.

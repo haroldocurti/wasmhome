@@ -165,7 +165,7 @@ valida identidade e caminhos; não apaga árvores. Se a interrupção ocorreu an
 de escrever o journal, inspecionar o lock vazio antes de qualquer recuperação.
 Não começar outra geração com transação pendente nem leitores concorrentes.
 
-As flags continuam `--target=xtensa --bounds-checks=1 --disable-llvm-lto -O3`.
+As flags AOT são `--target=xtensa --bounds-checks=1 --disable-llvm-lto --opt-level=3`.
 CPU continua sem override até `--cpu=help` do binário real e inspeção da ABI.
 O projeto configura o componente local apenas em B/C; A não adquire nem liga
 esse runtime. B/C mantêm validator 1, bounds configuráveis 0 e gates de

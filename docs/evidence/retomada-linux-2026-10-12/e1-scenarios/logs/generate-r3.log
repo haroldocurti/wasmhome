@@ -1,0 +1,31 @@
+source revision: 5c04457b259ff01b0017267958e3b0d994728e8e
+source tree: d86f8223798eb11fa501d7674150c1cd687b2b99
+runtime identity:
+{
+  "component": "wasmhome/wasm-micro-runtime",
+  "version": "2.4.5-wasmhome.1",
+  "component_hash": "7d3eba8883eaaefee0457e8593b2a5203050736487fcf62bbf05cd8ce0306251",
+  "repository_revision": "25bd7eb63e828e4bd242cc9b38d260b4b31c6605",
+  "app_framework_revision": "e97860611e371d91d2ef25101b02b29719476a48",
+  "port_lock_sha256": "348a5addf014587b24468fe55b44444284ee5d212d7f206c394a9659cf6f9669",
+  "aot_version": 5
+}
+Create AoT compiler with:
+  target:        xtensa
+  target cpu:    
+  target triple: xtensa-pc-linux-gnu
+  cpu features:  
+  opt level:     3
+  size level:    3
+  output format: AoT file
+Compile success, file /home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-opt-level-r3/build-artifacts-stage-3b7fbee1e94d42c693ae48ee7b45926b/benchmark.aot was generated.
+{"directory": "/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/run-opt-level-r3/artifacts", "previous_preserved": null}
+artifact hashes:
+d4cc0e280d02a697bb52c391e3b225a0691bc24d14cefb2883e51e085e466847  artifacts/benchmark.wasm
+c4c94777e5f9460b8e60065d5cb89c7e79907cac61720a61f5ebd5467b512d88  artifacts/benchmark.aot
+eab49c09c9c22c1075837f268087e72f536472415abd6812c2292b19a2cf50cf  artifacts/benchmark.wasm.s
+0c1ad886ae451e8affa974ee79fd0377ab7b77c312039b3c78be331dade5e59b  artifacts/benchmark_wasm_embedded.c
+b1e3bc1965b71c4c44a0132cb4cda37f64d521d9a57414949a59d9bde522bb21  artifacts/benchmark_aot_embedded.c
+60ef51e88ca886bc186eabc548842e00ad51da8a036547eb495ba0095f4cb7b7  artifacts/build-manifest.json
+source status:
+## codex/linux-wamrc-opt-level...origin/codex/linux-wamrc-opt-level

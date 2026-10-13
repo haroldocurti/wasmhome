@@ -60,7 +60,7 @@ class EvidenceTests(unittest.TestCase):
                             wamrc_source_revision="25bd7eb63e828e4bd242cc9b38d260b4b31c6605",
                             wamrc_version="wamrc 2.4.5", wamrc_path="fixture-wamrc", wamrc_sha256="a" * 64,
                             clang_version="clang fixture", clang_path="fixture-clang", clang_sha256="b" * 64,
-                            expected_checksum="0xDBB2F0D4", clang_flags=["--target=wasm32-wasi", "-O3"], aot_flags=["--target=xtensa", "--bounds-checks=1", "--disable-llvm-lto", "-O3"],
+                            expected_checksum="0xDBB2F0D4", clang_flags=["--target=wasm32-wasi", "-O3"], aot_flags=["--target=xtensa", "--bounds-checks=1", "--disable-llvm-lto", "--opt-level=3"],
                             files={p.name: dict(sha256=sha256(p), bytes=p.stat().st_size) for p in folder.iterdir()})
             path = folder / "build-manifest.json"
             path.write_text(json.dumps(manifest))
@@ -82,7 +82,9 @@ class EvidenceTests(unittest.TestCase):
             manifest["files"][aot.name] = dict(sha256=sha256(aot), bytes=aot.stat().st_size)
             for key in ("clang_flags", "aot_flags"):
                 original = manifest[key][:]
-                for flags in ([flag for flag in original if flag != "-O3"], [flag.replace("-O3", "-O2") for flag in original], original + ["-O2"]):
+                expected = "-O3" if key == "clang_flags" else "--opt-level=3"
+                wrong = "-O2" if key == "clang_flags" else "--opt-level=2"
+                for flags in ([flag for flag in original if flag != expected], [flag.replace(expected, wrong) for flag in original], original + [wrong]):
                     manifest[key] = flags
                     path.write_text(json.dumps(manifest))
                     with self.subTest(key=key, flags=flags), self.assertRaisesRegex(ValueError, "final optimization"):

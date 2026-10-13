@@ -104,7 +104,7 @@ O [CLI oficial 2.4.0](https://github.com/wasm-micro-runtime/wasm-micro-runtime/b
 expõe `--disable-llvm-lto`, e a
 [implementação do pipeline](https://github.com/wasm-micro-runtime/wasm-micro-runtime/blob/47c7c85ac21f240a878026af603e032065d183fb/core/iwasm/compilation/aot_llvm_extra.cpp)
 aplica passes LTO em AOT por padrão. O gerador agora usa a flag explícita junto
-de `--target=xtensa`, `--bounds-checks=1` e `-O3`; o validador recusa manifestos
+de `--target=xtensa`, `--bounds-checks=1` e `--opt-level=3`; o validador recusa manifestos
 sem essa flag. Não há artefato AOT real gerado que comprove essas opções na placa.
 A CPU permanece sem override até consultar o help do compilador efetivamente
 construído e verificar sua compatibilidade.
@@ -163,7 +163,7 @@ O build local `build-e1-native` passou com ESP-IDF 5.2.6, Xtensa GCC
 13.2.0, configuração isolada, benchmark ativo, 240 MHz e otimização `-O3` na
 unidade `workload/benchmark.c`. O CMake aplica `-O3` depois do default `-O2` do
 ESP-IDF nessa unidade. O checker exige que a última flag de otimização seja
-`-O3`, e também exige `-O3` efetivo nas flags WASI clang e AOT do manifesto.
+`-O3`, e exige `-O3` efetivo no WASI clang e `--opt-level=3` no AOT do manifesto.
 Testes negativos recusam ausência, `-O2`, override posterior e response files
 cuja otimização não foi verificada. Os demais componentes mantêm seus flags
 registrados na configuração efetiva.

@@ -1,0 +1,9 @@
+Create AoT compiler with:
+  target:        xtensa
+  target cpu:    
+  target triple: xtensa-pc-linux-gnu
+  cpu features:  
+  opt level:     3
+  size level:    3
+  output format: native object file
+Compile success, file /home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/aot-object-r6/benchmark_xtensa.o was generated.

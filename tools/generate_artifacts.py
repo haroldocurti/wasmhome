@@ -104,7 +104,7 @@ def generate(root, sdk, package, wamrc, receipt, idf):
         stage.mkdir()
         clang_flags = ["--target=wasm32-wasi", "-O3", "-nostdlib", "-I", str(root / "workload")]
         link_flags = ["-Wl,--no-entry", "-Wl,--export=benchmark_run", "-Wl,--strip-all", "-Wl,-z,stack-size=8192", "-Wl,--initial-memory=65536"]
-        aot_flags = ["--target=xtensa", "--bounds-checks=1", "--disable-llvm-lto", "-O3"]
+        aot_flags = ["--target=xtensa", "--bounds-checks=1", "--disable-llvm-lto", "--opt-level=3"]
         source = root / "workload/benchmark.c"
         for arguments in ([manifest["clang_path"], *clang_flags, *link_flags, "-o", str(stage / "benchmark.wasm"), str(source)],
                           [manifest["clang_path"], *clang_flags, "-S", "-o", str(stage / "benchmark.wasm.s"), str(source)],

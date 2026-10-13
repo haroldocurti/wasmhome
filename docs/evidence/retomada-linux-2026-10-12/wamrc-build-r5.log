@@ -1,0 +1,117 @@
+[1/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/platform/linux/platform_init.c.o
+[2/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/platform/common/posix/posix_blocking_op.c.o
+[3/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/platform/common/posix/posix_clock.c.o
+[4/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/platform/common/posix/posix_file.c.o
+[5/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/platform/common/posix/posix_malloc.c.o
+[6/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/platform/common/posix/posix_memmap.c.o
+[7/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/platform/common/posix/posix_sleep.c.o
+[8/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/platform/common/posix/posix_socket.c.o
+[9/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/platform/common/posix/posix_thread.c.o
+[10/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/platform/common/posix/posix_time.c.o
+[11/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/platform/common/libc-util/libc_errno.c.o
+[12/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/mem-alloc/ems/ems_alloc.c.o
+[13/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/mem-alloc/ems/ems_gc.c.o
+[14/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/mem-alloc/ems/ems_hmu.c.o
+[15/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/mem-alloc/ems/ems_kfc.c.o
+[16/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/mem-alloc/mem_alloc.c.o
+[17/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/utils/bh_assert.c.o
+[18/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/utils/bh_bitmap.c.o
+[19/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/utils/bh_common.c.o
+[20/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/utils/bh_hashmap.c.o
+[21/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/utils/bh_leb128.c.o
+[22/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/utils/bh_list.c.o
+[23/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/utils/bh_log.c.o
+[24/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/utils/bh_queue.c.o
+[25/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/utils/bh_vector.c.o
+[26/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/utils/runtime_timer.c.o
+[27/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/utils/uncommon/bh_getopt.c.o
+[28/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/shared/utils/uncommon/bh_read_file.c.o
+[29/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/libraries/thread-mgr/thread_manager.c.o
+[30/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/libraries/libc-builtin/libc_builtin_wrapper.c.o
+/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/libraries/libc-builtin/libc_builtin_wrapper.c: In function ‘strchr_wrapper’:
+/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/libraries/libc-builtin/libc_builtin_wrapper.c:586:9: warning: assignment discards ‘const’ qualifier from pointer target type [-Wdiscarded-qualifiers]
+  586 |     ret = strchr(s, c);
+      |         ^
+/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/libraries/libc-builtin/libc_builtin_wrapper.c: In function ‘memchr_wrapper’:
+/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/libraries/libc-builtin/libc_builtin_wrapper.c:765:9: warning: assignment discards ‘const’ qualifier from pointer target type [-Wdiscarded-qualifiers]
+  765 |     res = memchr(s, c, n);
+      |         ^
+/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/libraries/libc-builtin/libc_builtin_wrapper.c: In function ‘strstr_wrapper’:
+/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/libraries/libc-builtin/libc_builtin_wrapper.c:802:17: warning: initialization discards ‘const’ qualifier from pointer target type [-Wdiscarded-qualifiers]
+  802 |     char *res = strstr(s, find);
+      |                 ^~~~~~
+[31/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/libraries/libc-wasi/libc_wasi_wrapper.c.o
+[32/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/src/blocking_op.c.o
+[33/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/src/posix.c.o
+[34/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/src/random.c.o
+[35/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/src/str.c.o
+[36/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/libraries/lib-pthread/lib_pthread_wrapper.c.o
+[37/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/libraries/lib-wasi-threads/lib_wasi_threads_wrapper.c.o
+[38/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/libraries/lib-wasi-threads/tid_allocator.c.o
+[39/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/libraries/shared-heap/shared_heap_wrapper.c.o
+[40/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/common/wasm_application.c.o
+[41/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/common/wasm_blocking_op.c.o
+[42/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/common/wasm_c_api.c.o
+[43/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/common/wasm_exec_env.c.o
+[44/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/common/wasm_loader_common.c.o
+[45/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/common/wasm_memory.c.o
+[46/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/common/wasm_native.c.o
+[47/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/common/wasm_runtime_common.c.o
+[48/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/common/wasm_shared_memory.c.o
+[49/101] Building ASM object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/common/arch/invokeNative_em64.s.o
+[50/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/interpreter/wasm_interp_classic.c.o
+[51/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/interpreter/wasm_loader.c.o
+/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/interpreter/wasm_loader.c: In function ‘wasm_loader_prepare_bytecode’:
+/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/interpreter/wasm_loader.c:11989:32: warning: unused variable ‘frame_ref_before_pop’ [-Wunused-variable]
+11989 |                         uint8 *frame_ref_before_pop = loader_ctx->frame_ref;
+      |                                ^~~~~~~~~~~~~~~~~~~~
+[52/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/interpreter/wasm_runtime.c.o
+[53/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/aot/aot_intrinsic.c.o
+[54/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/aot/aot_loader.c.o
+[55/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/aot/aot_runtime.c.o
+[56/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/aot/aot_perf_map.c.o
+[57/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/aot/arch/aot_reloc_dummy.c.o
+[58/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/common/gc/gc_common.c.o
+[59/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/common/gc/gc_object.c.o
+[60/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/common/gc/gc_type.c.o
+[61/101] Building C object CMakeFiles/vmlib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/common/gc/stringref/stringref_stub.c.o
+[62/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot.c.o
+[63/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_compiler.c.o
+[64/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_emit_aot_file.c.o
+[65/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_emit_compare.c.o
+[66/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_emit_const.c.o
+[67/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_emit_control.c.o
+[68/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_emit_conversion.c.o
+[69/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_emit_exception.c.o
+[70/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_emit_function.c.o
+[71/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_emit_gc.c.o
+[72/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_emit_memory.c.o
+[73/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_emit_numberic.c.o
+[74/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_emit_parametric.c.o
+[75/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_emit_stringref.c.o
+[76/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_emit_table.c.o
+[77/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_emit_variable.c.o
+[78/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_llvm.c.o
+[79/101] Building CXX object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_llvm_extra.cpp.o
+[80/101] Building CXX object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_llvm_extra2.cpp.o
+[81/101] Building CXX object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_orc_extra.cpp.o
+[82/101] Building CXX object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_orc_extra2.cpp.o
+[83/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/aot_stack_frame_comp.c.o
+[84/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/simd/simd_access_lanes.c.o
+[85/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/simd/simd_bit_shifts.c.o
+[86/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/simd/simd_bitmask_extracts.c.o
+[87/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/simd/simd_bitwise_ops.c.o
+[88/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/simd/simd_bool_reductions.c.o
+[89/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/simd/simd_common.c.o
+[90/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/simd/simd_comparisons.c.o
+[91/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/simd/simd_construct_values.c.o
+[92/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/simd/simd_conversions.c.o
+[93/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/simd/simd_floating_point.c.o
+[94/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/simd/simd_int_arith.c.o
+[95/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/simd/simd_load_store.c.o
+[96/101] Building C object CMakeFiles/aotclib.dir/home/haroldocurti/Documents/wasmhome/build-runtime-port/component/wasm-micro-runtime/core/iwasm/compilation/simd/simd_sat_int_arith.c.o
+[97/101] Linking C static library libvmlib.a
+[98/101] Linking CXX static library libaotclib.a
+[99/101] Building C object CMakeFiles/wamrc.dir/main.c.o
+[100/101] Linking CXX executable wamrc-2.4.5
+[101/101] Creating executable symlink wamrc

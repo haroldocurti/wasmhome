@@ -1,0 +1,84 @@
+
+/home/wasmhome/.local/toolchains/wasmhome-e1-20261012-linux-artifacts-a7c4f72/aot-object-r6/benchmark_xtensa.o:     file format elf32-xtensa-le
+
+
+Disassembly of section .text:
+
+00000000 <aot_func#0>:
+   0:	006136        	entry	a1, 48
+   3:	ffff81        	l32r	a8, 0 <aot_func#0> (81006136 <aot_func_internal#0+0x8100610a>)
+			3: R_XTENSA_SLOT0_OP	.literal
+   6:	0888      	l32i.n	a8, a8, 0
+   8:	00c192        	addi	a9, a1, 0
+   b:	0e3987        	bltu	a9, a8, 1d <aot_func#0+0x1d>
+   e:	c08980        	sub	a8, a9, a8
+  11:	4298      	l32i.n	a9, a2, 16
+  13:	063897        	bltu	a8, a9, 1d <aot_func#0+0x1d>
+  16:	000165        	call8	2c <aot_func_internal#0>
+  19:	0a2d      	mov.n	a2, a10
+  1b:	f01d      	retw.n
+  1d:	22a8      	l32i.n	a10, a2, 8
+  1f:	bb0c      	movi.n	a11, 11
+  21:	ffff81        	l32r	a8, 20 <aot_func#0+0x20> (ffff81bb <aot_func_internal#0+0xffff818f>)
+			21: R_XTENSA_SLOT0_OP	.literal+0x4
+  24:	0008e0        	callx8	a8
+  27:	020c      	movi.n	a2, 0
+  29:	f01d      	retw.n
+	...
+
+0000002c <aot_func_internal#0>:
+  2c:	004136        	entry	a1, 32
+  2f:	080c      	movi.n	a8, 0
+  31:	ffff91        	l32r	a9, 30 <aot_func_internal#0+0x4> (ffff9108 <aot_func_internal#0+0xffff90dc>)
+			31: R_XTENSA_SLOT0_OP	.literal+0x8
+  34:	000021        	l32r	a2, fffc0034 <aot_func_internal#0+0xfffc0008>
+			34: R_XTENSA_SLOT0_OP	.literal+0xc
+  37:	ffffa1        	l32r	a10, 34 <aot_func_internal#0+0x8> (a1000021 <aot_func_internal#0+0xa0fffff5>)
+			37: R_XTENSA_SLOT0_OP	.literal+0x10
+  3a:	ffffb1        	l32r	a11, 38 <aot_func_internal#0+0xc> (ffb1ffff <aot_func_internal#0+0xffb1ffd3>)
+			3a: R_XTENSA_SLOT0_OP	.literal+0x14
+  3d:	ffffc1        	l32r	a12, 3c <aot_func_internal#0+0x10> (ffffc1ff <aot_func_internal#0+0xffffc1d3>)
+			3d: R_XTENSA_SLOT0_OP	.literal+0x18
+  40:	9d1c      	movi.n	a13, 25
+  42:	ffffe1        	l32r	a14, 40 <aot_func_internal#0+0x14> (ffe19d1c <aot_func_internal#0+0xffe19cf0>)
+			42: R_XTENSA_SLOT0_OP	.literal+0x1c
+  45:	fffff1        	l32r	a15, 44 <aot_func_internal#0+0x18> (fffff1ff <aot_func_internal#0+0xfffff1d3>)
+			45: R_XTENSA_SLOT0_OP	.literal+0x20
+  48:	d0a772        	movi	a7, 0x7d0
+  4b:	1162a0        	slli	a6, a2, 6
+  4e:	415220        	srli	a5, a2, 2
+  51:	656a      	add.n	a6, a5, a6
+  53:	8299a0        	mull	a9, a9, a10
+  56:	99ba      	add.n	a9, a9, a11
+  58:	305980        	xor	a5, a9, a8
+  5b:	665a      	add.n	a6, a6, a5
+  5d:	66ca      	add.n	a6, a6, a12
+  5f:	306620        	xor	a6, a6, a2
+  62:	400d00        	ssr	a13
+  65:	915060        	srl	a5, a6
+  68:	116690        	slli	a6, a6, 7
+  6b:	206650        	or	a6, a6, a5
+  6e:	8266e0        	mull	a6, a6, a14
+  71:	26fa      	add.n	a2, a6, a15
+  73:	881b      	addi.n	a8, a8, 1
+  75:	d29877        	bne	a8, a7, 4b <aot_func_internal#0+0x1f>
+  78:	f01d      	retw.n
+
+Disassembly of section .literal:
+
+00000000 <.literal>:
+	...
+			0: R_XTENSA_32	.aot_stack_sizes
+			4: R_XTENSA_32	aot_set_exception_with_id
+   8:	5678      	l32i.n	a7, a6, 20
+   a:	0d1234        	ee.st.qacc_h.l.128.ip	a3, 0x120
+   d:	c001d0        	sub	a0, a1, a13
+  10:	6d          	.byte	0x6d
+  11:	3941c64e 	ee.vmulas.s8.qacc.ld.ip.qup	q2, a4, 0xfffffe60, q3, q0, q4, q1
+  15:	30          	.byte	0x30
+  16:	00          	.byte	00
+  17:	00          	.byte	00
+  18:	79b9      	s32i.n	a11, a9, 28
+  1a:	0d9e37        	bne	a14, a3, 2b <aot_func#0+0x2b>
+  1d:	001966        	bnei	a9, 1, 21 <.literal+0x21>
+  20:	3c6ef35f 	ee.vmulas.s8.qacc.ld.ip.qup	q1, a5, -208, q7, q6, q6, q6

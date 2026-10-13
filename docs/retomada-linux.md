@@ -198,32 +198,84 @@ originais não foram recuperados. O texto reconstruído está marcado como não
 original e não serve de prova. A revisão R2 consolidada e a focal R3 são os
 pareceres preservados atuais. Não alegar preservação integral daquele parecer.
 
+## Execução no Linux em 12/10
+
+O Linux físico foi identificado como Omarchy 4.0.4/Arch x86_64. O checkout
+`main` corresponde ao commit `a7c4f72` e à árvore `f8e3ad5`; por falta de
+autenticação Git na CLI, ele é raso. Os hashes do arquivo de evidências foram
+conferidos e o runtime 2.4.5 foi adquirido/verificado. Esta retomada deixa
+alterações locais de código e documentação. O snapshot isolado usado nos builds
+do CT107 é `801f9381da1a8ed0895adc88e8cd03f3a1df6707`, árvore
+`c728d9ed348e7fdefe4dac403a4c42b6916e704a`.
+
+LLVM Espressif no pin `344b928e` compilou em Release para X86/Xtensa. O
+`wamrc` R4 compilou, mas não executou no CT107: o Arch linkou `cosh`/`sinh`
+em GLIBC 2.44 e `sqrtf` em GLIBC 2.43, enquanto o guest Debian 13.1 usa
+glibc 2.41. R5 relinkou o `wamrc` contra o `libm.so.6` 2.41 do CT, sem
+instalar ou substituir bibliotecas do guest. O binário R5 e o recibo foram
+transferidos para um diretório novo no CT107; hashes, versão, dependências e
+consultas de alvo/CPU passaram. A tentativa R4 incompatível permanece
+preservada separadamente.
+
+O recibo unsigned, comandos, logs e a comparação R4/R5 estão no
+[complemento de evidência de 12/10](evidence/retomada-linux-2026-10-12/README.md).
+Depois disso, os artefatos Wasm/AOT foram gerados duas vezes em árvores limpas
+no CT107. As cinco saídas binárias coincidem por SHA-256; os manifests diferem
+nos caminhos absolutos da origem. O ajuste de `wamrc` usa `--opt-level=3`, pois
+esta versão rejeita `-O3`. O primeiro build interpretado também revelou que a
+descoberta antecipada de componentes do ESP-IDF não herdava a variável CMake do
+cenário; a configuração agora propaga o cenário pelo ambiente e adia a checagem
+de arquivos de artefato durante essa expansão.
+
+Os cenários nativo A, interpretado B e AOT C compilaram em diretórios separados
+no mesmo snapshot `801f938`, ESP-IDF 5.2.6, alvo ESP32-S3, clock de 240 MHz e
+workload `-O3`. Os três recibos passaram pelo validador de configuração,
+símbolos e proveniência. O `benchmark_run` nativo e um objeto ELF Xtensa
+derivado do `.wasm` foram inspecionados com `objdump`; ambos preservam o laço de
+2.000 iterações. O assembly Wasm também contém o laço. Os recibos, hashes,
+manifests, logs e disassembly estão no
+[complemento E1](evidence/retomada-linux-2026-10-12/e1-scenarios/README.md).
+
+Isso comprova geração e compilação no CT107, não execução do firmware. Não houve
+gravação na placa nem execução de checksum no ESP32-S3; também falta a
+reconstrução/atestado independente do recibo unsigned do compilador. Nenhuma
+suíte de testes foi executada. #7 e #9 continuam abertas.
+
 ## Checklist para continuar no Linux
 
 - [x] Integrar os commits candidatos, o plano pendente e os registros desta sessão.
-- [ ] Iniciar o Linux e registrar distribuição, arquitetura x86_64, espaço físico,
-  memória disponível, rede e ferramentas. Nada disso foi verificado nesta sessão.
-- [ ] Clonar/atualizar `main` em checkout limpo. Reconfirmar revisão e árvore;
-  187ff96 identifica o build histórico, não o novo checkout publicado.
-- [ ] Executar os testes locais com codec C compilado, conferir os hashes do
-  arquivo de evidências e adquirir/verificar o port com `tools/runtime_package.py`.
-- [ ] Adaptar a execução do doador ao Linux físico. Os perfis arquivados `wsl`
+- [x] Registrar distribuição, arquitetura, espaço físico, memória, rede e
+  ferramentas do Linux físico; consulte o complemento de 12/10.
+- [x] Conferir o snapshot inicial de `main` no commit/árvore publicados. O
+  checkout é raso por falta de autenticação Git na CLI; alterações atuais são
+  locais e o snapshot histórico `187ff96` não foi usado nos builds novos.
+- [ ] Executar os testes locais com codec C compilado; essa suíte não foi executada.
+- [x] Conferir os hashes do arquivo de evidências e adquirir/verificar o port
+  com `tools/runtime_package.py`.
+- [x] Adaptar a execução do doador ao Linux físico. Os perfis arquivados `wsl`
   e `lxc110` não são uma aprovação nem validação desse novo ambiente. Revalidar
   caminhos, versões/dependências e capacidade; usar diretórios exclusivos e logs.
-- [ ] Compilar LLVM Espressif no pin
+- [x] Compilar LLVM Espressif no pin
   `344b928e67bfc1d07cb150609c55548e86a9bf19`, targets X86/Xtensa, Release/Ninja,
-  LTO desligado e um job de compilação/link. Depois compilar `wamrc` 2.4.5 contra
-  essas bibliotecas. Registrar os comandos reais, caches, versões e hashes.
-- [ ] Emitir o recibo unsigned pelo `tools/record_wamrc_build.py`, revisar
-  proveniência, target, CPU e ABI do binário real. Um JSON sem assinatura não
-  autentica sozinho a associação binário/build. Não exigir duas compilações de
-  LLVM como regra nova: a repetição documentada é dos artefatos A/B/C.
-- [ ] Transferir/conferir binário e recibo no CT107. Verificar bibliotecas dinâmicas
-  e executar as consultas do `wamrc` real antes de presumir compatibilidade.
-- [ ] Gerar A/B/C no CT107 e repetir a geração em outra árvore/build limpos,
-  conforme #7. Produzir no PC Linux apenas não conclui o requisito no LXC.
-- [ ] Compilar firmware B/C com configs isoladas, verificar AOT v5, validator,
-  bounds checks e disassembly Xtensa. Demonstrar checksum no mesmo ESP32-S3 na #9.
+  LTO desligado e um job. Compilar `wamrc` 2.4.5 e registrar comandos, caches,
+  versões e hashes. R5 usa o `libm` 2.41 do CT107 no link local para compatibilidade
+  com o guest; comandos e logs estão no complemento de 12/10.
+- [x] Emitir o recibo unsigned com `tools/record_wamrc_build.py` e revisar
+  proveniência, target, CPU e compatibilidade do executável host no CT107. O
+  recibo não é assinado e não autentica sozinho a associação binário/build.
+  Não exigir duas compilações de LLVM como regra nova: a repetição documentada
+  é dos artefatos A/B/C.
+- [x] Transferir/conferir binário e recibo R5 no CT107; bibliotecas dinâmicas e
+  consultas do `wamrc` real passaram. R4 falhou na glibc do guest e foi preservado.
+- [x] Gerar A/B/C no CT107 e repetir os artefatos em outra árvore limpa. As cinco
+  saídas Wasm/AOT coincidiram por SHA-256 entre R6/R7; os manifests conservam
+  caminhos diferentes. Aceite e atestado independente do compilador continuam
+  pendentes para #7.
+- [x] Compilar firmware A/B/C no CT107 com configs isoladas e a mesma revisão;
+  os validadores conferiram cenário, símbolos, AOT v5, bounds checks e runtime.
+  A inspeção Xtensa confirma o laço do workload no objeto AOT.
+- [ ] Executar checksum e comparar A/B/C no mesmo ESP32-S3. Nenhum firmware foi
+  gravado nesta retomada; #9 segue aberta.
 - [ ] Continuar #11–#24 pelos gates do plano; manter as campanhas normal e de
   resiliência separadas. Não considerar esta publicação encerramento de #7/#9.
 - [ ] Antes de #20/#21, conciliar a referência de 90 tentativas com a agenda
@@ -257,5 +309,6 @@ Backups da aplicação, caches de toolchains, artefatos gerados, renders acadêm
 em `tmp/` e fotografias em `.codex-remote-attachments/` ficam preservados localmente.
 Eles não são alterações de fonte pendentes para a `main`. Os registros relevantes
 do projeto foram arquivados; a exclusão e seus motivos constam em `source-map.json`.
-As árvores de trabalho originais não foram apagadas. Esta publicação não faz
-deploy, não modifica guests, não grava firmware nem inicia coleta experimental.
+As árvores de trabalho originais não foram apagadas. Esta execução criou builds e
+evidências apenas nos diretórios dedicados do CT107; não instalou pacotes do
+sistema, não gravou firmware nem iniciou coleta experimental.

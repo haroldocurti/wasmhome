@@ -1,0 +1,8 @@
+00000000 d .aot_stack_sizes
+00000000 t .literal
+00000000 a WASM Module
+00000000 T aot_func#0
+0000002c t aot_func_internal#0
+         U aot_set_exception_with_id
+00000000 d aot_stack_sizes
+00000000 D aot_stack_sizes_alias

@@ -25,11 +25,12 @@ def require(condition, message):
         raise ValueError(message)
 
 
-def validate_o3(flags, label):
+def validate_o3(flags, label, expected="-O3"):
     require(isinstance(flags, list) and all(isinstance(flag, str) for flag in flags), f"missing {label} flags")
     require(not any(flag.startswith("@") for flag in flags), f"{label} response-file optimization cannot be verified")
     optimization = [flag for flag in flags if re.fullmatch(r"-O(?:[0-3sgz]|fast)?|--opt-level=.*", flag)]
-    require("-O3" in optimization and optimization[-1] == "-O3", f"{label} final optimization must be -O3")
+    require(expected in optimization and optimization[-1] == expected,
+            f"{label} final optimization must be {expected}")
 
 
 def validate_native_workload(commands, root):
@@ -79,7 +80,7 @@ def validate_artifacts(directory, root, check_tools=True, runtime_identity=None)
     clang_flags = manifest.get("clang_flags")
     validate_o3(clang_flags, "WASI clang")
     require("--target=wasm32-wasi" in clang_flags and all(flag == "--target=wasm32-wasi" for flag in clang_flags if flag.startswith("--target=")), "clang target must remain wasm32-wasi")
-    validate_o3(manifest.get("aot_flags"), "AOT compiler")
+    validate_o3(manifest.get("aot_flags"), "AOT compiler", "--opt-level=3")
     require("--target=xtensa" in manifest.get("aot_flags", []), "AOT target must be Xtensa")
     require("--bounds-checks=1" in manifest.get("aot_flags", []), "AOT bounds checks must be explicit")
     aot_flags = manifest["aot_flags"]
@@ -114,7 +115,15 @@ def validate_runtime_commands(commands, scenario, directory, checked):
         require(source.is_relative_to(directory) and source in checked, "runtime compile source differs from resolved component")
         for macro, value in expected.items():
             values = re.findall(rf"-D{macro}=(\d+)\b", entry["command"])
-            require(bool(values) and set(values) == {str(value)}, f"effective runtime macro differs: {macro}")
+            # WAMR's ESP-IDF component omits false feature defines instead of
+            # emitting `-DMACRO=0`; an undefined macro evaluates to zero in
+            # its `#if MACRO != 0` feature guards. Accept that default only for
+            # features expected to be disabled, while still rejecting any
+            # conflicting or nonzero explicit definition.
+            if value == 0:
+                require(not values or set(values) == {"0"}, f"effective runtime macro differs: {macro}")
+            else:
+                require(set(values) == {str(value)}, f"effective runtime macro differs: {macro}")
     if scenario == "aot":
         require(any(pathlib.Path(x["file"]).name == "aot_validator.c" for x in runtime_commands), "AOT validator source missing from build")
 
