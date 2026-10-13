@@ -1,0 +1,32 @@
+$ find /home/haroldocurti -type f \( -name pwsh -o -name powershell \) -perm /111 -print
+$ find /home/haroldocurti -type f \( -iname *powershell* -o -iname *pwsh* \) -print
+/home/haroldocurti/.local/share/nvim/lazy/friendly-snippets/snippets/PowerShell.json
+/home/haroldocurti/.local/share/nvim/lazy/mason-lspconfig.nvim/lua/mason-lspconfig/lsp/powershell_es.lua
+/home/haroldocurti/.local/share/nvim/lazy/mason.nvim/lua/mason-core/installer/managers/powershell.lua
+/home/haroldocurti/.local/share/nvim/lazy/nvim-lspconfig/lsp/powershell_es.lua
+/home/haroldocurti/.local/share/nvim/lazy/nvim-lspconfig/lua/lspconfig/configs/powershell_es.lua
+/home/haroldocurti/.local/share/nvim/lazy/nvim-lspconfig/lua/lspconfig/types/lsp/powershell_es.lua
+/home/haroldocurti/.cache/nvim/luac/%2fhome%2fharoldocurti%2f.local%2fshare%2fnvim%2flazy%2fmason.nvim%2flua%2fmason-core%2finstaller%2fmanagers%2fpowershell.luac
+/home/haroldocurti/Documents/wasmhome/docs/evidence/retomada-linux-2026-10-11/ct107/acquire-sdk-pwsh-ct107.log
+/home/haroldocurti/Documents/wasmhome/docs/evidence/retomada-linux-2026-10-11/ct107/acquire-sdk-pwsh-ct107.py
+/home/haroldocurti/Documents/wasmhome/docs/evidence/retomada-linux-2026-10-11/ct107/sdk-pwsh-acquisition.json
+/home/haroldocurti/Documents/wasmhome/docs/evidence/retomada-linux-2026-10-11/ct107/sdk-pwsh-validation.json
+/home/haroldocurti/Documents/wasmhome/docs/evidence/retomada-linux-2026-10-11/ct107/validate-sdk-pwsh-ct107.log
+/home/haroldocurti/Documents/wasmhome/docs/evidence/retomada-linux-2026-10-11/ct107/validate-sdk-pwsh-ct107.py
+/home/haroldocurti/.hermes/hermes-agent/apps/bootstrap-installer/src-tauri/src/powershell.rs
+/home/haroldocurti/.hermes/hermes-agent/tests/agent/lsp/test_powershell_server.py
+/home/haroldocurti/.hermes/hermes-agent/tests/test_install_ps1_uv_powershell_host.py
+/home/haroldocurti/wasmhome-toolchain-e1-2.4.5-xtensa18-20261012/artifact-source-a7c4f72/docs/evidence/retomada-linux-2026-10-11/ct107/acquire-sdk-pwsh-ct107.log
+/home/haroldocurti/wasmhome-toolchain-e1-2.4.5-xtensa18-20261012/artifact-source-a7c4f72/docs/evidence/retomada-linux-2026-10-11/ct107/acquire-sdk-pwsh-ct107.py
+/home/haroldocurti/wasmhome-toolchain-e1-2.4.5-xtensa18-20261012/artifact-source-a7c4f72/docs/evidence/retomada-linux-2026-10-11/ct107/sdk-pwsh-acquisition.json
+/home/haroldocurti/wasmhome-toolchain-e1-2.4.5-xtensa18-20261012/artifact-source-a7c4f72/docs/evidence/retomada-linux-2026-10-11/ct107/sdk-pwsh-validation.json
+/home/haroldocurti/wasmhome-toolchain-e1-2.4.5-xtensa18-20261012/artifact-source-a7c4f72/docs/evidence/retomada-linux-2026-10-11/ct107/validate-sdk-pwsh-ct107.log
+/home/haroldocurti/wasmhome-toolchain-e1-2.4.5-xtensa18-20261012/artifact-source-a7c4f72/docs/evidence/retomada-linux-2026-10-11/ct107/validate-sdk-pwsh-ct107.py
+$ command -v pwsh powershell
+$ git rev-parse HEAD^{tree}
+798d5b9426fcd942b3d42e9ff4058b880ca02bdc
+$ git rev-parse HEAD
+9771e30a3edb667303f441076df77571f616ba18
+$ git status --short
+?? docs/evidence/proximos-passos-2026-10-13/
+?? docs/plano-proximos-passos-agentes.md

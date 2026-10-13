@@ -71,6 +71,11 @@ planejados. O segundo mede o caminho da atualização depois do aceite. Nenhum
 deles substitui o outro. Reposição instrumental não cria slot adicional; fica
 ligada ao slot original e não apaga o primeiro registro.
 
+A distribuição solicitada entre agentes Luna xhigh, com passos, revisores e
+novos achados desta preparação, está no
+[plano dos próximos passos](plano-proximos-passos-agentes.md).
+Ela não constitui aceite das issues ou execução física.
+
 ## Posição atual e dependências
 
 Estado sincronizado em 13/10/2026: issues #1/#7/#9/#11 consultadas no GitHub e

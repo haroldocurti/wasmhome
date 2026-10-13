@@ -2,6 +2,11 @@
 
 Sincronização em 13/10/2026 com evidências de 12/10; snapshots históricos de 09/10 e 11/10 preservados abaixo. Este guia segue as etapas E0–E7 de [plano-de-execucao.md](plano-de-execucao.md), as decisões em [CONTEXT.md](../CONTEXT.md), o protocolo UDP, as decisões de envelope e resiliência, e as issues #1–#24 de `haroldocurti/wasmhome`. As dependências listadas por issue refletem a consulta GraphQL preservada no snapshot de 11/10.
 
+A distribuição solicitada entre agentes Luna xhigh, com passos, revisores e
+novos achados desta preparação, está no
+[plano dos próximos passos](plano-proximos-passos-agentes.md).
+Ela não constitui aceite das issues ou execução física.
+
 ## Como usar
 
 - `[x]` indica que a evidência indicada foi examinada e atende ao item descrito neste checklist.

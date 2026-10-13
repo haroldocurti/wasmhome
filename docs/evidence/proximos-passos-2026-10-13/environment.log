@@ -1,0 +1,26 @@
+$ git rev-parse HEAD
+9771e30a3edb667303f441076df77571f616ba18
+$ git status --short (final)
+$ uname -a
+Linux Haroldo-Mini-Tux 7.2.3-arch1-3 #1 SMP PREEMPT_DYNAMIC Sun, 06 Sep 2026 13:01:04 +0000 x86_64 GNU/Linux
+$ cc --version | head -n 1
+cc (GCC) 16.2.1 20260810
+$ python --version
+Python 3.14.7
+$ command -v pwsh powershell cmake clang cl
+pwsh: unavailable
+powershell: unavailable
+cmake: unavailable
+/usr/bin/clang
+cl: unavailable
+$ sha256sum main/observation_wire.c main/observation_wire.h tests/test_embedded_wire.py /tmp/wasmhome-luna-validacao-local-20261013/libobservation_wire.so
+9409c0358cc9013af7bdafda311c30a8aefbb996edf0fb329ff061243186c836  main/observation_wire.c
+9878e2bb1f11f0a2d6047fc2521fc9e0e4e9ef7c38839091dd50513bcfcb24de  main/observation_wire.h
+020994b0cda547348083b373ed00928c52dec900a794cf86877a7cc857511a83  tests/test_embedded_wire.py
+667985b4aee880ea755bc4abcd263646c44bcf0b6b4765ba935889b0ea6893b9  /tmp/wasmhome-luna-validacao-local-20261013/libobservation_wire.so
+$ file /tmp/wasmhome-luna-validacao-local-20261013/libobservation_wire.so
+/tmp/wasmhome-luna-validacao-local-20261013/libobservation_wire.so: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, BuildID[sha1]=31fe2094f728df752c274e3606eddc282eec1f8b, not stripped
+$ ldd /tmp/wasmhome-luna-validacao-local-20261013/libobservation_wire.so
+	linux-vdso.so.1 (0x00007f2d62a1d000)
+	libc.so.6 => /usr/lib/libc.so.6 (0x00007f2d62600000)
+	/usr/lib64/ld-linux-x86-64.so.2 (0x00007f2d62a1f000)
