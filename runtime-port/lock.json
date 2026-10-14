@@ -1,7 +1,7 @@
 {
   "schema": "wasmhome-runtime-port-v1",
   "component": "wasmhome/wasm-micro-runtime",
-  "version": "2.4.5-wasmhome.2",
+  "version": "2.4.5-wasmhome.3",
   "aot_version": 5,
   "upstream": {
     "url": "https://github.com/bytecodealliance/wasm-micro-runtime.git",
@@ -19,6 +19,10 @@
     {
       "path": "esp-idf-aot-dualbus.patch",
       "sha256": "7fb3f0630189f5a0e33498156ab5e48f09ef95aeb044b8bd0535a3261f94fd4d"
+    },
+    {
+      "path": "esp-idf-aot-alias.patch",
+      "sha256": "9684378a29175f43775750d9aa3c1d6c01bca65d6ade6b79ca3493617c83c382"
     }
   ],
   "patched_files": {
@@ -30,10 +34,11 @@
     "core/iwasm/aot/aot_loader.c": "1edf919a9afac5aed8345d90a02f761c5fd6177b23178b3b4e97cab589bfc10c",
     "core/shared/platform/esp-idf/espidf_dualbus.h": "ebecad6d75a939486dd372918c6fff7242eb43f390b7e9e3695cb7310130f059",
     "core/shared/platform/esp-idf/espidf_memmap.c": "50fc0d9a52ec99786cb8a540417a614aee0bc66b4e6bd8da85b92b4a001fd3a6",
-    "core/shared/platform/include/platform_api_vmcore.h": "fda73827b33803865f36ac734e46999cc9105cdd0ab936afdde1a8347f632ec5"
+    "core/shared/platform/include/platform_api_vmcore.h": "fda73827b33803865f36ac734e46999cc9105cdd0ab936afdde1a8347f632ec5",
+    "core/iwasm/aot/arch/aot_reloc_xtensa.c": "3f123dfa62dfb00d27147a9f9d2e89e670bedcd3557a266f4e2a3646e3680c58"
   },
-  "metadata_sha256": "2d9b2402e38a00d606ea4f894379a70e8bbd8a26e8a02863e7aeb8fbb0ad8c2e",
-  "package_sha256": "efd0d9bf75c3eb488255e4ec5a8a14c0f2e22b5a9df0cf25f27ee59119ae9bf2",
+  "metadata_sha256": "55c4ba44c01bfbf9347a7f19be885f0e6b3cb700b3e1d185fc1663f5b41b8a49",
+  "package_sha256": "7928f0852db4c43b1e2d7ae19ac957d0cddae77e458046612c6100e9e9dbee39",
   "port_delta_reviewed_reference": {
     "url": "https://github.com/espressif/wasm-micro-runtime.git",
     "revision": "8f806e0f2c02a768d2c35044f2964f769612d9bc",

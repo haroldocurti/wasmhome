@@ -41,7 +41,7 @@ def load_lock(root):
     lock = read(port / "lock.json")
     require(lock["schema"] == "wasmhome-runtime-port-v1", "invalid port schema")
     require(lock["component"] == "wasmhome/wasm-micro-runtime", "unexpected independent component identity")
-    require(lock["version"] == "2.4.5-wasmhome.2" and lock["aot_version"] == 5, "unexpected runtime version/AOT identity")
+    require(lock["version"] == "2.4.5-wasmhome.3" and lock["aot_version"] == 5, "unexpected runtime version/AOT identity")
     for patch in lock["patches"]:
         path = (port / patch["path"]).resolve()
         require(path.is_relative_to(port.resolve()), "patch escapes port directory")

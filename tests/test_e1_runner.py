@@ -51,7 +51,7 @@ class EvidenceTests(unittest.TestCase):
     def test_artifact_manifest_rejects_tampering_and_stale_source(self, provenance_gate):
         with tempfile.TemporaryDirectory() as temporary:
             folder = pathlib.Path(temporary)
-            identity = dict(component="wasmhome/wasm-micro-runtime", version="2.4.5-wasmhome.2", component_hash="c" * 64, repository_revision="25bd7eb63e828e4bd242cc9b38d260b4b31c6605", aot_version=5)
+            identity = dict(component="wasmhome/wasm-micro-runtime", version="2.4.5-wasmhome.3", component_hash="c" * 64, repository_revision="25bd7eb63e828e4bd242cc9b38d260b4b31c6605", aot_version=5)
             for kind, data in (("wasm", b"\0asm\x01\0\0\0"), ("aot", b"\0aot\x05\0\0\0")):
                 (folder / f"benchmark.{kind}").write_bytes(data)
                 (folder / f"benchmark_{kind}_embedded.c").write_text(render(data, f"benchmark_{kind}"), encoding="ascii")

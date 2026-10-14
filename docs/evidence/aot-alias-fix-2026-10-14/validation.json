@@ -1,0 +1,63 @@
+{
+  "limits": [
+    "No new firmware link or device run is established.",
+    "A/B/C builds and physical repeat remain outstanding.",
+    "AOT issue remains open."
+  ],
+  "review": {
+    "scope": [
+      "version identity",
+      "lock and patch digests",
+      "patched source identity",
+      "materialized package identity",
+      "Xtensa relocation helper",
+      "wamrc build provenance"
+    ],
+    "status": "no_blocking_discrepancy_found"
+  },
+  "runtime": {
+    "alias_patch_sha256": "9684378a29175f43775750d9aa3c1d6c01bca65d6ade6b79ca3493617c83c382",
+    "aot_version": 5,
+    "app_framework_revision": "e97860611e371d91d2ef25101b02b29719476a48",
+    "component": "wasmhome/wasm-micro-runtime",
+    "lock_sha256": "7aea69ad144467e077d156732939e2d254d8b910f670a62fda5a5c9194d34c8e",
+    "metadata_sha256": "55c4ba44c01bfbf9347a7f19be885f0e6b3cb700b3e1d185fc1663f5b41b8a49",
+    "package_sha256": "7928f0852db4c43b1e2d7ae19ac957d0cddae77e458046612c6100e9e9dbee39",
+    "patched_xtensa_source_sha256": "3f123dfa62dfb00d27147a9f9d2e89e670bedcd3557a266f4e2a3646e3680c58",
+    "upstream_revision": "25bd7eb63e828e4bd242cc9b38d260b4b31c6605",
+    "verification": "pass",
+    "version": "2.4.5-wasmhome.3"
+  },
+  "schema": "wasmhome-port3-review-v1",
+  "tests": {
+    "full_suite": {
+      "c_wire_codec_enabled": true,
+      "log_sha256": "a014cff7940111d77525575c3f65038446e1a25adba5e8170163588bdeb38a43",
+      "passed": 95,
+      "skip_reason": "Windows-only junction test",
+      "skipped": 1,
+      "total": 96
+    },
+    "xtensa_host_regressions": {
+      "log_sha256": "0a82a69783e11c5221ee2e0d6682ce4723b4d4c7db40c0144ec86abc48a18e04",
+      "status": "pass"
+    },
+    "xtensa_target_compile_probe": {
+      "object_sha256": "07aa63449034c6f55701facc9b0268396eb563d01107c44dbbe8b04ef6651180",
+      "review_report_sha256": "1e3ff38ecac12f5a9df329072268033c4c1905e9349977734242f386b04c3942",
+      "status": "pass"
+    }
+  },
+  "wamrc": {
+    "binary_sha256": "05689efa0236defc1a61b2931a251b1e7c7f6c184d0d82a21d384f9313fa7760",
+    "build_exit": 0,
+    "build_status": "pass",
+    "configure_exit": 0,
+    "linked_llvm_libraries_identical": 98,
+    "llvm_cache_and_command_snapshots_match": true,
+    "llvm_prior_receipt_matched": true,
+    "llvm_rebuilt": false,
+    "receipt_sha256": "413225a53a96ef68933fe3e75bb054d368365d671e42989a11b714f79c50922f",
+    "version": "wamrc 2.4.5"
+  }
+}

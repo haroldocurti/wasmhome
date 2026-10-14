@@ -1,5 +1,33 @@
 # Checklist de execução do plano
 
+## Estado atual — 14/10/2026
+
+A #7 permanece concluída. A #11 teve aceite físico no ensaio
+`services-run03`, fonte `a91ff5e`: v1 e v2 passaram 45 critérios cada,
+com telemetria real DS18B20, histerese aprovada e GPIO5 lido pelo loopback em GPIO6.
+A restauração integral coincidiu com o backup antes e depois do boot de
+observação, e a captura final confirmou o firmware original executando.
+Essa passagem por duas imagens via serial não demonstra OTA.
+
+A #9 permanece aberta. O ensaio `abc-8b3bddd-run01` passou nativo e
+interpretado (5 aquecimentos, 30 medições e checksum `DBB2F0D4` por cenário),
+mas AOT falhou com `LoadProhibited` antes das medições. A inspeção do objeto
+Xtensa confirmou que o helper de relocação perdeu a gravação do imediato sob
+aliasing estrito. O port `.3` corrige esse helper com acessos alinhados de
+32 bits; 96 testes locais terminaram sem falhas, com um skip de junction
+Windows e codec C real executado. Ainda faltam novos builds e repetição A/B/C.
+
+Distribuição vigente entre Luna xhigh: proveniência revisa o port e o compilador;
+builds prepara três cenários em novo pin; serviços revisa o aceite e a evidência
+sanitizada da #11. O coordenador integra, publica e opera a placa com exclusividade.
+Após o aceite da #9, seguir #12 → #13/#14; #15 após #4/#7; #16/#17/#18 segundo
+suas dependências; #19 → piloto #20 → campanha #21; #22 → #23 → análise #24.
+As decisões de tamanho amostral e timeout continuam condicionadas ao piloto.
+
+[Evidência da tentativa A/B/C](evidence/aot-run-8b3bddd-2026-10-14/README.md)
+· [Evidência dos serviços](evidence/native-services-2026-10-14/README.md).
+
+
 Sincronização em 13/10/2026 com evidências de 12/10; snapshots históricos de 09/10 e 11/10 preservados abaixo. Este guia segue as etapas E0–E7 de [plano-de-execucao.md](plano-de-execucao.md), as decisões em [CONTEXT.md](../CONTEXT.md), o protocolo UDP, as decisões de envelope e resiliência, e as issues #1–#24 de `haroldocurti/wasmhome`. As dependências listadas por issue refletem a consulta GraphQL preservada no snapshot de 11/10.
 
 A distribuição solicitada entre agentes Luna xhigh, com passos, revisores e
@@ -101,13 +129,13 @@ O conteúdo original do parágrafo de delimitação em [plano-de-execucao.md](pl
 
 - [x] **#7, toolchain reproduzível no LXC.** Dependência: #6. Em 12/10, LLVM/wamrc real, geração e repetição dos artefatos Wasm/AOT e builds de firmware A/B/C foram conferidos no CT107, com versões fixadas, hashes e `sdkconfig` separados. As cinco saídas de R6/R7 coincidem. A reprodução comparativa do binário foi concluída e revisada em 13/10. Novos builds A/B/C em 91f11f7 foram concluídos e validados; repetição com argv exatos e disassembly conferidos. A revisão independente de 13/10 aceitou os três critérios da #7. O fechamento no rastreador acompanha esta publicação, separado da prova física #9.
 - [x] **#8, plataforma comum.** Dependências satisfeitas: #2 e #3. Evidência integrada na `main` pela PR #27: build nativo ESP-IDF 5.2.6, 17 testes locais e logs físicos de DS18B20, GPIO, PSRAM, Wi-Fi/UDP e watchdog. O firmware diagnóstico não implementa os serviços da campanha. A reconexão de Wi-Fi no mesmo boot, OTA, WAMR/AOT e módulos continuam sem prova.
-- [~] **#9, WAMR interpretado e AOT no MCU.** Dependências: #7 e #8. Os firmware A/B/C foram compilados e validados no CT107; B usa intérprete clássico, C usa AOT v5, validator AOT ligado e bounds checks explícitos. O objeto Xtensa do AOT preserva o laço. Ainda falta executar a mesma função nos dois modos no ESP32-S3, confirmar checksum e registrar SRAM/PSRAM, erros e limites físicos. Até lá, não há prova de execução no MCU.
-- [~] **Carga mínima nativa da etapa E1.** Dependências: #7 e #8. Em 09/10, o build local com `-O3` efetivo executou cinco aquecimentos verificados pelo runner e 30 chamadas no ESP32-S3 com checksum `0xDBB2F0D4`, em uma única sessão de carga. [Log serial](evidence/execucao-2026-10-09/native/serial.log) e [derivação](evidence/execucao-2026-10-09/native/derived-native.json) preservam a prova preparatória de A. Em 12/10, A/B/C foram compilados na mesma revisão e validados no CT107; falta repetir a execução controlada no MCU e confirmar o checksum. O ensaio de 09/10 não demonstrou transporte funcional e continua limitado àquela única sessão. A prova diagnóstica da #8 não substitui esta carga nem os dois serviços da #11.
+- [~] **#9, WAMR interpretado e AOT no MCU.** Dependências: #7 e #8. Nativo e interpretado passaram os gates físicos em `8b3bddd`, com checksum e memória registrados. AOT falhou antes das medições. O port `.3` corrige a relocação e ainda exige novos builds e repetição A/B/C; o aceite permanece pendente.
+- [x] **Carga mínima nativa da etapa E1.** Em `abc-8b3bddd-run01`, o nativo completou cinco aquecimentos, 30 medições, checksum `DBB2F0D4`, 67 eventos de memória e uma inicialização. O interpretado também passou seus gates, mas a comparação A/B/C permanece incompleta devido à falha AOT. Uma sessão de carga não representa 30 atualizações experimentais independentes. [Resumo físico](evidence/aot-run-8b3bddd-2026-10-14/physical/trial-summary.json).
 
 ## E2. Observação e serviços de referência
 
 - [x] **#10, observador externo.** Dependência formal: #3. Evidência de ferramenta e calibração consta em [observador-externo.md](observador-externo.md) e nos registros citados pela issue. Os ensaios históricos estão registrados no commit `810b8be`; a correção passou por 30 testes locais e a PR #28 integrou a entrega na `main`, com revisão da árvore final. A fixture calibra a medição, mas não conclui E2: ainda é preciso demonstrar os serviços funcionais de #11, #13 e #14. Concluir E2 somente após essas demonstrações e a integração exigida antes de avançar para atualização experimental.
-- [ ] **#11, referência nativa de telemetria e GPIO.** Dependências: #8 e #10. Demonstrar os dois serviços concorrentes no firmware monolítico; validar as regras v1/v2 e a histerese aprovada; enviar estímulos conhecidos e conferir resultado, versão, ID, boot, GPIO comandado e GPIO lido pelo loopback. Preservar JSONL bruto e evidência da placa. A telemetria deve refletir o DS18B20 real, não fixture de diagnóstico.
+- [x] **#11, referência nativa de telemetria e GPIO.** Dependências: #8 e #10. Ensaio `services-run03` em `a91ff5e`: 45/45 critérios por versão, cinco leituras recentes do DS18B20 por boot, limiares 25/30 °C e histerese total 1 °C. GPIO5→GPIO6 conferido pelo readback do firmware. Registros brutos e configurações permanecem privados e identificados por hashes; [evidência sanitizada](evidence/native-services-2026-10-14/README.md). Restauração integral e inicialização final original confirmadas. Não demonstra OTA.
 - [ ] **#12, firmware-base, bindings e gerenciador.** Dependências: #8 e #9. Expor somente os bindings aprovados para temperatura, GPIO, tempo e publicação. Manter instâncias e ciclo de vida próprios para telemetria e controle; trocar controle em ponto seguro entre requisições sem parar telemetria. Medir runtime, instâncias, pilhas e buffers antes/durante/depois da liberação. Proteger a memória acessada pelos bindings e registrar a configuração WAMR.
 
 - [ ] **#13, dois módulos no interpretador clássico.** Dependências: #10 e #12. Rodar simultaneamente telemetria e controle; verificar cadências, entradas/resultados, versões e loopback físico. Guardar a configuração que prova interpretador clássico, artefatos e hashes.

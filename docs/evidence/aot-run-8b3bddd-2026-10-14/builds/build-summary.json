@@ -1,0 +1,114 @@
+{
+  "build_index_sha256": "8dd7d8b160868c03884b45a25d80a1911e5766abd6b5e0682cc060cd5b667c2f",
+  "builds": {
+    "aot": {
+      "artifact_hashes": {
+        "bin_bytes": 824112,
+        "bin_sha256": "d13f090c5836ea3794f68d3ed946791604203a9965cdc40ee08c673dc6ba3acc",
+        "elf_bytes": 10568448,
+        "elf_sha256": "0d4aaedf57d1956fe40abdcaa1fcd01362d8c71e660639eee2dbb33758add699",
+        "phyoff_receipt_sha256": "d6f12a26e14385901905606c726f8994ba716afaba6ae3bf96a2fa73338a9ebe",
+        "sdkconfig_text_sha256": "4d3540000c35301fd99740a3b4bc3c2678495c78b7502af94cba56b9d9a71ead"
+      },
+      "effective_profile": {
+        "cpu_mhz": 240,
+        "phy_calibration_data_storage": false,
+        "target": "esp32s3",
+        "wamr_enable_aot": true,
+        "wamr_enable_interp": false
+      },
+      "phy_disassembly_sha256": "eea0a350a07006b5a7f1d7c9590d85374fa9f3422a81e343e7d11a945bc3b2d1",
+      "phy_relocations_sha256": "85a5d8cf109149fbbf57956688e77ad542d6fef64ead6bdb043e39eff79479c2",
+      "profile_sha256": {
+        "e1-common.defaults.normalized": "d45d6eace1cb153411af65308e80b169d2853d07c1b1b02f00b62b30d09466a0",
+        "phy-off.defaults": "7816186a25ab60f161ec9c7c07d300602ad7aeaff012f836441d4dd396d2852e",
+        "sdkconfig.aot": "eb3fe80d947e43b3fdb4226123c67a39ac009beb8d7537325e635d8f0fab6531"
+      },
+      "source": {
+        "commit": "8b3bddd729996853d212b9f678c2b6c6fb4d949f",
+        "tree": "db38a2b261c2ebcc259a362eb7c8b3d589e56009",
+        "worktree_clean": true
+      },
+      "status": "build_checked_not_device_validated"
+    },
+    "interp": {
+      "artifact_hashes": {
+        "bin_bytes": 839440,
+        "bin_sha256": "51e539bd4bf39dcefc6d698aca3dea1fdf6a7ecf1517978154ceb66dbec179cc",
+        "elf_bytes": 10551600,
+        "elf_sha256": "01ea265d293b2ea2bbbfb905aa9c19f52046478411ac8f8ce94978b01f55363a",
+        "phyoff_receipt_sha256": "a2a3d324a1db54f10662effc6ac6c5115e4fc9e851dde40a1244bd5801fa6787",
+        "sdkconfig_text_sha256": "df1ab0b75c2c861a0a4aef93103b551ee94f926442004f8247c49693467116c0"
+      },
+      "effective_profile": {
+        "cpu_mhz": 240,
+        "phy_calibration_data_storage": false,
+        "target": "esp32s3",
+        "wamr_enable_aot": false,
+        "wamr_enable_interp": true
+      },
+      "phy_disassembly_sha256": "eea0a350a07006b5a7f1d7c9590d85374fa9f3422a81e343e7d11a945bc3b2d1",
+      "phy_relocations_sha256": "85a5d8cf109149fbbf57956688e77ad542d6fef64ead6bdb043e39eff79479c2",
+      "profile_sha256": {
+        "e1-common.defaults.normalized": "d45d6eace1cb153411af65308e80b169d2853d07c1b1b02f00b62b30d09466a0",
+        "phy-off.defaults": "7816186a25ab60f161ec9c7c07d300602ad7aeaff012f836441d4dd396d2852e",
+        "sdkconfig.interp": "15c5e68515283b901ce084a10ca87921602d756a27ca9a615b0c28ecbe328e41"
+      },
+      "source": {
+        "commit": "8b3bddd729996853d212b9f678c2b6c6fb4d949f",
+        "tree": "db38a2b261c2ebcc259a362eb7c8b3d589e56009",
+        "worktree_clean": true
+      },
+      "status": "build_checked_not_device_validated"
+    },
+    "native": {
+      "artifact_hashes": {
+        "bin_bytes": 747920,
+        "bin_sha256": "834b2d0361c75464e9e66e72fab3a77dedf6cc3a7d4aa931ca76a086ef38e086",
+        "elf_bytes": 9218920,
+        "elf_sha256": "b9b3abf1a3ca4e016a6890373ec78945a6c5603ec71a8c059943ef6a7b41436f",
+        "phyoff_receipt_sha256": "c364497ed184aaedd104e5ceea39b60449ade202091729b678bc1288a23a6884",
+        "sdkconfig_text_sha256": "d98ad8227edb3737c0413bfaf641f7dabead81b03fdc4dda0f51ade63b6832b1"
+      },
+      "effective_profile": {
+        "cpu_mhz": 240,
+        "phy_calibration_data_storage": false,
+        "target": "esp32s3",
+        "wamr_enable_aot": null,
+        "wamr_enable_interp": null
+      },
+      "phy_disassembly_sha256": "eea0a350a07006b5a7f1d7c9590d85374fa9f3422a81e343e7d11a945bc3b2d1",
+      "phy_relocations_sha256": "85a5d8cf109149fbbf57956688e77ad542d6fef64ead6bdb043e39eff79479c2",
+      "profile_sha256": {
+        "e1-common.defaults.normalized": "d45d6eace1cb153411af65308e80b169d2853d07c1b1b02f00b62b30d09466a0",
+        "phy-off.defaults": "7816186a25ab60f161ec9c7c07d300602ad7aeaff012f836441d4dd396d2852e"
+      },
+      "source": {
+        "commit": "8b3bddd729996853d212b9f678c2b6c6fb4d949f",
+        "tree": "db38a2b261c2ebcc259a362eb7c8b3d589e56009",
+        "worktree_clean": true
+      },
+      "status": "build_checked_not_device_validated"
+    }
+  },
+  "idf": {
+    "revision": "9ef24e3e2a2c96e720d83c574a3f8699177573da",
+    "version": "5.2.6"
+  },
+  "runtime_package": {
+    "aot_version": 5,
+    "app_framework_revision": "e97860611e371d91d2ef25101b02b29719476a48",
+    "component_hash": "efd0d9bf75c3eb488255e4ec5a8a14c0f2e22b5a9df0cf25f27ee59119ae9bf2",
+    "port_lock_sha256": "8dcab8caa7b43b467fb20180a0f5a844487b71cd76a1cef559c32e83cea3eb2d",
+    "repository_revision": "25bd7eb63e828e4bd242cc9b38d260b4b31c6605",
+    "version": "2.4.5-wasmhome.2"
+  },
+  "schema": "wasmhome-public-build-summary-v2",
+  "scope_note": "Only E1 native/interp/AOT builds at this source pin are summarized here. Services runs are separate and excluded. Raw ELF/BIN/sdkconfig files are not included.",
+  "source": {
+    "commit": "8b3bddd729996853d212b9f678c2b6c6fb4d949f",
+    "tree": "db38a2b261c2ebcc259a362eb7c8b3d589e56009",
+    "worktree_clean": true
+  },
+  "status": "builds_checked_not_device_validated"
+}

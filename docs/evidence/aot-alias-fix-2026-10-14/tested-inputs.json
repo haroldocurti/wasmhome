@@ -1,0 +1,16 @@
+{
+  "files_sha256": {
+    "main/observation_wire.c": "9409c0358cc9013af7bdafda311c30a8aefbb996edf0fb329ff061243186c836",
+    "runtime-port/esp-idf-aot-alias.patch": "9684378a29175f43775750d9aa3c1d6c01bca65d6ade6b79ca3493617c83c382",
+    "runtime-port/idf_component.yml": "55c4ba44c01bfbf9347a7f19be885f0e6b3cb700b3e1d185fc1663f5b41b8a49",
+    "runtime-port/lock.json": "7aea69ad144467e077d156732939e2d254d8b910f670a62fda5a5c9194d34c8e",
+    "tests/test_e1_runner.py": "a95b5a7ae6ed67b36e3816609e7e2a77975a26051c44dd4f7bb745c3951d9016",
+    "tests/test_runtime_package.py": "9b680256890cca60c00594f53d7d4b08fa036b66daad32b88ff08c86476e0fc9",
+    "tests/test_xtensa_imm16_alias.py": "1d2422dff5fc07af5701001814b198ed1d3d1eb13a92c0e7342db671c48ac5a1",
+    "tools/runtime_package.py": "e8b1d9a88dac7ed7129e0e86e8d506fecc57c89b4d00597686c14839146565e3",
+    "tools/validate_build_config.py": "448d2b60eef3f54e2e973c1894122b0d86d95dcbb7938786655a42da6ae3b5f9"
+  },
+  "schema": "wasmhome-port3-tested-code-inputs-v1",
+  "scope": "modified port3 files in this publication; parent is not the tested unmodified source",
+  "source_parent_commit": "8b3bddd729996853d212b9f678c2b6c6fb4d949f"
+}

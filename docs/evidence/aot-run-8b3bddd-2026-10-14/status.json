@@ -1,0 +1,32 @@
+{
+  "aot_root_cause": "compiled-object audit identifies omitted aligned relocation write due to strict aliasing; candidate port3 physical confirmation pending",
+  "builds": {
+    "e1_aot": "build_checked_not_device_validated",
+    "e1_interp": "build_checked_not_device_validated",
+    "e1_native": "build_checked_not_device_validated"
+  },
+  "contains_raw_or_secret_material": false,
+  "issue_11": "excluded; separate physical run not incorporated",
+  "issue_7": "closed_at_historical_published_commit_d36d6b0; not reopened by this package",
+  "issue_9": {
+    "latest_trial": "failed",
+    "reason": "AOT LoadProhibited before accepted benchmark output",
+    "status": "open"
+  },
+  "physical_trial": {
+    "aot": "failed",
+    "interp": "passed",
+    "native": "passed",
+    "overall": "failed",
+    "restoration": "ota0 restored; full flash matched preboot baseline; later NVS-only postboot drift adopted as new baseline"
+  },
+  "publishable": true,
+  "review_scope": "sanitized metadata and closed trial reviewed by coordinator; private raw evidence retained",
+  "revision": "root-publication-r1",
+  "schema": "wasmhome-public-e1-physical-status-v1",
+  "source": {
+    "commit": "8b3bddd729996853d212b9f678c2b6c6fb4d949f",
+    "tree": "db38a2b261c2ebcc259a362eb7c8b3d589e56009",
+    "worktree_clean": true
+  }
+}

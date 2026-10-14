@@ -1,0 +1,88 @@
+{
+  "acceptance": "not_accepted_issue_9_remains_open",
+  "exclusions": [
+    "No firmware BIN/ELF, sdkconfig, raw UART, raw command logs, full-flash captures, NVS payloads, MAC/IP, or credentials are included. Issue #11 material is outside this package."
+  ],
+  "private_evidence_hashes": {
+    "aot_relocator_review_sha256": "e3175a5bec34d6fef17b5fb7ec00d155f619a5c5af67926480d9e47786f95c96",
+    "cache_api_source_review_sha256": "44d61795fbf610a4f28e0fcfb2866512a01d3ac5f67b4ae13cff8aba15aeb8ce",
+    "restoration_review_sha256": "cbcbe952863a4ea36e3a05b32e4c6dd388fab656838a5f0da2ec1ef2e0c65c5a",
+    "result_json_sha256": "c0a9533c9226a02372c31bf38128a13cf72fc3552149754b573a16a999ee2e2e",
+    "runner_events_sha256": "e9a06d6f9dfc79d818338ea5d66a99d4cca6a7fb1e9e78a05a418276bcfaf40e"
+  },
+  "restoration": {
+    "adopted_baseline_sha256": "4fcc8eb606747bd4cbb016de24e06a12e08d02fbe9628143b9a933a118c74ed3",
+    "baseline_lineage_sha256": "c3b5b9c7bf15817fcb208769a01985692740939a29ca5506bc02f4e755884214",
+    "claim_limit": "The exact full-flash match to c3 was checked before the original app boot. Later boot-associated NVS drift changed the full image to 4fcc. The final app startup was captured after the diagnostic full read; no claim is made that full flash remained equal to c3 after boot.",
+    "final_original_app_startup": {
+      "app_version": "6d7382b-dirty",
+      "capture_sha256": "347be8c4da9694cb9086c6989e1134c53d8c1fed0b43b2d36ef06a128ac966b2",
+      "loaded_offset": "0x20000"
+    },
+    "later_fresh_read_matches_postboot_observation": true,
+    "later_fresh_read_utc": "2026-10-14T11:28:11.782969+00:00",
+    "original_ota0_sha256": "67860a5f2a36c67fa36a19ca34badaf795dd003bd1240ebd2fc0dce375a2a48b",
+    "post_original_app_boot_full_observation_sha256": "4fcc8eb606747bd4cbb016de24e06a12e08d02fbe9628143b9a933a118c74ed3",
+    "postboot_drift_bytes_from_preboot_baseline": 5979,
+    "postboot_drift_bytes_outside_nvs": 0,
+    "postboot_drift_region": "NVS only",
+    "postboot_ota0_matches_original": true,
+    "postrun_baseline_manifest_sha256": "e97b47a4d642c88396c3aecb1c481be72f32a101d29f6161a1c491386c329015",
+    "postrun_read_result_sha256": "2b9a8709bd1e0241e33bfaa2f60d0f2b3d994f494655dab4ee8372a830130565",
+    "postrun_sanitized_map_sha256": "5f7cbdd92568bbede46ffc9e96d4139467afd71c7cac2e88b7e18c2baf73a4cc",
+    "preboot_full_flash_matches_run_baseline": true,
+    "preboot_full_flash_sha256": "c3b5b9c7bf15817fcb208769a01985692740939a29ca5506bc02f4e755884214",
+    "restoration_review_sha256": "cbcbe952863a4ea36e3a05b32e4c6dd388fab656838a5f0da2ec1ef2e0c65c5a",
+    "restore_readback_matches_original_ota0": true
+  },
+  "runner": {
+    "approved_root_gate_sha256": "680926ba7dc38aceaf77b14e72e9f6b8d19da7b9368b0cd51acd3a5c0781d890",
+    "input_manifest_sha256": "7110f04761e7ec1d7711f80300b5937b68bc01181a463b5093820bfa840c957a",
+    "result_json_sha256": "c0a9533c9226a02372c31bf38128a13cf72fc3552149754b573a16a999ee2e2e",
+    "runner_events_sha256": "e9a06d6f9dfc79d818338ea5d66a99d4cca6a7fb1e9e78a05a418276bcfaf40e",
+    "runner_sha256": "3c7e97d04c68b762390894f656b4f371f0e827b5690cae5a94f1c3e5f210f0ee",
+    "tests_sha256": "49588688dd515a094315b317374940369ec9232fbb1a3136b2d96c10df1e695b"
+  },
+  "schema": "wasmhome-public-e1-abc-trial-summary-v2",
+  "source": {
+    "commit": "8b3bddd729996853d212b9f678c2b6c6fb4d949f",
+    "tree": "db38a2b261c2ebcc259a362eb7c8b3d589e56009",
+    "worktree_clean": true
+  },
+  "stages": {
+    "aot": {
+      "benchmark_csv_rows": 0,
+      "captured_boots_with_panic": 192,
+      "exception_address": "0x81006136",
+      "failure": "LoadProhibited; required startup/test marker not captured; zero benchmark CSV rows",
+      "outcome": "failed_before_benchmark",
+      "panic_pc": "0x420b0fae",
+      "panic_type": "LoadProhibited",
+      "uart_sha256": "be30587d082129cd15024ac38e9375f2b1c06300304e418cc69aee800cd84fb4"
+    },
+    "interp": {
+      "benchmark_measurements": 30,
+      "benchmark_warmups": 5,
+      "boot_count": 1,
+      "csv_checksum": "valid",
+      "csv_rows_excluding_header": 30,
+      "memory_events": 67,
+      "outcome": "passed",
+      "outside_ota0_changed_bytes": 0,
+      "uart_sha256": "47ecc0c7fd98ee29e7f4b64d8d9f937a200697cfbe3f54946152eb63fb1ae616"
+    },
+    "native": {
+      "benchmark_measurements": 30,
+      "benchmark_warmups": 5,
+      "boot_count": 1,
+      "csv_checksum": "valid",
+      "csv_rows_excluding_header": 30,
+      "memory_events": 67,
+      "outcome": "passed",
+      "outside_ota0_changed_bytes": 0,
+      "uart_sha256": "096eb07135db369137e9ba1cbd0252794eb12e5fd7d95f8e4992ce26d94fb8c0"
+    }
+  },
+  "status": "failed",
+  "trial_id": "abc-8b3bddd-run01"
+}

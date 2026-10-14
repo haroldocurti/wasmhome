@@ -1,5 +1,33 @@
 # Próximos passos distribuídos entre agentes
 
+## Estado atual — 14/10/2026
+
+A #7 permanece concluída. A #11 teve aceite físico no ensaio
+`services-run03`, fonte `a91ff5e`: v1 e v2 passaram 45 critérios cada,
+com telemetria real DS18B20, histerese aprovada e GPIO5 lido pelo loopback em GPIO6.
+A restauração integral coincidiu com o backup antes e depois do boot de
+observação, e a captura final confirmou o firmware original executando.
+Essa passagem por duas imagens via serial não demonstra OTA.
+
+A #9 permanece aberta. O ensaio `abc-8b3bddd-run01` passou nativo e
+interpretado (5 aquecimentos, 30 medições e checksum `DBB2F0D4` por cenário),
+mas AOT falhou com `LoadProhibited` antes das medições. A inspeção do objeto
+Xtensa confirmou que o helper de relocação perdeu a gravação do imediato sob
+aliasing estrito. O port `.3` corrige esse helper com acessos alinhados de
+32 bits; 96 testes locais terminaram sem falhas, com um skip de junction
+Windows e codec C real executado. Ainda faltam novos builds e repetição A/B/C.
+
+Distribuição vigente entre Luna xhigh: proveniência revisa o port e o compilador;
+builds prepara três cenários em novo pin; serviços revisa o aceite e a evidência
+sanitizada da #11. O coordenador integra, publica e opera a placa com exclusividade.
+Após o aceite da #9, seguir #12 → #13/#14; #15 após #4/#7; #16/#17/#18 segundo
+suas dependências; #19 → piloto #20 → campanha #21; #22 → #23 → análise #24.
+As decisões de tamanho amostral e timeout continuam condicionadas ao piloto.
+
+[Evidência da tentativa A/B/C](evidence/aot-run-8b3bddd-2026-10-14/README.md)
+· [Evidência dos serviços](evidence/native-services-2026-10-14/README.md).
+
+
 Preparado em 13/10/2026 por solicitação do usuário. Modelo de todos os agentes:
 **Luna (`gpt-6-luna`), esforço `xhigh`**. Base da preparação:
 `9771e30a3edb667303f441076df77571f616ba18`. Este plano detalha o trabalho;

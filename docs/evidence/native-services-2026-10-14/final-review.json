@@ -1,0 +1,311 @@
+{
+  "artifacts": {
+    "aot": {
+      "bin_sha256": "7e36d7c18eb9fedcbed2e4714cb34e17f51b02979f69fdb7efbac660efd836c8",
+      "build_receipt_sha256": "5fc2f2a70c101404ff733716b3e3b811eabcf0b289fef0593d2cd4391a3d9f93",
+      "control_version": null,
+      "elf_sha256": "33efc054272748219af72a4c6ec260443d6fb7813d7a1a18c4a0fc300319f092",
+      "physically_executed": false,
+      "pins_verified_against_closed_inputs": true,
+      "sdkconfig_sha256": "4d3540000c35301fd99740a3b4bc3c2678495c78b7502af94cba56b9d9a71ead"
+    },
+    "control_v1": {
+      "bin_sha256": "c81d105226f85ee8ae6e925b53b51e096d59da9c7d4131c48179225e1e7eaeb4",
+      "build_receipt_sha256": "0d874de6ae37f506a7592a5c18ec2d7241eae1013c3a8a2418c702ff304f55df",
+      "control_version": 1,
+      "elf_sha256": "334d3b44f37b2d5e674189e54854082954625c670b5107b5a2cc91b3fbd625ec",
+      "physically_executed": true,
+      "pins_verified_against_closed_inputs": true,
+      "sdkconfig_sha256": "e3d35187e1e72500318421bd3ff0f98b87544cf01d115353af77f78ff28b3fdb"
+    },
+    "control_v2": {
+      "bin_sha256": "b8c7fe3cd7e40b127d52a69e5c84d5d0603834de57f2f9a1a0617fba98cbfccc",
+      "build_receipt_sha256": "0bbf100b67a19658a4c47105db395887eb18d9579cc228035f13bfcce56b7cd4",
+      "control_version": 2,
+      "elf_sha256": "109549d79f1af9acb678655ce82912f2b249f2f091de9dc15ccf68af2dc04729",
+      "physically_executed": true,
+      "pins_verified_against_closed_inputs": true,
+      "sdkconfig_sha256": "909a16d31de4066916e9cb8521b40f612a319fd45c1ad506963a7dc86a3831aa"
+    },
+    "interp": {
+      "bin_sha256": "8eb043b3ade6491ab497389feae84c74dc1afa1b5eb0ea8973e85e90d2a25edf",
+      "build_receipt_sha256": "76b4d3d9f634b10fb9470902620ef46be459ce1e50654e38466875d780ba02be",
+      "control_version": null,
+      "elf_sha256": "f511d5d16017b2c1512ab4d9406fb3509adc5b53f0313257f12f4175ea8002be",
+      "physically_executed": false,
+      "pins_verified_against_closed_inputs": true,
+      "sdkconfig_sha256": "df1ab0b75c2c861a0a4aef93103b551ee94f926442004f8247c49693467116c0"
+    },
+    "native": {
+      "bin_sha256": "99bd944e18e6cfb65b7e1087013b904edc4bc2167f0398712e86642d8a8523f1",
+      "build_receipt_sha256": "08630354c88b8ee8cf9e42a41d3c87605c5c83951efa7fc7dd8aef592eb6dc52",
+      "control_version": null,
+      "elf_sha256": "9b5174941d13210436ebf7998a9081c14367d2c9d0c0887ed0612992a90101d5",
+      "physically_executed": false,
+      "pins_verified_against_closed_inputs": true,
+      "sdkconfig_sha256": "d98ad8227edb3737c0413bfaf641f7dabead81b03fdc4dda0f51ade63b6832b1"
+    }
+  },
+  "configuration_summary": {
+    "benchmark_enabled": false,
+    "control_output_gpio": 5,
+    "gpio_observation": "firmware-reported GPIO6 input returned through CONTROL_RESULT; physical loopback wiring was user-confirmed",
+    "loopback_input_gpio": 6,
+    "measurement_limit": "No oscilloscope or independent voltage measurement was captured.",
+    "observer_fixture_enabled": false,
+    "persistent_phy_calibration_enabled": false,
+    "platform_diagnostics_enabled": false,
+    "sensor_gpio": 4
+  },
+  "criteria": {
+    "claim_limits": [
+      "Replay evidence covers cached response behavior.",
+      "Wrong-boot and conflicting-sample-ID rejection checks do not prove rejected callbacks were never invoked."
+    ],
+    "flash_scope": {
+      "baseline_sha256": "4fcc8eb606747bd4cbb016de24e06a12e08d02fbe9628143b9a933a118c74ed3",
+      "flash_bytes": 16777216,
+      "harness_requested_flash_or_ota": false,
+      "original_ota0_sha256": "67860a5f2a36c67fa36a19ca34badaf795dd003bd1240ebd2fc0dce375a2a48b",
+      "ota0_offset_bytes": 131072,
+      "ota0_size_bytes": 7340032,
+      "outside_ota0_changed_bytes": {
+        "control_v1": 0,
+        "control_v2": 0
+      },
+      "physical_runner_action": "installed each test image within ota_0 and restored the original ota_0 image"
+    },
+    "gpio_loopback": {
+      "checks_per_version": 7,
+      "measurement_limit": "The observed level is firmware-reported GPIO6 loopback, not an independent voltage instrument.",
+      "requested_level_matched_reported_input_level": true,
+      "status_code": 0
+    },
+    "harness": {
+      "control_v1": {
+        "checks_passed": 45,
+        "checks_total": 45,
+        "control_threshold_celsius": 25.0,
+        "distinct_valid_ds18b20_samples": 5,
+        "firmware_stimuli_celsius": [
+          25.0,
+          25.5,
+          25.25,
+          24.5,
+          24.75
+        ],
+        "firmware_stimuli_outcomes": [
+          "low",
+          "high",
+          "retained_high",
+          "low",
+          "retained_low"
+        ],
+        "foreign_boot_packets": 0,
+        "harness_flash_or_ota_write_request": false,
+        "harness_result": "passed",
+        "hysteresis_half_width_celsius": 0.5,
+        "replay_wrong_boot_conflict_busy_checks": "passed",
+        "sample_ids": [
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "control_v2": {
+        "checks_passed": 45,
+        "checks_total": 45,
+        "control_threshold_celsius": 30.0,
+        "distinct_valid_ds18b20_samples": 5,
+        "firmware_stimuli_celsius": [
+          30.0,
+          30.5,
+          30.25,
+          29.5,
+          29.75
+        ],
+        "firmware_stimuli_outcomes": [
+          "low",
+          "high",
+          "retained_high",
+          "low",
+          "retained_low"
+        ],
+        "foreign_boot_packets": 0,
+        "harness_flash_or_ota_write_request": false,
+        "harness_result": "passed",
+        "hysteresis_half_width_celsius": 0.5,
+        "replay_wrong_boot_conflict_busy_checks": "passed",
+        "sample_ids": [
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      }
+    },
+    "restoration": {
+      "final_startup_capture_sha256": "91452e5a3b1b473b9c07d6659ed25a0ea245926f3c8f94db39d4d6f5067e7fea",
+      "final_startup_loaded_offset": "0x20000",
+      "ota0_readback_matches_original_sha256": true,
+      "postboot_full_flash_observation_byte_equal_to_baseline": true,
+      "postboot_full_flash_observation_matches_baseline_sha256": true,
+      "preboot_full_flash_byte_equal_to_baseline": true,
+      "preboot_full_flash_matches_baseline_sha256": true,
+      "restored_app_loaded_offset": "0x20000",
+      "restored_app_version": "6d7382b-dirty",
+      "scope_note": "The full-flash equality observation followed the restored-app boot and preceded the final startup capture; no full-flash equality claim is made after that final startup reset."
+    }
+  },
+  "provenance": {
+    "approved_gate_sha256": "0776897e4dfcc9fe34163ce118a1482941489d17bce7e2f44794006dd53f78a6",
+    "approved_stage_order": [
+      "control_v1",
+      "control_v2"
+    ],
+    "closed_result_sha256": "bdba56ce97102f3572f73f7c61cf72a2150832230ce73a5836a0f33bc4d36573",
+    "input_manifest_sha256": "bee8b13f7535dab17de53cf57b160c8ca54e9432c29374a513dfdab939c1ea80",
+    "runner_input_validation": "all five candidate artifact, config, and build-receipt pins matched the closed input manifest",
+    "runner_source_sha256": "99b6f951edd5295ea5f5f21040ceb75737233f5bcd49ff522519f8a097a04472",
+    "source_checkout_clean": true,
+    "source_commit": "a91ff5efabbdd57a5bd742f5682bab1c3124e018",
+    "source_tree": "c0a09c694cc8e751b9d5f8122d07004c5da420ef"
+  },
+  "raw_hash_refs": {
+    "command_log_sha256": [
+      {
+        "capture_step": 1,
+        "sha256": "b9d46d691fff50cd9aafb25abcdbbc878b66af32cd77d3bc80292409fca2eeb4"
+      },
+      {
+        "capture_step": 2,
+        "sha256": "cc555c6bcc8bd07115f7bc00b0af285de468ddce8e63bcc270ecc366bf927164"
+      },
+      {
+        "capture_step": 3,
+        "sha256": "21a5b32b80e86fa982cfcad652f5ab2f9dda7b5428523ec00dc2d28e27f4e5fd"
+      },
+      {
+        "capture_step": 4,
+        "sha256": "92f0d328d3131830dbaa846ef692dd093ce4d17aad89cd0a5bd772ae4fca24ad"
+      },
+      {
+        "capture_step": 5,
+        "sha256": "313550da21df70e54a461ed84b96fcf8995f0714f6825728f39c3043dbaa4fe3"
+      },
+      {
+        "capture_step": 6,
+        "sha256": "e8879943f593c8725fef48fc8210632efd28ce6defe9bad5a8f284362200af31"
+      },
+      {
+        "capture_step": 7,
+        "sha256": "fc82e30a8358244d74c234b9d2b8e6b6402886b2703dbd9ef345b2adf551a2d1"
+      },
+      {
+        "capture_step": 8,
+        "sha256": "87abeadfca051daa08c074a0c6b3d19c494301b3b73785976267c541a131e979"
+      },
+      {
+        "capture_step": 9,
+        "sha256": "26b421a986b54d15ffc0ab799edb6e563b9d7d52dfc575808bd8ded38ba617f3"
+      },
+      {
+        "capture_step": 10,
+        "sha256": "15617eddfcbe2172a78daab45beda2e0d20e8559636470fb03252e92ab7e4dd0"
+      },
+      {
+        "capture_step": 11,
+        "sha256": "09eb62ec32557de6f2b38a7f27cdda6782ca0841c20ad0dc3c232eb882b72811"
+      },
+      {
+        "capture_step": 12,
+        "sha256": "a71f339b0fe3a337e8bcbac2eb8809e2c469a9a1b1d13d2dc3bf74ee6cf2d05d"
+      },
+      {
+        "capture_step": 13,
+        "sha256": "b292429c9f0285981abeb5ccacaf09dc6c5ca1f11fa2b3cf9ffb47c8b3fe4587"
+      },
+      {
+        "capture_step": 14,
+        "sha256": "8acef201e52c350b41cad3c6320e8f4283b47ae713cc6c28512aee46800998b8"
+      },
+      {
+        "capture_step": 15,
+        "sha256": "b0d9a6d94d8155abb4b51dfc81f055118ba14ec9c3bd5465971dc68a82622b87"
+      },
+      {
+        "capture_step": 16,
+        "sha256": "8120eaaa41d1076dffe90d276186bf53f2ee3367b8ed1b6340e9e124cc6c2294"
+      },
+      {
+        "capture_step": 17,
+        "sha256": "a3f8e51c12e5cd74a2f850f934806428b991b4a677946a071eb5ea2b97e5d733"
+      },
+      {
+        "capture_step": 18,
+        "sha256": "55070fe3e920f3d48a2586a9696af057672e542e995d529eaa8cc1d711987940"
+      },
+      {
+        "capture_step": 19,
+        "sha256": "8b2a5264a23f560f2e2f77c73b3635c7511fc4ce2557774ecb8c1c6b93fed848"
+      },
+      {
+        "capture_step": 20,
+        "sha256": "ec87c3558f4b7b744ca2be95f86274fe724933af0bbc28f0b5a2e8abcab7b615"
+      }
+    ],
+    "flash_captures": {
+      "control_v1_firmware_readback_sha256": "c81d105226f85ee8ae6e925b53b51e096d59da9c7d4131c48179225e1e7eaeb4",
+      "control_v1_full_flash_sha256": "e19bde527887e71c9608b8ff86c3855e2a939b112c5d68aae0bbd195a3a82e62",
+      "control_v2_firmware_readback_sha256": "b8c7fe3cd7e40b127d52a69e5c84d5d0603834de57f2f9a1a0617fba98cbfccc",
+      "control_v2_full_flash_sha256": "674e968a6ca6a34775bb164c885c142380d1ad552caf085085b5472ad9dcb455",
+      "original_ota0_image_sha256": "67860a5f2a36c67fa36a19ca34badaf795dd003bd1240ebd2fc0dce375a2a48b",
+      "pre_write_full_flash_sha256": "4fcc8eb606747bd4cbb016de24e06a12e08d02fbe9628143b9a933a118c74ed3",
+      "restored_full_flash_postboot_observation_sha256": "4fcc8eb606747bd4cbb016de24e06a12e08d02fbe9628143b9a933a118c74ed3",
+      "restored_full_flash_preboot_sha256": "4fcc8eb606747bd4cbb016de24e06a12e08d02fbe9628143b9a933a118c74ed3",
+      "restored_ota0_readback_sha256": "67860a5f2a36c67fa36a19ca34badaf795dd003bd1240ebd2fc0dce375a2a48b"
+    },
+    "harness_records": {
+      "control_v1": {
+        "events_sha256": "f53d913d374a5b49b009933ffe0c35b6eb315f25437c95c8483a4a4ddefa02fc",
+        "manifest_sha256": "a430b598092a95ca2fd88cd831968a83a89ba65172a1738378223841829a7973",
+        "result_sha256": "1df78cdacca3c4b2873e0bb0bcbaaf9acff78d6f63fea2af0f8c23299da79b1a"
+      },
+      "control_v2": {
+        "events_sha256": "929d18dde310442fe526958e70937f593d0525adeadda02c46043e1c904d563e",
+        "manifest_sha256": "6e3358666cf1484d7de00b8795a0bb5c12528a37a7432e417fbad31565521308",
+        "result_sha256": "fa2c7b518521e861f6e46c0d085d9975a1f8e7d2b3abece5a40eaf4c49b372b6"
+      }
+    },
+    "runner_events_sha256": "9e4df547e842dcf7d3f9534d8028abe2df73d8a62d0d72effa80c5128262c873",
+    "session_result_sha256": "bdba56ce97102f3572f73f7c61cf72a2150832230ce73a5836a0f33bc4d36573",
+    "uart_captures": {
+      "control_v1_boot_sha256": "ab7407ff8cd7ecd245881202ce3b1e9f25253edd22253ca1e1f5a9632beaf443",
+      "control_v2_boot_sha256": "9062c78f3b3cd4df30c808e215a1c4768c25883164e331d9aafb6d569ff0a2bf",
+      "final_original_app_startup_sha256": "91452e5a3b1b473b9c07d6659ed25a0ea245926f3c8f94db39d4d6f5067e7fea",
+      "restored_original_app_boot_sha256": "941dca21c7b0ea6c5d000a169d09de09f1c2af11610a17d60e5b52611a5f4a56"
+    }
+  },
+  "review_date": "2026-10-14",
+  "run": {
+    "closed": true,
+    "execution_scope": [
+      "control_v1",
+      "control_v2"
+    ],
+    "id": "services-run03",
+    "runner_errors": [],
+    "runner_exit_code": 0,
+    "runner_return_rule": "exit status 0 when result status is passed",
+    "status": "passed"
+  },
+  "sanitization": {
+    "packet_contains_only_summaries_and_hash_references": true,
+    "private_filesystem_paths_and_device_addresses_included": false,
+    "raw_firmware_configs_flash_captures_and_uart_text_included": false
+  },
+  "schema": "wasmhome-services-run03-finalreview-v1"
+}

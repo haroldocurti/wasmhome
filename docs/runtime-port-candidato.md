@@ -1,11 +1,15 @@
-Atualização de 14/10/2026: o candidato atual é `2.4.5-wasmhome.2`.
-Ele corrige a tradução DROM → IROM no ESP32-S3 e substitui a desativação
-global de cache por sincronização de faixas do SDK IDF 5.2.6, após cópia
-e após relocação. Literal e código são sincronizados separadamente.
-A dependência `esp_mm` é explícita e os erros de sincronização impedem a execução.
-O novo header do port tem presença e hash verificados pelo materializador.
-Os registros abaixo descrevem a revisão anterior `.1` e continuam históricos.
-A revisão `.2` ainda exige novos builds A/B/C e validação física; a #9 permanece aberta.
+Atualização de 14/10/2026: o candidato atual é `2.4.5-wasmhome.3`.
+A revisão `.2` corrigiu os aliases DROM/IROM e sincronizou cache após cópia e
+relocação, mas o ensaio físico ainda falhou em AOT com `LoadProhibited`.
+O objeto Xtensa desse build omite a gravação do imediato em relocação por
+violação de aliasing estrito no helper original. A revisão `.3` usa operações
+alinhadas de 32 bits com máscara e deslocamento, preservando bytes vizinhos,
+e mantém as proteções e a sincronização do SDK. O helper passou em testes de
+alinhamento, endianidade e otimização e em compilação isolada com o GCC Xtensa
+real. Ainda exige novos builds A/B/C e repetição na placa; a #9 permanece aberta.
+[Diagnóstico e validações](evidence/aot-alias-fix-2026-10-14/README.md).
+A reprodução do compilador reutiliza o LLVM original verificado, sem exigir
+uma nova compilação de LLVM. Os registros abaixo preservam o histórico `.1`.
 
 # Port candidato WAMR 2.4.5 para E1
 

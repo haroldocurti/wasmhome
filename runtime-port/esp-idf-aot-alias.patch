@@ -1,0 +1,81 @@
+--- a/core/iwasm/aot/arch/aot_reloc_xtensa.c
++++ b/core/iwasm/aot/arch/aot_reloc_xtensa.c
+@@ -153,37 +153,54 @@
+ /*
+  * CPU like esp32 can read and write data through the instruction bus, but only
+  * in a word aligned manner; non-word-aligned access will cause a CPU exception.
+- * This function uses a world aligned manner to write 16bit value to instruction
+- * address.
++ * Replace the two immediate bytes with aligned 32-bit read-modify-write
++ * operations.  Using a typed scratch byte array here violates strict aliasing:
++ * optimized Xtensa builds can discard the store entirely.  Xtensa's instruction
++ * bus also cannot safely receive byte or halfword stores.
+  */
+-static void
+-put_imm16_to_addr(int16 imm16, int16 *addr)
+-{
+-    int8 bytes[8];
+-    int32 *addr_aligned1, *addr_aligned2;
+-
+-    addr_aligned1 = (int32 *)((intptr_t)addr & ~3);
+-
+-    if ((intptr_t)addr % 4 != 3) {
+-        *(int32 *)bytes = *addr_aligned1;
+-        *(int16 *)(bytes + ((intptr_t)addr % 4)) = imm16;
+-        *addr_aligned1 = *(int32 *)bytes;
+-    }
+-    else {
+-        addr_aligned2 = (int32 *)(((intptr_t)addr + 3) & ~3);
+-        *(int32 *)bytes = *addr_aligned1;
+-        *(int32 *)(bytes + 4) = *addr_aligned2;
+-        *(int16 *)(bytes + 3) = imm16;
+-        memcpy(addr_aligned1, bytes, 8);
+-    }
+-}
+-
+ static union {
+     int a;
+     char b;
+ } __ue = { .a = 1 };
+ 
+ #define is_little_endian() (__ue.b == 1)
++
++static void
++put_imm16_to_addr(int16 imm16, int16 *addr)
++{
++    uintptr_t address = (uintptr_t)(void *)addr;
++    uintptr_t aligned1 = address & ~(uintptr_t)3;
++    unsigned lane = (unsigned)(address & 3);
++    uint32 *word1 = (uint32 *)(void *)aligned1;
++    uint32 value1 = *word1;
++    uint16 bits = (uint16)imm16;
++
++    if (lane != 3) {
++        unsigned shift = (is_little_endian() ? lane : 2 - lane) * 8;
++        uint32 mask = UINT32_C(0xffff) << shift;
++
++        *word1 = (value1 & ~mask) | ((uint32)bits << shift);
++    }
++    else {
++        uintptr_t aligned2 = (address + 3) & ~(uintptr_t)3;
++        uint32 *word2 = (uint32 *)(void *)aligned2;
++        uint32 value2 = *word2;
++
++        if (is_little_endian()) {
++            value1 = (value1 & UINT32_C(0x00ffffff))
++                     | ((uint32)(bits & UINT16_C(0x00ff)) << 24);
++            value2 = (value2 & UINT32_C(0xffffff00)) | ((uint32)bits >> 8);
++        }
++        else {
++            value1 = (value1 & UINT32_C(0xffffff00)) | ((uint32)bits >> 8);
++            value2 = (value2 & UINT32_C(0x00ffffff))
++                     | ((uint32)(bits & UINT16_C(0x00ff)) << 24);
++        }
++
++        *word1 = value1;
++        *word2 = value2;
++    }
++}
+ 
+ #if !defined(__packed)
+ /*

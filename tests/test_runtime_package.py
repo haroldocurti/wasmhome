@@ -15,7 +15,7 @@ class RuntimePackageTests(unittest.TestCase):
     def fixture(self, root, add_header=False):
         port = root / "runtime-port"
         port.mkdir()
-        metadata = b'version: "2.4.5-wasmhome.2"\ndependencies:\n  idf: "==5.2.6"\n'
+        metadata = b'version: "2.4.5-wasmhome.3"\ndependencies:\n  idf: "==5.2.6"\n'
         (port / "idf_component.yml").write_bytes(metadata)
         pins = {}
         for key, name in (("upstream", "wamr"), ("app_framework", "app-framework")):
@@ -33,7 +33,7 @@ class RuntimePackageTests(unittest.TestCase):
             url = "https://example.invalid/" + name + ".git"
             git("remote", "add", "origin", url)
             pins[key] = dict(url=url, revision=git("rev-parse", "HEAD"))
-        lock = dict(schema="wasmhome-runtime-port-v1", component="wasmhome/wasm-micro-runtime", version="2.4.5-wasmhome.2", aot_version=5,
+        lock = dict(schema="wasmhome-runtime-port-v1", component="wasmhome/wasm-micro-runtime", version="2.4.5-wasmhome.3", aot_version=5,
                     patches=[], patched_files={}, metadata_sha256=hashlib.sha256(metadata).hexdigest(), **pins)
         files = {path: (root / "build-runtime-port/sources/wamr" / path).read_bytes() for path in ("core/config.h", "core/version.h", "core/iwasm/common/wasm_runtime_common.c")}
         files["wamr-app-framework/LICENSE"] = b"fixture\n"
