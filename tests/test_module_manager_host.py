@@ -123,8 +123,8 @@ STUBS = {
         #pragma once
         #include <stddef.h>
         #include <stdint.h>
-        int mbedtls_sha256_ret(const unsigned char *input, size_t ilen,
-                               unsigned char output[32], int is224);
+        int mbedtls_sha256(const unsigned char *input, size_t ilen,
+                           unsigned char output[32], int is224);
     ''',
     "wasm_export.h": r'''
         #pragma once
@@ -482,7 +482,7 @@ static void fake_fire_timer(unsigned index)
     assert(index < timer_handle_count && timer_handles[index]);
     timer_handles[index]->callback(timer_handles[index]->arg);
 }
-int mbedtls_sha256_ret(const unsigned char *in, size_t n, unsigned char out[32], int is224)
+int mbedtls_sha256(const unsigned char *in, size_t n, unsigned char out[32], int is224)
 {
     (void)is224; uint32_t h = 2166136261u; for (size_t i = 0; i < n; ++i) h = (h ^ in[i]) * 16777619u;
     for (unsigned i = 0; i < 32; ++i) { h = h * 1664525u + 1013904223u; out[i] = (uint8_t)(h >> 24); } return 0;

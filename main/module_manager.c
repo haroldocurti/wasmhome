@@ -571,7 +571,8 @@ module_memory_event(const char *phase, const char *role, const char *status)
            allocation.allocator_peak_bytes, allocation.allocator_calls,
            allocation.allocator_failures, allocation.runtime_live_bytes,
            allocation.linear_memory_live_bytes, allocation.artifact_live_bytes,
-           queue_payload_bytes, steady_worker_stack_bytes, persistent_watchdog_slots,
+           queue_payload_bytes, steady_worker_stack_bytes,
+           (unsigned)persistent_watchdog_slots,
            (unsigned)telemetry_hwm_words, (unsigned)control_hwm_words,
            (uint64_t)CONFIG_WASMHOME_MODULE_ALLOCATOR_CAP_BYTES,
            (unsigned)CONFIG_WASMHOME_MODULE_MAX_ARTIFACT_BYTES,
@@ -590,7 +591,8 @@ module_memory_event(const char *phase, const char *role, const char *status)
            allocation.allocator_peak_bytes, allocation.allocator_calls,
            allocation.allocator_failures, allocation.runtime_live_bytes,
            allocation.linear_memory_live_bytes, allocation.artifact_live_bytes,
-           queue_payload_bytes, steady_worker_stack_bytes, persistent_watchdog_slots,
+           queue_payload_bytes, steady_worker_stack_bytes,
+           (unsigned)persistent_watchdog_slots,
            (unsigned)telemetry_hwm_words, (unsigned)control_hwm_words,
            (uint64_t)CONFIG_WASMHOME_MODULE_ALLOCATOR_CAP_BYTES,
            (unsigned)CONFIG_WASMHOME_MODULE_MAX_ARTIFACT_BYTES,
@@ -844,7 +846,7 @@ slot_load(module_slot_t *slot, wh_module_role_t role,
     slot->artifact_size = image->size;
     memcpy(slot->artifact, image->bytes, image->size);
     module_memory_event("artifact_copied", memory_role_name(role, candidate), "ok");
-    if (mbedtls_sha256_ret(slot->artifact, slot->artifact_size, slot->digest, 0) != 0) {
+    if (mbedtls_sha256(slot->artifact, slot->artifact_size, slot->digest, 0) != 0) {
         slot_release(slot);
         return ESP_FAIL;
     }
