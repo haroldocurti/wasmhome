@@ -6,7 +6,9 @@ violação de aliasing estrito no helper original. A revisão `.3` usa operaçõ
 alinhadas de 32 bits com máscara e deslocamento, preservando bytes vizinhos,
 e mantém as proteções e a sincronização do SDK. O helper passou em testes de
 alinhamento, endianidade e otimização e em compilação isolada com o GCC Xtensa
-real. Ainda exige novos builds A/B/C e repetição na placa; a #9 permanece aberta.
+real. Os três novos builds e o ensaio `abc-6317fa9-run01` passaram na placa,
+com checksum e memória por fase; a #9 teve aceite de viabilidade mínima.
+[Aceite físico e limites da restauração](evidence/e1-physical-2026-10-14/README.md).
 [Diagnóstico e validações](evidence/aot-alias-fix-2026-10-14/README.md).
 A reprodução do compilador reutiliza o LLVM original verificado, sem exigir
 uma nova compilação de LLVM. Os registros abaixo preservam o histórico `.1`.

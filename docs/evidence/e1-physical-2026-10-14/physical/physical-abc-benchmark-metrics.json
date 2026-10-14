@@ -1,0 +1,1219 @@
+{
+  "approved_gate_sha256": "59101f0a25fb87233c9ad114f0ed5f613bc7eeeb3c5e08188bce4deda9428b7b",
+  "exclusions": [
+    "No total SRAM-plus-PSRAM sum.",
+    "Static ELF-derived memory is not added to runtime heap.",
+    "No raw UART lines or private paths."
+  ],
+  "input_manifest_sha256": "3e271f03b924d865d34bc770f7517520b8569973e4b7e43d4c529416c23db983",
+  "methodology": {
+    "boots_per_scenario": 1,
+    "heap_interpretation": "internal dynamic heap only; PSRAM reported separately, not summed",
+    "measured_calls": 30,
+    "memory_events_per_scenario": 67,
+    "memory_scope": "dynamic_heap point samples by phase",
+    "memory_unit": "bytes",
+    "phase_peak": "not instrumented",
+    "repeatability_limit": "one session per scenario; not independent repeated updates or a campaign-level conclusion",
+    "timing_unit": "microseconds",
+    "warmup_calls": 5
+  },
+  "provenance": {
+    "approved_gate_sha256": "59101f0a25fb87233c9ad114f0ed5f613bc7eeeb3c5e08188bce4deda9428b7b",
+    "input_manifest_sha256": "3e271f03b924d865d34bc770f7517520b8569973e4b7e43d4c529416c23db983",
+    "result_json_sha256": "3a865350633e761ed97959d1062881293e49095344dff5502429fc017382585c",
+    "session_manifest_sha256": "c24404b198edee97d22af53b37a41726b570f551f43fc256d920a264f31fac7e"
+  },
+  "scenarios": [
+    {
+      "artifact_sha256": {
+        "bin": "b3cfc8710c8cdd853fe088e3936ea91c3a7ce708bee6260c5e73f96c83a18795",
+        "elf": "bbb89321e0e1a223e74ed4ba8196da163e909e50955552c64b87c62c4aed8fee"
+      },
+      "boot_sessions": 1,
+      "checked_warmup_calls": 5,
+      "checksum": "0xDBB2F0D4",
+      "csv_heap_metrics_bytes": {
+        "heap_after_instantiate": {
+          "max": 265159,
+          "mean": 265159,
+          "median": 265159.0,
+          "min": 265159
+        },
+        "heap_after_load": {
+          "max": 265159,
+          "mean": 265159,
+          "median": 265159.0,
+          "min": 265159
+        },
+        "heap_before": {
+          "max": 265159,
+          "mean": 265159,
+          "median": 265159.0,
+          "min": 265159
+        },
+        "heap_min": {
+          "max": 264951,
+          "mean": 264951,
+          "median": 264951.0,
+          "min": 264951
+        }
+      },
+      "measured_calls": 30,
+      "memory_events": 67,
+      "memory_phases": [
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 383763,
+            "free_bytes": {
+              "max": 265159,
+              "mean": 265159,
+              "median": 265159,
+              "min": 265159
+            },
+            "largest_free_block_bytes": {
+              "max": 167936,
+              "mean": 167936,
+              "median": 167936,
+              "min": 167936
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "before_runtime",
+          "phase_status": "measured",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8384700,
+              "mean": 8384700,
+              "median": 8384700,
+              "min": 8384700
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 383763,
+            "free_bytes": {
+              "max": 265159,
+              "mean": 265159,
+              "median": 265159,
+              "min": 265159
+            },
+            "largest_free_block_bytes": {
+              "max": 167936,
+              "mean": 167936,
+              "median": 167936,
+              "min": 167936
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "after_init",
+          "phase_status": "not_applicable",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8384700,
+              "mean": 8384700,
+              "median": 8384700,
+              "min": 8384700
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 383763,
+            "free_bytes": {
+              "max": 265159,
+              "mean": 265159,
+              "median": 265159,
+              "min": 265159
+            },
+            "largest_free_block_bytes": {
+              "max": 167936,
+              "mean": 167936,
+              "median": 167936,
+              "min": 167936
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "after_load",
+          "phase_status": "not_applicable",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8384700,
+              "mean": 8384700,
+              "median": 8384700,
+              "min": 8384700
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 383763,
+            "free_bytes": {
+              "max": 265159,
+              "mean": 265159,
+              "median": 265159,
+              "min": 265159
+            },
+            "largest_free_block_bytes": {
+              "max": 167936,
+              "mean": 167936,
+              "median": 167936,
+              "min": 167936
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "after_instantiate",
+          "phase_status": "not_applicable",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8384700,
+              "mean": 8384700,
+              "median": 8384700,
+              "min": 8384700
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 383763,
+            "free_bytes": {
+              "max": 269735,
+              "mean": 269735,
+              "median": 269735,
+              "min": 269735
+            },
+            "largest_free_block_bytes": {
+              "max": 167936,
+              "mean": 167936,
+              "median": 167936,
+              "min": 167936
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "after_exec_env_lookup",
+          "phase_status": "not_applicable",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8384700,
+              "mean": 8384700,
+              "median": 8384700,
+              "min": 8384700
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 383763,
+            "free_bytes": {
+              "max": 269735,
+              "mean": 269735,
+              "median": 269735,
+              "min": 269735
+            },
+            "largest_free_block_bytes": {
+              "max": 167936,
+              "mean": 167936,
+              "median": 167936,
+              "min": 167936
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "after_warmup",
+          "phase_status": "ok",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8384700,
+              "mean": 8384700,
+              "median": 8384700,
+              "min": 8384700
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 383763,
+            "free_bytes": {
+              "max": 269735,
+              "mean": 269717.13,
+              "median": 269727.0,
+              "min": 269699
+            },
+            "largest_free_block_bytes": {
+              "max": 167936,
+              "mean": 167936,
+              "median": 167936.0,
+              "min": 167936
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "before_execution",
+          "phase_status": "measured",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8384700,
+              "mean": 8384700,
+              "median": 8384700.0,
+              "min": 8384700
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536.0,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 30
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 383763,
+            "free_bytes": {
+              "max": 269735,
+              "mean": 269716.07,
+              "median": 269727.0,
+              "min": 269699
+            },
+            "largest_free_block_bytes": {
+              "max": 167936,
+              "mean": 167936,
+              "median": 167936.0,
+              "min": 167936
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "execution",
+          "phase_status": "ok",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8384700,
+              "mean": 8384700,
+              "median": 8384700.0,
+              "min": 8384700
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536.0,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 30
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 383763,
+            "free_bytes": {
+              "max": 269699,
+              "mean": 269699,
+              "median": 269699,
+              "min": 269699
+            },
+            "largest_free_block_bytes": {
+              "max": 167936,
+              "mean": 167936,
+              "median": 167936,
+              "min": 167936
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "after_release",
+          "phase_status": "ok",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8384700,
+              "mean": 8384700,
+              "median": 8384700,
+              "min": 8384700
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        }
+      ],
+      "scenario": "native",
+      "timing_interpretation": "Not applicable: native mode does not load a WAMR module; raw zero fields are not zero-cost measurements.",
+      "timing_us": {
+        "execute_us": {
+          "max": 131,
+          "mean": 124.33,
+          "median": 125.5,
+          "min": 118
+        },
+        "instantiate_us": null,
+        "load_us": null
+      },
+      "uart_log_sha256": "b78c65391197ab932867df2621432147605ddb04d0a11f8691b2351a7288882d"
+    },
+    {
+      "artifact_sha256": {
+        "bin": "81b407edfafbeab7021499dc6db4b5f8ead3cfd5c22e6f904ef10d2de84d3d5f",
+        "elf": "510cdb74bd0b0e25cc61ccc706359a8e7d326bd76cb0f9a5c2eedc72e25c1154"
+      },
+      "boot_sessions": 1,
+      "checked_warmup_calls": 5,
+      "checksum": "0xDBB2F0D4",
+      "csv_heap_metrics_bytes": {
+        "heap_after_instantiate": {
+          "max": 262615,
+          "mean": 262615,
+          "median": 262615.0,
+          "min": 262615
+        },
+        "heap_after_load": {
+          "max": 263483,
+          "mean": 263483,
+          "median": 263483.0,
+          "min": 263483
+        },
+        "heap_before": {
+          "max": 264207,
+          "mean": 264207,
+          "median": 264207.0,
+          "min": 264207
+        },
+        "heap_min": {
+          "max": 257187,
+          "mean": 256516.73,
+          "median": 257139.0,
+          "min": 255655
+        }
+      },
+      "measured_calls": 30,
+      "memory_events": 67,
+      "memory_phases": [
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 382963,
+            "free_bytes": {
+              "max": 264359,
+              "mean": 264359,
+              "median": 264359,
+              "min": 264359
+            },
+            "largest_free_block_bytes": {
+              "max": 167936,
+              "mean": 167936,
+              "median": 167936,
+              "min": 167936
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "before_runtime",
+          "phase_status": "measured",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8384700,
+              "mean": 8384700,
+              "median": 8384700,
+              "min": 8384700
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 382963,
+            "free_bytes": {
+              "max": 264207,
+              "mean": 264207,
+              "median": 264207,
+              "min": 264207
+            },
+            "largest_free_block_bytes": {
+              "max": 167936,
+              "mean": 167936,
+              "median": 167936,
+              "min": 167936
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "after_init",
+          "phase_status": "ok",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8384700,
+              "mean": 8384700,
+              "median": 8384700,
+              "min": 8384700
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 382963,
+            "free_bytes": {
+              "max": 263483,
+              "mean": 263483,
+              "median": 263483,
+              "min": 263483
+            },
+            "largest_free_block_bytes": {
+              "max": 167936,
+              "mean": 167936,
+              "median": 167936,
+              "min": 167936
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "after_load",
+          "phase_status": "ok",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8384700,
+              "mean": 8384700,
+              "median": 8384700,
+              "min": 8384700
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 382963,
+            "free_bytes": {
+              "max": 262615,
+              "mean": 262615,
+              "median": 262615,
+              "min": 262615
+            },
+            "largest_free_block_bytes": {
+              "max": 167936,
+              "mean": 167936,
+              "median": 167936,
+              "min": 167936
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "after_instantiate",
+          "phase_status": "ok",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8310960,
+              "mean": 8310960,
+              "median": 8310960,
+              "min": 8310960
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 382963,
+            "free_bytes": {
+              "max": 257383,
+              "mean": 257383,
+              "median": 257383,
+              "min": 257383
+            },
+            "largest_free_block_bytes": {
+              "max": 155648,
+              "mean": 155648,
+              "median": 155648,
+              "min": 155648
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "after_exec_env_lookup",
+          "phase_status": "ok",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8310960,
+              "mean": 8310960,
+              "median": 8310960,
+              "min": 8310960
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 382963,
+            "free_bytes": {
+              "max": 257383,
+              "mean": 257383,
+              "median": 257383,
+              "min": 257383
+            },
+            "largest_free_block_bytes": {
+              "max": 155648,
+              "mean": 155648,
+              "median": 155648,
+              "min": 155648
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "after_warmup",
+          "phase_status": "ok",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8310960,
+              "mean": 8310960,
+              "median": 8310960,
+              "min": 8310960
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 382963,
+            "free_bytes": {
+              "max": 257383,
+              "mean": 257371.27,
+              "median": 257379.0,
+              "min": 257359
+            },
+            "largest_free_block_bytes": {
+              "max": 155648,
+              "mean": 155648,
+              "median": 155648.0,
+              "min": 155648
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "before_execution",
+          "phase_status": "measured",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8310960,
+              "mean": 8310960,
+              "median": 8310960.0,
+              "min": 8310960
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536.0,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 30
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 382963,
+            "free_bytes": {
+              "max": 257383,
+              "mean": 257371.27,
+              "median": 257379.0,
+              "min": 257359
+            },
+            "largest_free_block_bytes": {
+              "max": 155648,
+              "mean": 155648,
+              "median": 155648.0,
+              "min": 155648
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "execution",
+          "phase_status": "ok",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8310960,
+              "mean": 8310960,
+              "median": 8310960.0,
+              "min": 8310960
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536.0,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 30
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 382963,
+            "free_bytes": {
+              "max": 268795,
+              "mean": 268795,
+              "median": 268795,
+              "min": 268795
+            },
+            "largest_free_block_bytes": {
+              "max": 167936,
+              "mean": 167936,
+              "median": 167936,
+              "min": 167936
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "after_release",
+          "phase_status": "ok",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8384700,
+              "mean": 8384700,
+              "median": 8384700,
+              "min": 8384700
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        }
+      ],
+      "scenario": "interp",
+      "timing_interpretation": "Single observed load/instantiate durations; execution timing summarizes 30 calls in one session.",
+      "timing_us": {
+        "execute_us": {
+          "max": 10268,
+          "mean": 9135.7,
+          "median": 9111.0,
+          "min": 9001
+        },
+        "instantiate_us": 2161,
+        "load_us": 1075
+      },
+      "uart_log_sha256": "fe688ab9569b7d5c1f30b15cb91ad50a7461f40dbff3a7ffaf71ad671b5e52a4"
+    },
+    {
+      "artifact_sha256": {
+        "bin": "616543f91f0dab956709b2f512625d0e567187ee7b410f10b8ff96bfb54fe9ee",
+        "elf": "696b2525f5f19ee543a39ba12819e564e2aa4a8a478e7eafb9e1551d998be323"
+      },
+      "boot_sessions": 1,
+      "checked_warmup_calls": 5,
+      "checksum": "0xDBB2F0D4",
+      "csv_heap_metrics_bytes": {
+        "heap_after_instantiate": {
+          "max": 258583,
+          "mean": 258583,
+          "median": 258583.0,
+          "min": 258583
+        },
+        "heap_after_load": {
+          "max": 259579,
+          "mean": 259579,
+          "median": 259579.0,
+          "min": 259579
+        },
+        "heap_before": {
+          "max": 260943,
+          "mean": 260943,
+          "median": 260943.0,
+          "min": 260943
+        },
+        "heap_min": {
+          "max": 254411,
+          "mean": 253790.2,
+          "median": 254407.0,
+          "min": 252879
+        }
+      },
+      "measured_calls": 30,
+      "memory_events": 67,
+      "memory_phases": [
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 379699,
+            "free_bytes": {
+              "max": 261095,
+              "mean": 261095,
+              "median": 261095,
+              "min": 261095
+            },
+            "largest_free_block_bytes": {
+              "max": 163840,
+              "mean": 163840,
+              "median": 163840,
+              "min": 163840
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "before_runtime",
+          "phase_status": "measured",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8384700,
+              "mean": 8384700,
+              "median": 8384700,
+              "min": 8384700
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 379699,
+            "free_bytes": {
+              "max": 260943,
+              "mean": 260943,
+              "median": 260943,
+              "min": 260943
+            },
+            "largest_free_block_bytes": {
+              "max": 163840,
+              "mean": 163840,
+              "median": 163840,
+              "min": 163840
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "after_init",
+          "phase_status": "ok",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8384700,
+              "mean": 8384700,
+              "median": 8384700,
+              "min": 8384700
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 379699,
+            "free_bytes": {
+              "max": 259579,
+              "mean": 259579,
+              "median": 259579,
+              "min": 259579
+            },
+            "largest_free_block_bytes": {
+              "max": 163840,
+              "mean": 163840,
+              "median": 163840,
+              "min": 163840
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "after_load",
+          "phase_status": "ok",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8380364,
+              "mean": 8380364,
+              "median": 8380364,
+              "min": 8380364
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 379699,
+            "free_bytes": {
+              "max": 258583,
+              "mean": 258583,
+              "median": 258583,
+              "min": 258583
+            },
+            "largest_free_block_bytes": {
+              "max": 163840,
+              "mean": 163840,
+              "median": 163840,
+              "min": 163840
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "after_instantiate",
+          "phase_status": "ok",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8306624,
+              "mean": 8306624,
+              "median": 8306624,
+              "min": 8306624
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 379699,
+            "free_bytes": {
+              "max": 254607,
+              "mean": 254607,
+              "median": 254607,
+              "min": 254607
+            },
+            "largest_free_block_bytes": {
+              "max": 155648,
+              "mean": 155648,
+              "median": 155648,
+              "min": 155648
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "after_exec_env_lookup",
+          "phase_status": "ok",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8306624,
+              "mean": 8306624,
+              "median": 8306624,
+              "min": 8306624
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 379699,
+            "free_bytes": {
+              "max": 254607,
+              "mean": 254607,
+              "median": 254607,
+              "min": 254607
+            },
+            "largest_free_block_bytes": {
+              "max": 155648,
+              "mean": 155648,
+              "median": 155648,
+              "min": 155648
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "after_warmup",
+          "phase_status": "ok",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8306624,
+              "mean": 8306624,
+              "median": 8306624,
+              "min": 8306624
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 379699,
+            "free_bytes": {
+              "max": 254607,
+              "mean": 254597.4,
+              "median": 254603.0,
+              "min": 254583
+            },
+            "largest_free_block_bytes": {
+              "max": 155648,
+              "mean": 155648,
+              "median": 155648.0,
+              "min": 155648
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "before_execution",
+          "phase_status": "measured",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8306624,
+              "mean": 8306624,
+              "median": 8306624.0,
+              "min": 8306624
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536.0,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 30
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 379699,
+            "free_bytes": {
+              "max": 254607,
+              "mean": 254590.2,
+              "median": 254595.0,
+              "min": 254411
+            },
+            "largest_free_block_bytes": {
+              "max": 155648,
+              "mean": 155648,
+              "median": 155648.0,
+              "min": 155648
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "execution",
+          "phase_status": "ok",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8306624,
+              "mean": 8306624,
+              "median": 8306624.0,
+              "min": 8306624
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536.0,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 30
+        },
+        {
+          "internal_dynamic_heap": {
+            "capacity_bytes": 379699,
+            "free_bytes": {
+              "max": 265535,
+              "mean": 265535,
+              "median": 265535,
+              "min": 265535
+            },
+            "largest_free_block_bytes": {
+              "max": 163840,
+              "mean": 163840,
+              "median": 163840,
+              "min": 163840
+            },
+            "phase_peak": "not_instrumented"
+          },
+          "phase": "after_release",
+          "phase_status": "ok",
+          "psram": {
+            "capacity_bytes": 8388608,
+            "free_bytes": {
+              "max": 8384700,
+              "mean": 8384700,
+              "median": 8384700,
+              "min": 8384700
+            },
+            "largest_free_block_bytes": {
+              "max": 8257536,
+              "mean": 8257536,
+              "median": 8257536,
+              "min": 8257536
+            },
+            "phase_peak": "not_instrumented",
+            "status": "measured"
+          },
+          "samples": 1
+        }
+      ],
+      "scenario": "aot",
+      "timing_interpretation": "Single observed load/instantiate durations; execution timing summarizes 30 calls in one session.",
+      "timing_us": {
+        "execute_us": {
+          "max": 376,
+          "mean": 250.87,
+          "median": 254.5,
+          "min": 220
+        },
+        "instantiate_us": 2167,
+        "load_us": 1291
+      },
+      "uart_log_sha256": "5cb22995e29720d82ba98696eb2ce7c8b710a71db66a5f4d431fae8e92ac28a0"
+    }
+  ],
+  "schema": "wasmhome-e1-abc-physical-metrics-public-v1",
+  "session_manifest_sha256": "c24404b198edee97d22af53b37a41726b570f551f43fc256d920a264f31fac7e",
+  "session_manifest_validation": "session_logs_and_manifest_consistent",
+  "source": {
+    "commit": "6317fa9a39e5d99e8ba1293dae80da801d2b6d55",
+    "tree": "e0eeacede32eb98d0bc4444aea044f531b875f8b"
+  },
+  "status": "closed_logs_validated_metrics; session_result_closed_pass"
+}

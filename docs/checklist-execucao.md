@@ -9,22 +9,30 @@ A restauração integral coincidiu com o backup antes e depois do boot de
 observação, e a captura final confirmou o firmware original executando.
 Essa passagem por duas imagens via serial não demonstra OTA.
 
-A #9 permanece aberta. O ensaio `abc-8b3bddd-run01` passou nativo e
-interpretado (5 aquecimentos, 30 medições e checksum `DBB2F0D4` por cenário),
-mas AOT falhou com `LoadProhibited` antes das medições. A inspeção do objeto
-Xtensa confirmou que o helper de relocação perdeu a gravação do imediato sob
-aliasing estrito. O port `.3` corrige esse helper com acessos alinhados de
-32 bits; 96 testes locais terminaram sem falhas, com um skip de junction
-Windows e codec C real executado. Ainda faltam novos builds e repetição A/B/C.
+A #9 teve aceite físico no ensaio `abc-6317fa9-run01`, fonte `6317fa9`,
+com runtime `2.4.5-wasmhome.3`: nativo, interpretado clássico e AOT completaram
+cinco aquecimentos, 30 chamadas medidas, checksum `DBB2F0D4`, 67 eventos de
+memória e uma inicialização por cenário. Builds, configurações efetivas,
+compatibilidade do compilador e logs foram revisados por Luna xhigh.
+A suíte local teve 96 casos, 95 aprovados e um skip exclusivo de Windows.
 
-Distribuição vigente entre Luna xhigh: proveniência revisa o port e o compilador;
-builds prepara três cenários em novo pin; serviços revisa o aceite e a evidência
-sanitizada da #11. O coordenador integra, publica e opera a placa com exclusividade.
-Após o aceite da #9, seguir #12 → #13/#14; #15 após #4/#7; #16/#17/#18 segundo
-suas dependências; #19 → piloto #20 → campanha #21; #22 → #23 → análise #24.
-As decisões de tamanho amostral e timeout continuam condicionadas ao piloto.
+As três leituras integrais após os cenários mostraram zero alterações fora de
+`ota_0`. A restauração coincidiu integralmente com o backup antes do boot do
+firmware original. A observação após esse boot registrou 1.961 bytes alterados
+somente em NVS, preservados com linhagem `4fcc…` → `bcbd…`; a imagem original
+continuou idêntica. A captura final confirmou sua execução, sem leitura integral
+posterior. Uma sessão de 30 chamadas não representa 30 atualizações independentes.
+As falhas anteriores permanecem documentadas; o aceite é de viabilidade mínima.
 
-[Evidência da tentativa A/B/C](evidence/aot-run-8b3bddd-2026-10-14/README.md)
+Próxima etapa: #12 → #13/#14. A distribuição Luna xhigh da #12 separa implementação
+do gerenciador, testes de contrato/ciclo de vida e revisão de memória/configuração.
+O coordenador integra, publica e opera a placa com exclusividade.
+Seguir #15 após #4/#7; #16/#17/#18 segundo suas dependências; #19 → piloto #20 →
+campanha #21; #22 → #23 → análise #24. Tamanho amostral e timeout continuam
+condicionados ao piloto.
+
+[Aceite físico A/B/C](evidence/e1-physical-2026-10-14/README.md)
+· [Tentativa anterior](evidence/aot-run-8b3bddd-2026-10-14/README.md)
 · [Evidência dos serviços](evidence/native-services-2026-10-14/README.md).
 
 
@@ -129,8 +137,8 @@ O conteúdo original do parágrafo de delimitação em [plano-de-execucao.md](pl
 
 - [x] **#7, toolchain reproduzível no LXC.** Dependência: #6. Em 12/10, LLVM/wamrc real, geração e repetição dos artefatos Wasm/AOT e builds de firmware A/B/C foram conferidos no CT107, com versões fixadas, hashes e `sdkconfig` separados. As cinco saídas de R6/R7 coincidem. A reprodução comparativa do binário foi concluída e revisada em 13/10. Novos builds A/B/C em 91f11f7 foram concluídos e validados; repetição com argv exatos e disassembly conferidos. A revisão independente de 13/10 aceitou os três critérios da #7. O fechamento no rastreador acompanha esta publicação, separado da prova física #9.
 - [x] **#8, plataforma comum.** Dependências satisfeitas: #2 e #3. Evidência integrada na `main` pela PR #27: build nativo ESP-IDF 5.2.6, 17 testes locais e logs físicos de DS18B20, GPIO, PSRAM, Wi-Fi/UDP e watchdog. O firmware diagnóstico não implementa os serviços da campanha. A reconexão de Wi-Fi no mesmo boot, OTA, WAMR/AOT e módulos continuam sem prova.
-- [~] **#9, WAMR interpretado e AOT no MCU.** Dependências: #7 e #8. Nativo e interpretado passaram os gates físicos em `8b3bddd`, com checksum e memória registrados. AOT falhou antes das medições. O port `.3` corrige a relocação e ainda exige novos builds e repetição A/B/C; o aceite permanece pendente.
-- [x] **Carga mínima nativa da etapa E1.** Em `abc-8b3bddd-run01`, o nativo completou cinco aquecimentos, 30 medições, checksum `DBB2F0D4`, 67 eventos de memória e uma inicialização. O interpretado também passou seus gates, mas a comparação A/B/C permanece incompleta devido à falha AOT. Uma sessão de carga não representa 30 atualizações experimentais independentes. [Resumo físico](evidence/aot-run-8b3bddd-2026-10-14/physical/trial-summary.json).
+- [x] **#9, WAMR interpretado e AOT no MCU.** Dependências: #7 e #8. Ensaio `abc-6317fa9-run01` aprovado em nativo, interpretador clássico e AOT: cinco aquecimentos, 30 chamadas, checksum `DBB2F0D4`, 67 eventos de memória e uma inicialização por cenário. Configuração, compilador, ELF/BIN e logs conferidos; restauração integral exata antes do boot, deriva pós-boot restrita à NVS registrada, firmware original executando. [Aceite e limites](evidence/e1-physical-2026-10-14/README.md).
+- [x] **Carga mínima dos três cenários E1.** A/B/C passaram na mesma fonte `6317fa9` e placa, com checksum e memória por fase. Uma sessão com 30 chamadas por cenário não representa 30 atualizações experimentais independentes. [Evidência física](evidence/e1-physical-2026-10-14/README.md).
 
 ## E2. Observação e serviços de referência
 

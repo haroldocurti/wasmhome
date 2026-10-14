@@ -9,23 +9,68 @@ A restauração integral coincidiu com o backup antes e depois do boot de
 observação, e a captura final confirmou o firmware original executando.
 Essa passagem por duas imagens via serial não demonstra OTA.
 
-A #9 permanece aberta. O ensaio `abc-8b3bddd-run01` passou nativo e
-interpretado (5 aquecimentos, 30 medições e checksum `DBB2F0D4` por cenário),
-mas AOT falhou com `LoadProhibited` antes das medições. A inspeção do objeto
-Xtensa confirmou que o helper de relocação perdeu a gravação do imediato sob
-aliasing estrito. O port `.3` corrige esse helper com acessos alinhados de
-32 bits; 96 testes locais terminaram sem falhas, com um skip de junction
-Windows e codec C real executado. Ainda faltam novos builds e repetição A/B/C.
+A #9 teve aceite físico no ensaio `abc-6317fa9-run01`, fonte `6317fa9`,
+com runtime `2.4.5-wasmhome.3`: nativo, interpretado clássico e AOT completaram
+cinco aquecimentos, 30 chamadas medidas, checksum `DBB2F0D4`, 67 eventos de
+memória e uma inicialização por cenário. Builds, configurações efetivas,
+compatibilidade do compilador e logs foram revisados por Luna xhigh.
+A suíte local teve 96 casos, 95 aprovados e um skip exclusivo de Windows.
 
-Distribuição vigente entre Luna xhigh: proveniência revisa o port e o compilador;
-builds prepara três cenários em novo pin; serviços revisa o aceite e a evidência
-sanitizada da #11. O coordenador integra, publica e opera a placa com exclusividade.
-Após o aceite da #9, seguir #12 → #13/#14; #15 após #4/#7; #16/#17/#18 segundo
-suas dependências; #19 → piloto #20 → campanha #21; #22 → #23 → análise #24.
-As decisões de tamanho amostral e timeout continuam condicionadas ao piloto.
+As três leituras integrais após os cenários mostraram zero alterações fora de
+`ota_0`. A restauração coincidiu integralmente com o backup antes do boot do
+firmware original. A observação após esse boot registrou 1.961 bytes alterados
+somente em NVS, preservados com linhagem `4fcc…` → `bcbd…`; a imagem original
+continuou idêntica. A captura final confirmou sua execução, sem leitura integral
+posterior. Uma sessão de 30 chamadas não representa 30 atualizações independentes.
+As falhas anteriores permanecem documentadas; o aceite é de viabilidade mínima.
 
-[Evidência da tentativa A/B/C](evidence/aot-run-8b3bddd-2026-10-14/README.md)
+Próxima etapa: #12 → #13/#14. A distribuição Luna xhigh da #12 separa implementação
+do gerenciador, testes de contrato/ciclo de vida e revisão de memória/configuração.
+O coordenador integra, publica e opera a placa com exclusividade.
+Seguir #15 após #4/#7; #16/#17/#18 segundo suas dependências; #19 → piloto #20 →
+campanha #21; #22 → #23 → análise #24. Tamanho amostral e timeout continuam
+condicionados ao piloto.
+
+[Aceite físico A/B/C](evidence/e1-physical-2026-10-14/README.md)
+· [Tentativa anterior](evidence/aot-run-8b3bddd-2026-10-14/README.md)
 · [Evidência dos serviços](evidence/native-services-2026-10-14/README.md).
+
+
+## Próxima entrega — #12
+
+O código atual executa um único benchmark e inicializa/libera WAMR por execução.
+Os serviços funcionais pertencem à imagem nativa. Ainda falta um gerenciador
+persistente com duas instâncias, bindings e troca independente do controle.
+O aceite físico da #9 remove a dependência de viabilidade; não entrega a #12.
+
+| Frente Luna xhigh | Responsabilidade | Entrega e revisão |
+|---|---|---|
+| C — implementação | ABI e gerenciador em arquivos próprios | Contrato revisado por B antes da implementação; lifecycle revisado por A |
+| A — testes | Contrato, falhas, concorrência e liberação | Testes em arquivos separados após congelar ABI; revisão por B |
+| B — revisão | Memória, configuração e proveniência | Parecer sobre a revisão exata, pins de builds e métricas; confronto por C |
+| Coordenador | Integração e operação física | Publicação e sessão exclusiva após gates; nenhum agente acessa a placa |
+
+1. Fixar ABI/versionamento, dados com limites, códigos de erro e permissões por
+   papel. Validar offset/comprimento do guest pelo WAMR, incluindo overflow;
+   copiar dados e nunca reter ponteiros do guest.
+2. Inicializar WAMR uma vez e registrar bindings de temperatura, GPIO, tempo e
+   publicação. Criar slots separados de telemetria/controle, cada qual dono do
+   artefato, módulo, instância, ambiente de execução, versão e quotas.
+3. Serializar chamadas e troca de controle em ponto seguro entre requisições.
+   Preparar e validar o candidato isoladamente; liberar o antigo só após cessarem
+   suas chamadas. Falha mantém o controle anterior e a telemetria ativa.
+4. Medir baseline, runtime, cada módulo, sobreposição do candidato, operação e
+   liberação. Separar heap interno/PSRAM (total/livre/maior bloco), contadores do
+   allocator WAMR, artefatos/buffers e pilhas; reportar ELF estático à parte.
+5. Verificar ponteiro inválido/overflow, erro de host, export ausente, trap/OOM
+   em cada fase, concorrência, troca com chamada em voo e retorno das alocações
+   ao baseline após liberação. Fixar revisão e conferir configuração dos modos.
+6. Compilar, revisar os pins e realizar prova funcional mínima com restauração
+   da bancada. Publicar critérios e limites. Serviços completos #13/#14,
+   atualização remota e campanha permanecem nas suas entregas próprias.
+
+Os passos 1–6 são trabalho pendente. Não há implementação nem aceite da #12
+nesta publicação; o plano organiza a próxima entrega sem ampliar a prova E1.
 
 
 Preparado em 13/10/2026 por solicitação do usuário. Modelo de todos os agentes:
