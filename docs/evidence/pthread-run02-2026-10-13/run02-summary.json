@@ -1,0 +1,390 @@
+{
+  "approved_root_gate_sha256": "8eabaf4c3636037f116bca9bbce1844dd863ed0f911a17fe50f25f1bbc599be6",
+  "baseline": {
+    "full_flash_bytes": 16777216,
+    "full_flash_sha256": "d7710994f0c310eb5a33cf8aafa56a80b255df35ff56c80bcaa52b4f5f70bf1c",
+    "original_ota0_sha256": "67860a5f2a36c67fa36a19ca34badaf795dd003bd1240ebd2fc0dce375a2a48b"
+  },
+  "builds": {
+    "aot": {
+      "artifacts": {
+        "bin": {
+          "bytes": 821712,
+          "sha256": "7e36d7c18eb9fedcbed2e4714cb34e17f51b02979f69fdb7efbac660efd836c8"
+        },
+        "elf": {
+          "bytes": 10548172,
+          "sha256": "33efc054272748219af72a4c6ec260443d6fb7813d7a1a18c4a0fc300319f092"
+        },
+        "receipt": {
+          "bytes": 2362,
+          "sha256": "5fc2f2a70c101404ff733716b3e3b811eabcf0b289fef0593d2cd4391a3d9f93"
+        },
+        "sdkconfig": {
+          "bytes": 65758,
+          "sha256": "4d3540000c35301fd99740a3b4bc3c2678495c78b7502af94cba56b9d9a71ead"
+        }
+      },
+      "compiled_nvs_load_store_calls_in_phy_init": false,
+      "control_version": null,
+      "idf_identity": {
+        "revision": "9ef24e3e2a2c96e720d83c574a3f8699177573da",
+        "version": "5.2.6"
+      },
+      "phy_calibration_disassembly_sha256": "eea0a350a07006b5a7f1d7c9590d85374fa9f3422a81e343e7d11a945bc3b2d1",
+      "phy_calibration_relocations_sha256": "85a5d8cf109149fbbf57956688e77ad542d6fef64ead6bdb043e39eff79479c2",
+      "phy_init_object_sha256": "145e50997491818d2ec8a8daf42d69a40962081faec8849b34c26db8d6a05dc2",
+      "phy_storage_effective_enabled": false,
+      "receipt_schema": "wasmhome-phyoff-build-v1",
+      "scenario": "aot",
+      "source_revision": {
+        "commit": "a91ff5efabbdd57a5bd742f5682bab1c3124e018",
+        "tree": "c0a09c694cc8e751b9d5f8122d07004c5da420ef",
+        "worktree_clean": true
+      },
+      "status": "build_checked_not_device_validated"
+    },
+    "control_v1": {
+      "artifacts": {
+        "bin": {
+          "bytes": 755616,
+          "sha256": "ff89f12b422a1d07f2ecf399156355393576a375dd7d695150a59bdb4b52fee6"
+        },
+        "elf": {
+          "bytes": 9247812,
+          "sha256": "ae3f03e0c432e69452a4fbf19b751d4195b2ca22d080cd718047e0f23ac346a6"
+        },
+        "receipt": {
+          "bytes": 2764,
+          "sha256": "ba44d7a2675347b66445bb3468cae6ec68193dfc45295a2382f298d9dbaba0c1"
+        },
+        "sdkconfig": {
+          "bytes": 65237,
+          "sha256": "c8393510835eb88b2a704bc9fc494250405fc85079e625b243ce689ed5c6d154"
+        }
+      },
+      "compiled_nvs_load_store_calls_in_phy_init": false,
+      "control_version": 1,
+      "idf_identity": {
+        "revision": "9ef24e3e2a2c96e720d83c574a3f8699177573da",
+        "version": "5.2.6"
+      },
+      "phy_calibration_disassembly_sha256": "eea0a350a07006b5a7f1d7c9590d85374fa9f3422a81e343e7d11a945bc3b2d1",
+      "phy_calibration_relocations_sha256": "85a5d8cf109149fbbf57956688e77ad542d6fef64ead6bdb043e39eff79479c2",
+      "phy_init_object_sha256": "fcc8655889ec86f05fecd0547e03b06c588124056dcea0abe279602b42500a65",
+      "phy_storage_effective_enabled": false,
+      "receipt_schema": "wasmhome-phyoff-build-v1",
+      "scenario": "native",
+      "source_revision": {
+        "commit": "a91ff5efabbdd57a5bd742f5682bab1c3124e018",
+        "tree": "c0a09c694cc8e751b9d5f8122d07004c5da420ef",
+        "worktree_clean": true
+      },
+      "status": "services_build_checked_not_device_validated"
+    },
+    "control_v2": {
+      "artifacts": {
+        "bin": {
+          "bytes": 755616,
+          "sha256": "2327b93633dab3e1656ddd4d8696e2e4a385fcafd30de84fef4c22945f3d27d7"
+        },
+        "elf": {
+          "bytes": 9247812,
+          "sha256": "df1168f0b93c6e1a1ba6f25c5242727059a5cd1a15e848d99b4d2299a1e95ec2"
+        },
+        "receipt": {
+          "bytes": 2764,
+          "sha256": "929e138c6079aa02fb213d5f8b124f19e195df8551f9d2a486cba2f0ca73b630"
+        },
+        "sdkconfig": {
+          "bytes": 65237,
+          "sha256": "e872143d6e0db3e49335f12fde23a3383bd4787f4f345b17550b5c4f041b7692"
+        }
+      },
+      "compiled_nvs_load_store_calls_in_phy_init": false,
+      "control_version": 2,
+      "idf_identity": {
+        "revision": "9ef24e3e2a2c96e720d83c574a3f8699177573da",
+        "version": "5.2.6"
+      },
+      "phy_calibration_disassembly_sha256": "eea0a350a07006b5a7f1d7c9590d85374fa9f3422a81e343e7d11a945bc3b2d1",
+      "phy_calibration_relocations_sha256": "85a5d8cf109149fbbf57956688e77ad542d6fef64ead6bdb043e39eff79479c2",
+      "phy_init_object_sha256": "cbff1543d624098f4487f45d9423a120206d2df66ea4da786fb6f343aed0bedb",
+      "phy_storage_effective_enabled": false,
+      "receipt_schema": "wasmhome-phyoff-build-v1",
+      "scenario": "native",
+      "source_revision": {
+        "commit": "a91ff5efabbdd57a5bd742f5682bab1c3124e018",
+        "tree": "c0a09c694cc8e751b9d5f8122d07004c5da420ef",
+        "worktree_clean": true
+      },
+      "status": "services_build_checked_not_device_validated"
+    },
+    "interp": {
+      "artifacts": {
+        "bin": {
+          "bytes": 838736,
+          "sha256": "8eb043b3ade6491ab497389feae84c74dc1afa1b5eb0ea8973e85e90d2a25edf"
+        },
+        "elf": {
+          "bytes": 10543988,
+          "sha256": "f511d5d16017b2c1512ab4d9406fb3509adc5b53f0313257f12f4175ea8002be"
+        },
+        "receipt": {
+          "bytes": 2435,
+          "sha256": "76b4d3d9f634b10fb9470902620ef46be459ce1e50654e38466875d780ba02be"
+        },
+        "sdkconfig": {
+          "bytes": 65903,
+          "sha256": "df1ab0b75c2c861a0a4aef93103b551ee94f926442004f8247c49693467116c0"
+        }
+      },
+      "compiled_nvs_load_store_calls_in_phy_init": false,
+      "control_version": null,
+      "idf_identity": {
+        "revision": "9ef24e3e2a2c96e720d83c574a3f8699177573da",
+        "version": "5.2.6"
+      },
+      "phy_calibration_disassembly_sha256": "eea0a350a07006b5a7f1d7c9590d85374fa9f3422a81e343e7d11a945bc3b2d1",
+      "phy_calibration_relocations_sha256": "85a5d8cf109149fbbf57956688e77ad542d6fef64ead6bdb043e39eff79479c2",
+      "phy_init_object_sha256": "dc094e212911f1d5f85d9566b6cb5e96d58b084c51b271b55c33a7c022b1441b",
+      "phy_storage_effective_enabled": false,
+      "receipt_schema": "wasmhome-phyoff-build-v1",
+      "scenario": "interp",
+      "source_revision": {
+        "commit": "a91ff5efabbdd57a5bd742f5682bab1c3124e018",
+        "tree": "c0a09c694cc8e751b9d5f8122d07004c5da420ef",
+        "worktree_clean": true
+      },
+      "status": "build_checked_not_device_validated"
+    },
+    "native": {
+      "artifacts": {
+        "bin": {
+          "bytes": 745856,
+          "sha256": "99bd944e18e6cfb65b7e1087013b904edc4bc2167f0398712e86642d8a8523f1"
+        },
+        "elf": {
+          "bytes": 9210980,
+          "sha256": "9b5174941d13210436ebf7998a9081c14367d2c9d0c0887ed0612992a90101d5"
+        },
+        "receipt": {
+          "bytes": 2217,
+          "sha256": "08630354c88b8ee8cf9e42a41d3c87605c5c83951efa7fc7dd8aef592eb6dc52"
+        },
+        "sdkconfig": {
+          "bytes": 65135,
+          "sha256": "d98ad8227edb3737c0413bfaf641f7dabead81b03fdc4dda0f51ade63b6832b1"
+        }
+      },
+      "compiled_nvs_load_store_calls_in_phy_init": false,
+      "control_version": null,
+      "idf_identity": {
+        "revision": "9ef24e3e2a2c96e720d83c574a3f8699177573da",
+        "version": "5.2.6"
+      },
+      "phy_calibration_disassembly_sha256": "eea0a350a07006b5a7f1d7c9590d85374fa9f3422a81e343e7d11a945bc3b2d1",
+      "phy_calibration_relocations_sha256": "85a5d8cf109149fbbf57956688e77ad542d6fef64ead6bdb043e39eff79479c2",
+      "phy_init_object_sha256": "e2d90f15b11371ef11edfab23021ff20e801dbaf0b9892d8a0cb5373d4da785b",
+      "phy_storage_effective_enabled": false,
+      "receipt_schema": "wasmhome-phyoff-build-v1",
+      "scenario": "native",
+      "source_revision": {
+        "commit": "a91ff5efabbdd57a5bd742f5682bab1c3124e018",
+        "tree": "c0a09c694cc8e751b9d5f8122d07004c5da420ef",
+        "worktree_clean": true
+      },
+      "status": "build_checked_not_device_validated"
+    }
+  },
+  "elf_memory_table": [
+    {
+      "app_desc": 256,
+      "bin_bytes": 745856,
+      "dram_bss": 15288,
+      "dram_data": 19520,
+      "dram_total": 34808,
+      "elf_bytes": 9210980,
+      "elf_sha256": "9b5174941d13210436ebf7998a9081c14367d2c9d0c0887ed0612992a90101d5",
+      "flash_mapped_progbits": 633611,
+      "flash_rodata": 109904,
+      "flash_text": 523451,
+      "iram_executable": 92614,
+      "iram_padding": 58,
+      "iram_text": 91587,
+      "iram_vectors": 1027,
+      "scenario": "native",
+      "static_psram": 0
+    },
+    {
+      "app_desc": 256,
+      "bin_bytes": 838736,
+      "dram_bss": 15560,
+      "dram_data": 19792,
+      "dram_total": 35352,
+      "elf_bytes": 10543988,
+      "elf_sha256": "f511d5d16017b2c1512ab4d9406fb3509adc5b53f0313257f12f4175ea8002be",
+      "flash_mapped_progbits": 725819,
+      "flash_rodata": 124280,
+      "flash_text": 601283,
+      "iram_executable": 93018,
+      "iram_padding": 166,
+      "iram_text": 91991,
+      "iram_vectors": 1027,
+      "scenario": "interp",
+      "static_psram": 0
+    },
+    {
+      "app_desc": 256,
+      "bin_bytes": 821712,
+      "dram_bss": 15560,
+      "dram_data": 21568,
+      "dram_total": 37128,
+      "elf_bytes": 10548172,
+      "elf_sha256": "33efc054272748219af72a4c6ec260443d6fb7813d7a1a18c4a0fc300319f092",
+      "flash_mapped_progbits": 706963,
+      "flash_rodata": 126824,
+      "flash_text": 579883,
+      "iram_executable": 93066,
+      "iram_padding": 118,
+      "iram_text": 92039,
+      "iram_vectors": 1027,
+      "scenario": "aot",
+      "static_psram": 0
+    },
+    {
+      "app_desc": 256,
+      "bin_bytes": 755616,
+      "dram_bss": 19296,
+      "dram_data": 19536,
+      "dram_total": 38832,
+      "elf_bytes": 9247812,
+      "elf_sha256": "ae3f03e0c432e69452a4fbf19b751d4195b2ca22d080cd718047e0f23ac346a6",
+      "flash_mapped_progbits": 643351,
+      "flash_rodata": 109816,
+      "flash_text": 533279,
+      "iram_executable": 92614,
+      "iram_padding": 58,
+      "iram_text": 91587,
+      "iram_vectors": 1027,
+      "scenario": "control_v1",
+      "static_psram": 0
+    },
+    {
+      "app_desc": 256,
+      "bin_bytes": 755616,
+      "dram_bss": 19296,
+      "dram_data": 19536,
+      "dram_total": 38832,
+      "elf_bytes": 9247812,
+      "elf_sha256": "df1168f0b93c6e1a1ba6f25c5242727059a5cd1a15e848d99b4d2299a1e95ec2",
+      "flash_mapped_progbits": 643351,
+      "flash_rodata": 109816,
+      "flash_text": 533279,
+      "iram_executable": 92614,
+      "iram_padding": 58,
+      "iram_text": 91587,
+      "iram_vectors": 1027,
+      "scenario": "control_v2",
+      "static_psram": 0
+    }
+  ],
+  "execution_gate_state": {
+    "execute_authorized": true,
+    "external_review_status": "approved"
+  },
+  "idf": {
+    "revision": "9ef24e3e2a2c96e720d83c574a3f8699177573da",
+    "version": "5.2.6"
+  },
+  "input_manifest_sha256": "e24e01c009faf4e8902884d6fcb6a0039db356e45b79fa75597b73ef23116f52",
+  "physical_run": {
+    "aot_services_v1_services_v2": "not_run",
+    "completed_scenario_stages": [
+      "native"
+    ],
+    "interp": {
+      "artifact_sha256": "8eb043b3ade6491ab497389feae84c74dc1afa1b5eb0ea8973e85e90d2a25edf",
+      "assert_line_count": 197,
+      "failure": "IDF pthread_self asserted because current task has no pthread descriptor",
+      "memory_events_by_phase": {
+        "after_exec_env_lookup": {
+          "count": 197,
+          "records": [
+            "{\"internal_free_bytes\": 261415, \"internal_largest_free_block_bytes\": 167936, \"internal_total_bytes\": 382963, \"phase_status\": \"ok\", \"psram_free_bytes\": 8310960, \"psram_largest_free_block_bytes\": 8257536, \"psram_status\": \"measured\", \"psram_total_bytes\": 8388608}"
+          ]
+        },
+        "after_init": {
+          "count": 197,
+          "records": [
+            "{\"internal_free_bytes\": 272815, \"internal_largest_free_block_bytes\": 176128, \"internal_total_bytes\": 382963, \"phase_status\": \"ok\", \"psram_free_bytes\": 8384700, \"psram_largest_free_block_bytes\": 8257536, \"psram_status\": \"measured\", \"psram_total_bytes\": 8388608}"
+          ]
+        },
+        "after_instantiate": {
+          "count": 197,
+          "records": [
+            "{\"internal_free_bytes\": 271223, \"internal_largest_free_block_bytes\": 176128, \"internal_total_bytes\": 382963, \"phase_status\": \"ok\", \"psram_free_bytes\": 8310960, \"psram_largest_free_block_bytes\": 8257536, \"psram_status\": \"measured\", \"psram_total_bytes\": 8388608}"
+          ]
+        },
+        "after_load": {
+          "count": 197,
+          "records": [
+            "{\"internal_free_bytes\": 272091, \"internal_largest_free_block_bytes\": 176128, \"internal_total_bytes\": 382963, \"phase_status\": \"ok\", \"psram_free_bytes\": 8384700, \"psram_largest_free_block_bytes\": 8257536, \"psram_status\": \"measured\", \"psram_total_bytes\": 8388608}"
+          ]
+        },
+        "before_runtime": {
+          "count": 197,
+          "records": [
+            "{\"internal_free_bytes\": 272967, \"internal_largest_free_block_bytes\": 176128, \"internal_total_bytes\": 382963, \"phase_status\": \"measured\", \"psram_free_bytes\": 8384700, \"psram_largest_free_block_bytes\": 8257536, \"psram_status\": \"measured\", \"psram_total_bytes\": 8388608}"
+          ]
+        }
+      },
+      "readback_sha256": "8eb043b3ade6491ab497389feae84c74dc1afa1b5eb0ea8973e85e90d2a25edf",
+      "reset_reason_line_count": 198,
+      "rom_banner_count": 198,
+      "uart_log_bytes": 2095800,
+      "uart_log_sha256": "ef26c667bc769418c0c78530cfc2cfe43295f0f9e93a7f22a4412aea2273d4a7"
+    },
+    "interp_write_readback_verified": true,
+    "native": {
+      "artifact_sha256": "99bd944e18e6cfb65b7e1087013b904edc4bc2167f0398712e86642d8a8523f1",
+      "full_flash_after_sha256": "94385909b4cb112bb8bbf30d48e073517d4340efc16e3076d0e123a1809bd264",
+      "outside_ota0_changed_bytes": 0,
+      "readback_sha256": "99bd944e18e6cfb65b7e1087013b904edc4bc2167f0398712e86642d8a8523f1"
+    },
+    "restoration": {
+      "full_after_original_boot_sha256": "d7710994f0c310eb5a33cf8aafa56a80b255df35ff56c80bcaa52b4f5f70bf1c",
+      "full_after_restore_before_original_boot_sha256": "d7710994f0c310eb5a33cf8aafa56a80b255df35ff56c80bcaa52b4f5f70bf1c",
+      "full_before_write_sha256": "d7710994f0c310eb5a33cf8aafa56a80b255df35ff56c80bcaa52b4f5f70bf1c",
+      "original_app_boot_confirmed": true,
+      "restore_original_ota0_readback_sha256": "67860a5f2a36c67fa36a19ca34badaf795dd003bd1240ebd2fc0dce375a2a48b"
+    },
+    "status": "failed",
+    "verified_write_event_metadata": [
+      {
+        "artifact": "native",
+        "bytes": 745856,
+        "kind": "ota0_write_verified",
+        "sha256": "99bd944e18e6cfb65b7e1087013b904edc4bc2167f0398712e86642d8a8523f1"
+      },
+      {
+        "artifact": "interp",
+        "bytes": 838736,
+        "kind": "ota0_write_verified",
+        "sha256": "8eb043b3ade6491ab497389feae84c74dc1afa1b5eb0ea8973e85e90d2a25edf"
+      },
+      {
+        "full_sha256": "d7710994f0c310eb5a33cf8aafa56a80b255df35ff56c80bcaa52b4f5f70bf1c",
+        "kind": "restore_attempt_passed"
+      }
+    ],
+    "write_attempted": true
+  },
+  "review_scope": "offline metadata only; no device I/O during this review",
+  "runner_sha256": "f5628d52d6bf1bd640a498058f2fd11e33031b8cff848ff1c4ed9793ec47f372",
+  "schema": "wasmhome-run02-sanitized-failure-summary-v1",
+  "source": {
+    "commit": "a91ff5efabbdd57a5bd742f5682bab1c3124e018",
+    "tree": "c0a09c694cc8e751b9d5f8122d07004c5da420ef"
+  }
+}

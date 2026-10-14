@@ -166,6 +166,43 @@ class EvidenceTests(unittest.TestCase):
             self.assertIn("E1 artifacts are missing/stale/invalid", result.stderr)
             self.assertIn("build-manifest.json", result.stderr)
 
+    def test_cmake_requires_posix_pthread_only_for_benchmark_builds(self):
+        cmake = shutil.which("cmake")
+        if cmake is None:
+            self.skipTest("CMake unavailable; benchmark component dependency needs verification separately")
+        with tempfile.TemporaryDirectory(prefix="wasmhome-thread-dependency-") as temporary:
+            folder = pathlib.Path(temporary)
+            for benchmark_enabled in (True, False):
+                with self.subTest(benchmark_enabled=benchmark_enabled):
+                    enabled = "ON" if benchmark_enabled else "OFF"
+                    script = f'''\
+set(CMAKE_SOURCE_DIR "{ROOT.as_posix()}")
+set(CMAKE_BUILD_EARLY_EXPANSION TRUE)
+set(EXPERIMENT_SCENARIO native)
+set(CONFIG_WASMHOME_RUN_BENCHMARK {enabled})
+function(idf_component_register)
+    cmake_parse_arguments(ARG "" "" "SRCS;INCLUDE_DIRS;REQUIRES" ${{ARGN}})
+    set(CAPTURED_REQUIRES "${{ARG_REQUIRES}}" PARENT_SCOPE)
+endfunction()
+function(target_compile_definitions)
+endfunction()
+function(set_source_files_properties)
+endfunction()
+include("{(ROOT / 'main/CMakeLists.txt').as_posix()}")
+list(FIND CAPTURED_REQUIRES pthread PTHREAD_INDEX)
+if(CONFIG_WASMHOME_RUN_BENCHMARK AND PTHREAD_INDEX EQUAL -1)
+    message(FATAL_ERROR "benchmark component is missing pthread dependency")
+endif()
+if(NOT CONFIG_WASMHOME_RUN_BENCHMARK AND NOT PTHREAD_INDEX EQUAL -1)
+    message(FATAL_ERROR "non-benchmark component unexpectedly requires pthread")
+endif()
+'''
+                    path = folder / f"benchmark-{enabled.lower()}.cmake"
+                    path.write_text(script)
+                    result = subprocess.run([cmake, "-P", str(path)], cwd=folder,
+                                            capture_output=True, text=True)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
 
 STUB = r'''
 #pragma once
@@ -189,6 +226,55 @@ STUB = r'''
 #define ESP_LOGE(tag, fmt, ...) ((void)tag)
 #define ESP_LOGI(tag, fmt, ...) ((void)tag)
 static int stage, calls, frees, unloads, deinsts, exec_frees, destroys;
+typedef struct { size_t stack_size; int detach_state; bool initialized; } pthread_attr_t;
+typedef unsigned pthread_t;
+#define PTHREAD_CREATE_DETACHED 1
+static bool benchmark_pthread_active;
+static int pthread_create_calls, pthread_attr_init_calls, pthread_attr_destroy_calls;
+static int pthread_attr_stack_calls, pthread_attr_detach_calls;
+static size_t benchmark_thread_stack_size;
+static int benchmark_thread_detach_state;
+static int pthread_attr_init(pthread_attr_t *attr) {
+    pthread_attr_init_calls++;
+    memset(attr, 0, sizeof(*attr));
+    attr->initialized = true;
+    return 0;
+}
+static int pthread_attr_setstacksize(pthread_attr_t *attr, size_t stack_size) {
+    assert(attr->initialized);
+    pthread_attr_stack_calls++;
+    attr->stack_size = stack_size;
+    benchmark_thread_stack_size = stack_size;
+    return 0;
+}
+static int pthread_attr_setdetachstate(pthread_attr_t *attr, int detach_state) {
+    assert(attr->initialized);
+    pthread_attr_detach_calls++;
+    attr->detach_state = detach_state;
+    benchmark_thread_detach_state = detach_state;
+    return 0;
+}
+static int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+                          void *(*start_routine)(void *), void *arg) {
+    assert(!benchmark_pthread_active);
+    assert(attr->initialized);
+    assert(attr->stack_size == 8192);
+    assert(attr->detach_state == PTHREAD_CREATE_DETACHED);
+    assert(arg == NULL);
+    pthread_create_calls++;
+    if (stage == 10) return 11;
+    *thread = 1;
+    benchmark_pthread_active = true;
+    assert(start_routine(arg) == NULL);
+    benchmark_pthread_active = false;
+    return 0;
+}
+static int pthread_attr_destroy(pthread_attr_t *attr) {
+    assert(attr->initialized);
+    attr->initialized = false;
+    pthread_attr_destroy_calls++;
+    return 0;
+}
 static void *allocated;
 static bool memory_output_active;
 static int memory_output_printf_calls, memory_output_events;
@@ -302,15 +388,22 @@ static void heap_caps_get_info(multi_heap_info_t *info, uint32_t caps) {
 }
 static size_t heap_caps_get_minimum_free_size(int x) { return 900; }
 static int64_t esp_timer_get_time(void) { static int64_t t; return ++t; }
-static int wh_platform_start(void) { return 0; }
-static uint64_t wh_platform_boot_id(void) { return UINT64_C(0x0102030405060708); }
+static int wh_platform_start(void) { assert(!benchmark_pthread_active); return 0; }
+static uint64_t wh_platform_boot_id(void) {
+    assert(benchmark_pthread_active);
+    return UINT64_C(0x0102030405060708);
+}
 static void *os_malloc(unsigned size) { if(stage == 1) return NULL; return allocated = malloc(size); }
 static void *os_realloc(void *p, unsigned s) { return realloc(p,s); }
 static void os_free(void *p) { assert(p == allocated); assert(!unloads || unloads == 1); free(p); frees++; }
-static bool wasm_runtime_full_init(RuntimeInitArgs *a) { return stage != 8; }
-static void wasm_runtime_destroy(void) { destroys++; }
+static bool wasm_runtime_full_init(RuntimeInitArgs *a) {
+    assert(benchmark_pthread_active);
+    return stage != 8;
+}
+static void wasm_runtime_destroy(void) { assert(benchmark_pthread_active); destroys++; }
 extern const uint8_t benchmark_wasm[];
 static wasm_module_t wasm_runtime_load(uint8_t *p, uint32_t n, char *err, uint32_t z) {
+    assert(benchmark_pthread_active);
     assert(p != benchmark_wasm && p == allocated && ((uintptr_t)p % 8) == 0);
     assert(n == 8 && memcmp(p, benchmark_wasm, n) == 0); p[0] = 99;
     return stage == 2 ? NULL : (void *)1;
@@ -319,6 +412,7 @@ static wasm_module_inst_t wasm_runtime_instantiate(wasm_module_t m, unsigned s, 
 static wasm_exec_env_t wasm_runtime_create_exec_env(wasm_module_inst_t m, unsigned s) { return stage == 4 ? NULL : (void *)3; }
 static wasm_function_inst_t wasm_runtime_lookup_function(wasm_module_inst_t m, const char *n) { return stage == 5 ? NULL : (void *)4; }
 static bool wasm_runtime_call_wasm(wasm_exec_env_t e, wasm_function_inst_t f, unsigned argc, uint32_t *argv) {
+    assert(benchmark_pthread_active);
     calls++; if(stage == 6 && calls == 2) return false;
     if(stage == 9 && calls == 6) return false;
     argv[0] = stage == 7 ? 0 : 0xDBB2F0D4u; return true;
@@ -337,6 +431,19 @@ int main(int argc, char **argv) {
     stage = argc > 1 ? atoi(argv[1]) : 0;
     app_main();
     assert(benchmark_wasm[0] == 0);
+    assert(pthread_attr_init_calls == 1);
+    assert(pthread_attr_stack_calls == 1);
+    assert(pthread_attr_detach_calls == 1);
+    assert(pthread_attr_destroy_calls == 1);
+    assert(pthread_create_calls == 1);
+    assert(benchmark_thread_stack_size == 8192);
+    assert(benchmark_thread_detach_state == PTHREAD_CREATE_DETACHED);
+    assert(!benchmark_pthread_active);
+    if (stage == 10) {
+        assert(calls == 0 && memory_output_events == 0);
+        assert(frees == 0 && unloads == 0 && deinsts == 0 && exec_frees == 0 && destroys == 0);
+        return 0;
+    }
     assert(heap_total_internal_calls == (size_t)memory_output_events);
     assert(heap_info_internal_calls == (size_t)memory_output_events);
     assert(heap_info_internal_sum_changes > 0);
@@ -358,6 +465,30 @@ int main(int argc, char **argv) {
 }
 '''
 
+NATIVE_HARNESS = r'''
+#include "main.c"
+const uint8_t benchmark_wasm[] = {0,97,115,109,1,0,0,0};
+const uint32_t benchmark_wasm_len = 8;
+uint32_t benchmark_run(void) {
+    assert(benchmark_pthread_active);
+    calls++;
+    return WASMHOME_EXPECTED_CHECKSUM;
+}
+int main(void) {
+    app_main();
+    assert(pthread_attr_init_calls == 1 && pthread_attr_destroy_calls == 1);
+    assert(pthread_attr_stack_calls == 1 && pthread_attr_detach_calls == 1);
+    assert(pthread_create_calls == 1 && !benchmark_pthread_active);
+    assert(benchmark_thread_stack_size == BENCHMARK_HOST_THREAD_STACK_SIZE);
+    assert(benchmark_thread_detach_state == PTHREAD_CREATE_DETACHED);
+    assert(calls == 35);
+    assert(memory_output_events == 67);
+    assert(heap_total_internal_calls == 67 && heap_info_internal_calls == 67);
+    assert(heap_info_internal_sum_changes > 0 && legacy_largest_calls == 0);
+    return 0;
+}
+'''
+
 
 class RunnerCompiledTests(unittest.TestCase):
     def test_load_failures_traps_and_checksums_release_resources(self):
@@ -366,11 +497,11 @@ class RunnerCompiledTests(unittest.TestCase):
             folder = pathlib.Path(temporary)
             shutil.copyfile(ROOT / "main/main.c", folder / "main.c")
             (folder / "stub.h").write_text(STUB)
-            for header in ("esp_heap_caps.h", "esp_log.h", "esp_timer.h", "platform.h", "sdkconfig.h", "bh_platform.h", "wasm_export.h"):
+            for header in ("esp_heap_caps.h", "esp_log.h", "esp_timer.h", "platform.h", "sdkconfig.h", "bh_platform.h", "wasm_export.h", "pthread.h"):
                 (folder / header).write_text('#include "stub.h"\n')
             (folder / "runner.c").write_text(HARNESS)
             if vcvars.is_file():
-                command = f'""{vcvars}" >nul && cl /nologo /std:c11 /DWASMHOME_SCENARIO_INTERP=1 /I"{ROOT / "workload"}" runner.c /Fe:runner.exe"'
+                command = f'""{vcvars}" >nul && cl /nologo /std:c11 /DWASMHOME_SCENARIO_INTERP=1 /I"{folder}" /I"{ROOT / "workload"}" runner.c /Fe:runner.exe"'
                 build = subprocess.run(f'cmd /d /s /c {command}', cwd=folder, capture_output=True, text=True)
                 executable = folder / "runner.exe"
             else:
@@ -381,7 +512,7 @@ class RunnerCompiledTests(unittest.TestCase):
                     self.skipTest("C compiler unavailable; compiled runner check required separately")
                 executable = folder / "runner"
                 build = subprocess.run(
-                    [compiler, "-std=c11", "-DWASMHOME_SCENARIO_INTERP=1", f"-I{ROOT / 'workload'}", "runner.c", "-o", str(executable)],
+                    [compiler, "-std=c11", "-DWASMHOME_SCENARIO_INTERP=1", f"-I{folder}", f"-I{ROOT / 'workload'}", "runner.c", "-o", str(executable)],
                     cwd=folder,
                     capture_output=True,
                     text=True,
@@ -449,14 +580,17 @@ class RunnerCompiledTests(unittest.TestCase):
                         self.assertEqual(next(event for event in memory
                                               if event["phase"] == "after_release")["phase_status"], "not_applicable")
 
+            failed_thread = subprocess.run([str(executable), "10"], capture_output=True, text=True)
+            self.assertEqual(failed_thread.returncode, 0, failed_thread.stdout + failed_thread.stderr)
+
             if vcvars.is_file():
-                command = f'""{vcvars}" >nul && cl /nologo /std:c11 /DWASMHOME_SCENARIO_INTERP=1 /DWASMHOME_TEST_SPIRAM=1 /I"{ROOT / "workload"}" runner.c /Fe:runner-psram.exe"'
+                command = f'""{vcvars}" >nul && cl /nologo /std:c11 /DWASMHOME_SCENARIO_INTERP=1 /DWASMHOME_TEST_SPIRAM=1 /I"{folder}" /I"{ROOT / "workload"}" runner.c /Fe:runner-psram.exe"'
                 build_psram = subprocess.run(f"cmd /d /s /c {command}", cwd=folder, capture_output=True, text=True)
                 psram_executable = folder / "runner-psram.exe"
             else:
                 build_psram = subprocess.run(
                     [compiler, "-std=c11", "-DWASMHOME_SCENARIO_INTERP=1", "-DWASMHOME_TEST_SPIRAM=1",
-                     f"-I{ROOT / 'workload'}", "runner.c", "-o", "runner-psram"],
+                     f"-I{folder}", f"-I{ROOT / 'workload'}", "runner.c", "-o", "runner-psram"],
                     cwd=folder,
                     capture_output=True,
                     text=True,
@@ -477,6 +611,37 @@ class RunnerCompiledTests(unittest.TestCase):
                 self.assertLessEqual(event["psram"]["largest_free_block_bytes"],
                                      event["psram"]["free_bytes"])
                 self.assertLessEqual(event["psram"]["free_bytes"], event["psram"]["total_bytes"])
+
+    def test_native_benchmark_uses_same_posix_worker_and_preserves_sample_count(self):
+        vcvars = pathlib.Path(r"C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat")
+        with tempfile.TemporaryDirectory(prefix="wasmhome-e1-native-thread-") as temporary:
+            folder = pathlib.Path(temporary)
+            shutil.copyfile(ROOT / "main/main.c", folder / "main.c")
+            (folder / "stub.h").write_text(STUB)
+            for header in ("esp_heap_caps.h", "esp_log.h", "esp_timer.h", "platform.h", "sdkconfig.h", "bh_platform.h", "wasm_export.h", "pthread.h"):
+                (folder / header).write_text('#include "stub.h"\n')
+            (folder / "runner.c").write_text(NATIVE_HARNESS)
+            if vcvars.is_file():
+                command = f'""{vcvars}" >nul && cl /nologo /std:c11 /DWASMHOME_SCENARIO_NATIVE=1 /I"{folder}" /I"{ROOT / "workload"}" runner.c /Fe:runner-native.exe"'
+                build = subprocess.run(f"cmd /d /s /c {command}", cwd=folder, capture_output=True, text=True)
+                executable = folder / "runner-native.exe"
+            else:
+                if os.name == "nt":
+                    self.skipTest("MSVC setup unavailable; compiled native worker check required separately")
+                compiler = shutil.which("cc") or shutil.which("gcc")
+                if compiler is None:
+                    self.skipTest("C compiler unavailable; native worker check required separately")
+                executable = folder / "runner-native"
+                build = subprocess.run(
+                    [compiler, "-std=c11", "-DWASMHOME_SCENARIO_NATIVE=1", f"-I{folder}", f"-I{ROOT / 'workload'}", "runner.c", "-o", str(executable)],
+                    cwd=folder,
+                    capture_output=True,
+                    text=True,
+                )
+            self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
+            run = subprocess.run([str(executable)], capture_output=True, text=True)
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            self.assertEqual(run.stdout.count("WASMHOME_CSV,native,"), 30)
 
 
 if __name__ == "__main__":

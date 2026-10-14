@@ -84,6 +84,10 @@ if(CONFIG_WASMHOME_NATIVE_SERVICES)
     list(APPEND SCENARIO_SOURCE "native_services.c")
 endif()
 
+if(CONFIG_WASMHOME_RUN_BENCHMARK)
+    list(APPEND SCENARIO_REQUIRES "pthread")
+endif()
+
 idf_component_register(
     SRCS ${SCENARIO_SOURCE}
     INCLUDE_DIRS "." "../workload"

@@ -182,3 +182,25 @@ Aplicar estes gates a cada entrega antes de declarar critério cumprido, publica
 - [Plataforma comum](plataforma-comum.md)
 - [Observador externo](observador-externo.md)
 - [Issues #1–#24](https://github.com/haroldocurti/wasmhome/issues/1)
+
+### Falha física pthread e correção revisada — 13/10/2026
+
+O ensaio da revisão `a91ff5e` completou o nativo: cinco aquecimentos,
+30 medições, checksum `0xDBB2F0D4`, 67 eventos de memória e zero alterações
+fora de `ota_0`. O interpretado passou no readback, mas reiniciou por assert
+de `pthread_self` antes das medições: o WAMR exige uma thread POSIX registrada
+e o benchmark era chamado diretamente de `app_main`, uma tarefa FreeRTOS.
+AOT e serviços não foram executados nessa tentativa.
+
+A flash integral foi restaurada ao backup e permaneceu igual após o boot
+da aplicação original. A tentativa continua falha; #9 e #11 seguem abertas.
+[Evidências e diagnóstico](evidence/pthread-run02-2026-10-13/README.md).
+
+A correção coloca o ciclo completo dos três benchmarks em uma thread
+`pthread_create`, detached, com stack de host de 8 KiB, distinta da stack
+Wasm de 8 KiB. Os onze testes focados passaram e a integração foi revisada
+contra ESP-IDF 5.2.6. Os três cenários precisam de novos builds e prova física.
+A memória passa a ser medida com o worker alocado: os três perfis são
+comparáveis entre si, mas essa série não é diretamente comparável à anterior
+em `app_main`. A #11 será ensaiada separadamente no pin `a91ff5e`, usando os
+dois firmwares de serviços já revisados e um checkout limpo desse pin.

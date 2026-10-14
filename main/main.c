@@ -12,6 +12,10 @@
 #include "platform.h"
 #include "sdkconfig.h"
 
+#if defined(CONFIG_WASMHOME_RUN_BENCHMARK)
+#include <pthread.h>
+#endif
+
 #if defined(CONFIG_WASMHOME_NATIVE_SERVICES)
 #if !defined(WASMHOME_SCENARIO_NATIVE)
 #error "Native functional services cannot be included in interpreter or AOT scenarios"
@@ -35,10 +39,12 @@
 #endif
 #endif
 
+#if defined(CONFIG_WASMHOME_RUN_BENCHMARK)
 #define WARMUP_RUNS 5
 #define MEASURED_RUNS 30
 #define WASM_STACK_SIZE (8u * 1024u)
 #define WASM_HEAP_SIZE (8u * 1024u)
+#define BENCHMARK_HOST_THREAD_STACK_SIZE (8u * 1024u)
 
 static const char *TAG = "wasmhome";
 
@@ -222,24 +228,11 @@ static void runner_close(runner_t *runner)
 #endif
     memset(runner, 0, sizeof(*runner));
 }
+#endif
 
-void app_main(void)
+#if defined(CONFIG_WASMHOME_RUN_BENCHMARK)
+static void run_benchmark(void)
 {
-    ESP_ERROR_CHECK(wh_platform_start());
-#if defined(CONFIG_WASMHOME_NATIVE_SERVICES)
-    ESP_ERROR_CHECK(wh_native_services_start());
-#endif
-#if defined(CONFIG_WASMHOME_PLATFORM_SELFTEST)
-    extern esp_err_t wh_platform_selftest_start(void);
-    ESP_ERROR_CHECK(wh_platform_selftest_start());
-#endif
-#if defined(CONFIG_WASMHOME_OBSERVER_SELFTEST)
-    extern esp_err_t wh_observer_selftest_start(void);
-    ESP_ERROR_CHECK(wh_observer_selftest_start());
-#endif
-#if !defined(CONFIG_WASMHOME_RUN_BENCHMARK)
-    return;
-#endif
     memory_event("before_runtime", "measured", 0);
     const size_t heap_before_runtime = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
 #if !defined(WASMHOME_SCENARIO_NATIVE)
@@ -312,4 +305,63 @@ cleanup:
     ESP_LOGI(TAG, "E1 scenario=%s status=%s heap_before_runtime=%u heap_after_release=%u",
              scenario_name, valid ? "ok" : "invalid", (unsigned)heap_before_runtime,
              (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+}
+
+static void *benchmark_thread(void *unused)
+{
+    (void)unused;
+    run_benchmark();
+    return NULL;
+}
+
+static bool start_benchmark_thread(void)
+{
+    pthread_attr_t attributes;
+    pthread_t thread;
+    int error = pthread_attr_init(&attributes);
+    if (error != 0) {
+        ESP_LOGE(TAG, "pthread_attr_init failed: %d", error);
+        return false;
+    }
+
+    error = pthread_attr_setstacksize(&attributes, BENCHMARK_HOST_THREAD_STACK_SIZE);
+    if (error == 0) {
+        error = pthread_attr_setdetachstate(&attributes, PTHREAD_CREATE_DETACHED);
+    }
+    if (error == 0) {
+        error = pthread_create(&thread, &attributes, benchmark_thread, NULL);
+    }
+    const int destroy_error = pthread_attr_destroy(&attributes);
+    if (error != 0) {
+        ESP_LOGE(TAG, "benchmark pthread creation failed: %d", error);
+        return false;
+    }
+    if (destroy_error != 0) {
+        ESP_LOGE(TAG, "pthread_attr_destroy failed after benchmark start: %d", destroy_error);
+    }
+    return true;
+}
+#endif
+
+void app_main(void)
+{
+    ESP_ERROR_CHECK(wh_platform_start());
+#if defined(CONFIG_WASMHOME_NATIVE_SERVICES)
+    ESP_ERROR_CHECK(wh_native_services_start());
+#endif
+#if defined(CONFIG_WASMHOME_PLATFORM_SELFTEST)
+    extern esp_err_t wh_platform_selftest_start(void);
+    ESP_ERROR_CHECK(wh_platform_selftest_start());
+#endif
+#if defined(CONFIG_WASMHOME_OBSERVER_SELFTEST)
+    extern esp_err_t wh_observer_selftest_start(void);
+    ESP_ERROR_CHECK(wh_observer_selftest_start());
+#endif
+#if !defined(CONFIG_WASMHOME_RUN_BENCHMARK)
+    return;
+#else
+    if (!start_benchmark_thread()) {
+        ESP_LOGE(TAG, "E1 benchmark was not started");
+    }
+#endif
 }
