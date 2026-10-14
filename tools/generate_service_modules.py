@@ -61,7 +61,7 @@ def verify(root=ROOT):
         if name.endswith("_embedded.c"):
             artifact_name = name.removesuffix("_embedded.c")
             symbol = artifact_name
-            require(content.decode("ascii") == render(
+            require(content == render(
                 (root / "artifacts" / artifact_name).read_bytes(), symbol).encode("ascii"),
                 f"embedded array differs from artifact: {name}")
         elif name.endswith("_wasm"):
