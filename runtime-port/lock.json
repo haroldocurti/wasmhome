@@ -1,7 +1,7 @@
 {
   "schema": "wasmhome-runtime-port-v1",
   "component": "wasmhome/wasm-micro-runtime",
-  "version": "2.4.5-wasmhome.1",
+  "version": "2.4.5-wasmhome.2",
   "aot_version": 5,
   "upstream": {
     "url": "https://github.com/bytecodealliance/wasm-micro-runtime.git",
@@ -15,17 +15,25 @@
     {
       "path": "esp-idf.patch",
       "sha256": "baf820ac38452498f5857a1c4dd593558e17c3f3bf478b41425900eea1a0e246"
+    },
+    {
+      "path": "esp-idf-aot-dualbus.patch",
+      "sha256": "7fb3f0630189f5a0e33498156ab5e48f09ef95aeb044b8bd0535a3261f94fd4d"
     }
   ],
   "patched_files": {
-    "build-scripts/esp-idf/wamr/CMakeLists.txt": "0c7409bd7e311026c75aee56a771185bce30c6c35df0670361c0cf0ccd7dfdbf",
+    "build-scripts/esp-idf/wamr/CMakeLists.txt": "ea391837abef8833a9c99a2bd843bfe3428dd3937f3b0dbe190bf9f027b337a6",
     "build-scripts/esp-idf/wamr/Kconfig": "41139330ecbf32d30e3f0db7b28d0fb26c19cca006fe3ca0f029635072168365",
     "core/config.h": "4a73939ede01a133cc3dc3b031e43c0a24ac8f015f405181191cb8662f351144",
     "core/shared/platform/esp-idf/espidf_thread.c": "16bf767089f15f34d8b0e96d0a7fb181a78188629e7e36e5cece3f15696aec5b",
-    "core/shared/platform/esp-idf/platform_internal.h": "90fbd50c36a95a8a0476b04a2a9d6301eba1ffecc94fbfa160b4323116705136"
+    "core/shared/platform/esp-idf/platform_internal.h": "90fbd50c36a95a8a0476b04a2a9d6301eba1ffecc94fbfa160b4323116705136",
+    "core/iwasm/aot/aot_loader.c": "1edf919a9afac5aed8345d90a02f761c5fd6177b23178b3b4e97cab589bfc10c",
+    "core/shared/platform/esp-idf/espidf_dualbus.h": "ebecad6d75a939486dd372918c6fff7242eb43f390b7e9e3695cb7310130f059",
+    "core/shared/platform/esp-idf/espidf_memmap.c": "50fc0d9a52ec99786cb8a540417a614aee0bc66b4e6bd8da85b92b4a001fd3a6",
+    "core/shared/platform/include/platform_api_vmcore.h": "fda73827b33803865f36ac734e46999cc9105cdd0ab936afdde1a8347f632ec5"
   },
-  "metadata_sha256": "b0634bee7c6ad144daadf9a0ad209e4ce5d80243d5f2746b5de46a4dd964b7ce",
-  "package_sha256": "7d3eba8883eaaefee0457e8593b2a5203050736487fcf62bbf05cd8ce0306251",
+  "metadata_sha256": "2d9b2402e38a00d606ea4f894379a70e8bbd8a26e8a02863e7aeb8fbb0ad8c2e",
+  "package_sha256": "efd0d9bf75c3eb488255e4ec5a8a14c0f2e22b5a9df0cf25f27ee59119ae9bf2",
   "port_delta_reviewed_reference": {
     "url": "https://github.com/espressif/wasm-micro-runtime.git",
     "revision": "8f806e0f2c02a768d2c35044f2964f769612d9bc",

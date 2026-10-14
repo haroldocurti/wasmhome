@@ -1,0 +1,431 @@
+diff --git c/build-scripts/esp-idf/wamr/CMakeLists.txt w/build-scripts/esp-idf/wamr/CMakeLists.txt
+index d33ab66..b90d821 100644
+--- c/build-scripts/esp-idf/wamr/CMakeLists.txt
++++ w/build-scripts/esp-idf/wamr/CMakeLists.txt
+@@ -113,7 +113,7 @@ endif ()
+ 
+ idf_component_register(SRCS ${srcs}
+                        INCLUDE_DIRS ${include_dirs}
+-                       REQUIRES pthread lwip esp_timer
++                       REQUIRES pthread lwip esp_timer esp_mm
+                        KCONFIG ${CMAKE_CURRENT_LIST_DIR}/Kconfig)
+ 
+ target_compile_options(${COMPONENT_LIB} PRIVATE "-Wno-format")
+diff --git c/core/iwasm/aot/aot_loader.c w/core/iwasm/aot/aot_loader.c
+index 771ef87..6d89742 100644
+--- c/core/iwasm/aot/aot_loader.c
++++ w/core/iwasm/aot/aot_loader.c
+@@ -4155,9 +4155,30 @@ load_from_sections(AOTModule *module, AOTSection *sections,
+         }
+     }
+ 
+-    /* Flush data cache before executing AOT code,
+-     * otherwise unpredictable behavior can occur. */
++    /* Flush mapped AOT literals and code after relocations. ESP-IDF needs a
++     * range-specific DBUS writeback followed by IBus invalidation; a global
++     * ICache disable is unsafe while the other core is active. */
++#if defined(BH_PLATFORM_ESP_IDF) && (WASM_MEM_DUAL_BUS_MIRROR != 0)
++    if (module->code && !module->is_indirect_mode) {
++        /* Debug AOT may point code inside the ELF blob rather than directly
++         * after the literal section, so synchronize each mapped range. */
++        bool sync_ok = true;
++        if (module->literal_size) {
++            sync_ok = os_sync_exec_memory(module->literal,
++                                          module->literal_size);
++        }
++        if (sync_ok && module->code_size) {
++            sync_ok = os_sync_exec_memory(module->code, module->code_size);
++        }
++        if (!sync_ok) {
++            set_error_buf(error_buf, error_buf_size,
++                          "dual-bus AOT relocation cache sync failed");
++            return false;
++        }
++    }
++#else
+     os_dcache_flush();
++#endif
+ 
+ #if WASM_ENABLE_MEMORY_TRACING != 0
+     wasm_runtime_dump_module_mem_consumption((WASMModuleCommon *)module);
+@@ -4364,17 +4385,37 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
+                     bh_assert(mirrored_text != NULL);
+                     bh_memcpy_s(mirrored_text, (uint32)total_size,
+                                 section->section_body, (uint32)section_size);
++#if defined(BH_PLATFORM_ESP_IDF)
++                    if ((uint32)total_size > section_size) {
++                        memset(mirrored_text + (uint32)section_size, 0,
++                               (uint32)total_size - section_size);
++                    }
++                    if (!os_sync_exec_memory(aot_text, (size_t)total_size)) {
++                        set_error_buf(error_buf, error_buf_size,
++                                      "dual-bus AOT text cache sync failed");
++                        os_munmap(aot_text, (size_t)total_size);
++                        wasm_runtime_free(section);
++                        goto fail;
++                    }
++#else
++                    if ((uint32)total_size > section_size) {
++                        memset(mirrored_text + (uint32)section_size, 0,
++                               (uint32)total_size - section_size);
++                    }
+                     os_dcache_flush();
++#endif
+ #else
+                     bh_memcpy_s(aot_text, (uint32)total_size,
+                                 section->section_body, (uint32)section_size);
++                    if ((uint32)total_size > section_size) {
++                        memset(aot_text + (uint32)section_size, 0,
++                               (uint32)total_size - section_size);
++                    }
+ #endif
+                     section->section_body = aot_text;
+                     destroy_aot_text = true;
+ 
+                     if ((uint32)total_size > section->section_body_size) {
+-                        memset(aot_text + (uint32)section_size, 0,
+-                               (uint32)total_size - section_size);
+                         section->section_body_size = (uint32)total_size;
+                     }
+                 }
+diff --git c/core/shared/platform/esp-idf/espidf_dualbus.h w/core/shared/platform/esp-idf/espidf_dualbus.h
+new file mode 100644
+index 0000000..31ecf70
+--- /dev/null
++++ w/core/shared/platform/esp-idf/espidf_dualbus.h
+@@ -0,0 +1,133 @@
++/*
++ * Copyright (C) 2026 WasmHome contributors.
++ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++ */
++
++#ifndef WASMHOME_ESP_IDF_DUALBUS_H
++#define WASMHOME_ESP_IDF_DUALBUS_H
++
++#include <stdbool.h>
++#include <stddef.h>
++#include <stdint.h>
++#include <limits.h>
++
++typedef struct {
++    uintptr_t ibus_start;
++    uintptr_t dbus_start;
++    size_t size;
++} wh_dualbus_sync_range_t;
++
++typedef int (*wh_dualbus_msync_fn)(void *addr, size_t size, int flags,
++                                   void *context);
++
++static inline bool
++wh_dualbus_is_power_of_two(size_t value)
++{
++    return value && ((value & (value - 1)) == 0);
++}
++
++static inline bool
++wh_dualbus_round_up(size_t value, size_t alignment, size_t *out)
++{
++    if (!out || !wh_dualbus_is_power_of_two(alignment)
++        || value > SIZE_MAX - (alignment - 1)) {
++        return false;
++    }
++
++    *out = (value + alignment - 1) & ~(alignment - 1);
++    return true;
++}
++
++static inline bool
++wh_dualbus_allocation_size(size_t requested, size_t alignment,
++                           size_t *data_size, size_t *allocation_size)
++{
++    size_t rounded;
++
++    if (!data_size || !allocation_size || requested == 0
++        || alignment < sizeof(uintptr_t)
++        || (alignment % sizeof(uintptr_t)) != 0
++        || !wh_dualbus_round_up(requested, alignment, &rounded)
++        || rounded > SIZE_MAX - alignment) {
++        return false;
++    }
++
++    *data_size = rounded;
++    /* One full aligned line precedes the returned data pointer. The word
++     * before that pointer stores the original allocation for os_free(). */
++    *allocation_size = rounded + alignment;
++    return true;
++}
++
++static inline bool
++wh_dualbus_sync_range(uintptr_t ibus_addr, size_t len,
++                      uintptr_t ibus_low, uintptr_t ibus_high,
++                      uintptr_t dbus_low, uintptr_t dbus_high,
++                      size_t alignment, wh_dualbus_sync_range_t *out)
++{
++    uintptr_t requested_end, aligned_end, offset, dbus_end;
++    uintptr_t mask;
++
++    if (!out || !len || !wh_dualbus_is_power_of_two(alignment)
++        || ibus_addr < ibus_low || ibus_addr >= ibus_high
++        || len > UINTPTR_MAX - ibus_addr) {
++        return false;
++    }
++
++    requested_end = ibus_addr + len;
++    if (requested_end > ibus_high
++        || requested_end > UINTPTR_MAX - (alignment - 1)) {
++        return false;
++    }
++
++    mask = (uintptr_t)alignment - 1;
++    out->ibus_start = ibus_addr & ~mask;
++    aligned_end = (requested_end + mask) & ~mask;
++    if (out->ibus_start < ibus_low || aligned_end > ibus_high
++        || aligned_end <= out->ibus_start || ibus_low < dbus_low) {
++        return false;
++    }
++
++    offset = ibus_low - dbus_low;
++    if (out->ibus_start < offset || aligned_end < offset) {
++        return false;
++    }
++    out->dbus_start = out->ibus_start - offset;
++    dbus_end = aligned_end - offset;
++    if (out->dbus_start < dbus_low || dbus_end > dbus_high
++        || dbus_end <= out->dbus_start) {
++        return false;
++    }
++
++    out->size = (size_t)(aligned_end - out->ibus_start);
++    return out->size != 0;
++}
++
++static inline int
++wh_dualbus_sync_exec(uintptr_t ibus_addr, size_t len,
++                     uintptr_t ibus_low, uintptr_t ibus_high,
++                     uintptr_t dbus_low, uintptr_t dbus_high,
++                     size_t alignment, int success_code,
++                     int data_writeback_flags, int instruction_invalidate_flags,
++                     wh_dualbus_msync_fn msync, void *context)
++{
++    wh_dualbus_sync_range_t range;
++    int result;
++
++    if (!msync
++        || !wh_dualbus_sync_range(ibus_addr, len, ibus_low, ibus_high,
++                                  dbus_low, dbus_high, alignment, &range)) {
++        return -1;
++    }
++
++    result = msync((void *)range.dbus_start, range.size,
++                   data_writeback_flags, context);
++    if (result != success_code) {
++        return result;
++    }
++
++    return msync((void *)range.ibus_start, range.size,
++                 instruction_invalidate_flags, context);
++}
++
++#endif /* WASMHOME_ESP_IDF_DUALBUS_H */
+diff --git c/core/shared/platform/esp-idf/espidf_memmap.c w/core/shared/platform/esp-idf/espidf_memmap.c
+index b0c493d..1103985 100644
+--- c/core/shared/platform/esp-idf/espidf_memmap.c
++++ w/core/shared/platform/esp-idf/espidf_memmap.c
+@@ -7,14 +7,47 @@
+ #include "platform_api_extension.h"
+ #if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+ #include "soc/mmu.h"
++#include "soc/soc.h"
++#include "soc/ext_mem_defs.h"
+ #include "rom/cache.h"
++#include "esp_cache.h"
++#include "esp_err.h"
++#include "esp_heap_caps.h"
++#include "espidf_dualbus.h"
+ 
+-#define MEM_DUAL_BUS_OFFSET (SOC_IROM_LOW - SOC_IROM_HIGH)
++#define MEM_DUAL_BUS_OFFSET (SOC_IROM_LOW - SOC_DROM_LOW)
+ 
+ #define in_ibus_ext(addr) \
+-    (((uint32)addr >= SOC_IROM_LOW) && ((uint32)addr < SOC_IROM_HIGH))
++    (((uintptr_t)(addr) >= SOC_IROM_LOW) \
++     && ((uintptr_t)(addr) < SOC_IROM_HIGH))
+ 
+-static portMUX_TYPE s_spinlock = portMUX_INITIALIZER_UNLOCKED;
++_Static_assert((SOC_IROM_LOW & SOC_MMU_LINEAR_ADDR_MASK)
++                   == (SOC_DROM_LOW & SOC_MMU_LINEAR_ADDR_MASK),
++               "IROM and DROM must share an MMU linear address");
++_Static_assert((SOC_IROM_HIGH - SOC_IROM_LOW)
++                   == (SOC_DROM_HIGH - SOC_DROM_LOW),
++               "IROM and DROM windows must have equal size");
++
++static size_t
++exec_cache_alignment(void)
++{
++    uint32_t dcache_line = Cache_Get_DCache_Line_Size();
++    uint32_t icache_line = Cache_Get_ICache_Line_Size();
++
++    if (!wh_dualbus_is_power_of_two(dcache_line)
++        || !wh_dualbus_is_power_of_two(icache_line)) {
++        return 0;
++    }
++
++    return dcache_line > icache_line ? dcache_line : icache_line;
++}
++
++static int
++esp_cache_msync_adapter(void *addr, size_t size, int flags, void *context)
++{
++    (void)context;
++    return (int)esp_cache_msync(addr, size, flags);
++}
+ #endif
+ 
+ void *
+@@ -22,10 +55,48 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
+ {
+     if (prot & MMAP_PROT_EXEC) {
+ #if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+-        uint32_t mem_caps = MALLOC_CAP_SPIRAM;
++        size_t alignment = exec_cache_alignment();
++        size_t data_size, allocation_size;
++        void *buf_origin;
++        void *buf_fixed;
++        uintptr_t *addr_field;
++        uintptr_t dbus_addr;
++        uintptr_t ibus_addr;
++
++        if (!alignment
++            || !wh_dualbus_allocation_size(size, alignment, &data_size,
++                                           &allocation_size)) {
++            return NULL;
++        }
++
++        buf_origin = heap_caps_aligned_alloc(alignment, allocation_size,
++                                             MALLOC_CAP_SPIRAM);
++        if (!buf_origin) {
++            return NULL;
++        }
++
++        buf_fixed = (char *)buf_origin + alignment;
++        addr_field = (uintptr_t *)((char *)buf_fixed - sizeof(uintptr_t));
++        *addr_field = (uintptr_t)buf_origin;
++
++        dbus_addr = (uintptr_t)buf_fixed;
++        if (dbus_addr < SOC_DROM_LOW || dbus_addr >= SOC_DROM_HIGH
++            || data_size > SOC_DROM_HIGH - dbus_addr) {
++            free(buf_origin);
++            return NULL;
++        }
++
++        ibus_addr = dbus_addr + MEM_DUAL_BUS_OFFSET;
++        if (ibus_addr < SOC_IROM_LOW || ibus_addr >= SOC_IROM_HIGH
++            || data_size > SOC_IROM_HIGH - ibus_addr) {
++            free(buf_origin);
++            return NULL;
++        }
++
++        memset(buf_fixed, 0, data_size);
++        return (void *)ibus_addr;
+ #else
+         uint32_t mem_caps = MALLOC_CAP_EXEC;
+-#endif
+ 
+         // Memory allocation with MALLOC_CAP_EXEC will return 4-byte aligned
+         // Reserve extra 4 byte to fixup alignment and size for the pointer to
+@@ -42,10 +113,6 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
+ 
+         uintptr_t *addr_field = buf_fixed - sizeof(uintptr_t);
+         *addr_field = (uintptr_t)buf_origin;
+-#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+-        memset(buf_fixed + MEM_DUAL_BUS_OFFSET, 0, size);
+-        return buf_fixed + MEM_DUAL_BUS_OFFSET;
+-#else
+         memset(buf_fixed, 0, size);
+         return buf_fixed;
+ #endif
+@@ -106,35 +173,48 @@ os_mprotect(void *addr, size_t size, int prot)
+ }
+ 
+ void
+-#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+-    IRAM_ATTR
+-#endif
+-    os_dcache_flush()
++os_dcache_flush(void)
+ {
+-#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+-    uint32_t preload;
+-    extern void Cache_WriteBack_All(void);
+-
+-    portENTER_CRITICAL(&s_spinlock);
+-
+-    Cache_WriteBack_All();
+-    preload = Cache_Disable_ICache();
+-    Cache_Enable_ICache(preload);
+-
+-    portEXIT_CRITICAL(&s_spinlock);
+-#endif
++    /* ESP-IDF dual-bus AOT uses checked range sync. A global writeback plus
++     * ICache disable is unnecessary and unsafe while the other core runs. */
+ }
+ 
+ void
+ os_icache_flush(void *start, size_t len)
+-{}
++{
++    (void)start;
++    (void)len;
++    /* Checked range synchronization includes both the literal and code
++     * sections and runs before an AOT module is made executable. */
++}
+ 
+ #if (WASM_MEM_DUAL_BUS_MIRROR != 0)
++bool
++os_sync_exec_memory(void *start, size_t len)
++{
++    size_t alignment = exec_cache_alignment();
++    const int data_writeback_flags = ESP_CACHE_MSYNC_FLAG_DIR_C2M
++                                     | ESP_CACHE_MSYNC_FLAG_TYPE_DATA;
++    const int instruction_invalidate_flags = ESP_CACHE_MSYNC_FLAG_DIR_M2C
++                                             | ESP_CACHE_MSYNC_FLAG_TYPE_INST;
++
++    if (!alignment) {
++        return false;
++    }
++
++    return wh_dualbus_sync_exec((uintptr_t)start, len, SOC_IROM_LOW,
++                                SOC_IROM_HIGH, SOC_DROM_LOW, SOC_DROM_HIGH,
++                                alignment, ESP_OK, data_writeback_flags,
++                                instruction_invalidate_flags,
++                                esp_cache_msync_adapter, NULL)
++           == ESP_OK;
++}
++
+ void *
+ os_get_dbus_mirror(void *ibus)
+ {
+     if (in_ibus_ext(ibus)) {
+-        return (void *)((char *)ibus - MEM_DUAL_BUS_OFFSET);
++        return (void *)((uintptr_t)ibus - MEM_DUAL_BUS_OFFSET);
+     }
+     else {
+         return ibus;
+diff --git c/core/shared/platform/include/platform_api_vmcore.h w/core/shared/platform/include/platform_api_vmcore.h
+index 1fa524f..800667b 100644
+--- c/core/shared/platform/include/platform_api_vmcore.h
++++ w/core/shared/platform/include/platform_api_vmcore.h
+@@ -185,6 +185,13 @@ os_dcache_flush(void);
+ void
+ os_icache_flush(void *start, size_t len);
+ 
++#if defined(BH_PLATFORM_ESP_IDF) && (WASM_MEM_DUAL_BUS_MIRROR != 0)
++/* Synchronize dual-bus executable memory after its DBUS alias was written.
++ * Returns false if either cache synchronization operation fails. */
++bool
++os_sync_exec_memory(void *start, size_t len);
++#endif
++
+ #ifdef __cplusplus
+ }
+ #endif

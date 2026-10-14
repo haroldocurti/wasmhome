@@ -1,3 +1,12 @@
+Atualização de 14/10/2026: o candidato atual é `2.4.5-wasmhome.2`.
+Ele corrige a tradução DROM → IROM no ESP32-S3 e substitui a desativação
+global de cache por sincronização de faixas do SDK IDF 5.2.6, após cópia
+e após relocação. Literal e código são sincronizados separadamente.
+A dependência `esp_mm` é explícita e os erros de sincronização impedem a execução.
+O novo header do port tem presença e hash verificados pelo materializador.
+Os registros abaixo descrevem a revisão anterior `.1` e continuam históricos.
+A revisão `.2` ainda exige novos builds A/B/C e validação física; a #9 permanece aberta.
+
 # Port candidato WAMR 2.4.5 para E1
 
 Sincronização em 13/10/2026, baseada nas evidências de 12/10: o

@@ -41,7 +41,7 @@ def load_lock(root):
     lock = read(port / "lock.json")
     require(lock["schema"] == "wasmhome-runtime-port-v1", "invalid port schema")
     require(lock["component"] == "wasmhome/wasm-micro-runtime", "unexpected independent component identity")
-    require(lock["version"] == "2.4.5-wasmhome.1" and lock["aot_version"] == 5, "unexpected runtime version/AOT identity")
+    require(lock["version"] == "2.4.5-wasmhome.2" and lock["aot_version"] == 5, "unexpected runtime version/AOT identity")
     for patch in lock["patches"]:
         path = (port / patch["path"]).resolve()
         require(path.is_relative_to(port.resolve()), "patch escapes port directory")
@@ -110,7 +110,7 @@ def verify(root=ROOT):
     extra = {"idf_component.yml", ".wasmhome-runtime.json"}
     require(not any(path.is_symlink() for path in directory.rglob("*")), "runtime symlink is not allowed")
     actual = {path.relative_to(directory).as_posix() for path in directory.rglob("*") if path.is_file()}
-    require(actual == set(expected) | extra, "runtime files missing or extra/untracked")
+    require(actual == set(expected) | set(lock["patched_files"]) | extra, "runtime files missing or extra/untracked")
     config = (directory / "core/config.h").read_text(encoding="utf-8")
     require(re.findall(r'^#define AOT_CURRENT_VERSION (\d+)$', config, re.M) == [str(lock["aot_version"])], "core AOT version differs from lock")
     version = (directory / "core/version.h").read_text(encoding="utf-8")

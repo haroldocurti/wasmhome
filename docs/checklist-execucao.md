@@ -204,3 +204,13 @@ A memória passa a ser medida com o worker alocado: os três perfis são
 comparáveis entre si, mas essa série não é diretamente comparável à anterior
 em `app_main`. A #11 será ensaiada separadamente no pin `a91ff5e`, usando os
 dois firmwares de serviços já revisados e um checkout limpo desse pin.
+
+
+## Retomada de 14/10/2026 — correção AOT pendente de ensaio
+
+- A/B da fonte `03677ebb9febd29099c53433d6a7a35839f24b02`: nativo e interpretado completaram 5 aquecimentos e 30 medições, checksum `DBB2F0D4`, 67 eventos de memória cada e uma inicialização por cenário.
+- C/AOT dessa mesma fonte falhou antes das medições: 15 inicializações e 14 panics de cache. A #9 permanece aberta; a revisão de pthread não resolveu o caminho AOT.
+- A restauração integral de 16 MiB coincidiu com o backup vigente antes e depois do diagnóstico de inicialização original. A placa terminou executando o firmware original.
+- O port candidato `.2` corrige o offset DROM/IROM e usa sincronização de faixas de cache. Próximos passos: revisar pacote e integração real com IDF, fixar a fonte publicada, gerar os três builds e repetir A/B/C com restauração verificada. A causa exclusiva do panic anterior não foi demonstrada.
+- #11: v1 foi gravada e verificada, mas o handshake Wi-Fi não concluiu. O observador de validação não iniciou e v2 não foi tentada; a placa foi restaurada. O usuário informou que terminou a conferência do arquivo privado. Recomparar a configuração efetiva e recompilar se necessário antes de repetir v1/v2.
+- #7 continua aceita. Novos builds do firmware reutilizam o compilador validado; não requerem reconstrução de LLVM.

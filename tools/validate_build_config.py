@@ -72,7 +72,7 @@ def validate_artifacts(directory, root, check_tools=True, runtime_identity=None)
     require(manifest.get("header_sha256") == sha256(root / "workload/benchmark.h"), "workload header changed")
     identity = runtime_identity or resolved_runtime(root)[0]
     require(manifest.get("runtime_identity") == identity, "artifact runtime identity differs from resolved component")
-    require(identity["component"] == RUNTIME_COMPONENT and identity["version"] == "2.4.5-wasmhome.1" and identity["repository_revision"] == WAMR_REVISION and identity["aot_version"] == 5, "unexpected runtime candidate")
+    require(identity["component"] == RUNTIME_COMPONENT and identity["version"] == "2.4.5-wasmhome.2" and identity["repository_revision"] == WAMR_REVISION and identity["aot_version"] == 5, "unexpected runtime candidate")
     require(manifest.get("aot_format_version") == 5, "manifest AOT format must be version 5")
     validate_manifest(manifest, root)
     validate_toolchain(manifest, check_tools)

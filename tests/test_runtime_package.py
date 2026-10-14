@@ -12,10 +12,10 @@ from runtime_package import acquire, verify, PACKAGE
 
 
 class RuntimePackageTests(unittest.TestCase):
-    def fixture(self, root):
+    def fixture(self, root, add_header=False):
         port = root / "runtime-port"
         port.mkdir()
-        metadata = b'version: "2.4.5-wasmhome.1"\ndependencies:\n  idf: "==5.2.6"\n'
+        metadata = b'version: "2.4.5-wasmhome.2"\ndependencies:\n  idf: "==5.2.6"\n'
         (port / "idf_component.yml").write_bytes(metadata)
         pins = {}
         for key, name in (("upstream", "wamr"), ("app_framework", "app-framework")):
@@ -33,11 +33,21 @@ class RuntimePackageTests(unittest.TestCase):
             url = "https://example.invalid/" + name + ".git"
             git("remote", "add", "origin", url)
             pins[key] = dict(url=url, revision=git("rev-parse", "HEAD"))
-        lock = dict(schema="wasmhome-runtime-port-v1", component="wasmhome/wasm-micro-runtime", version="2.4.5-wasmhome.1", aot_version=5,
+        lock = dict(schema="wasmhome-runtime-port-v1", component="wasmhome/wasm-micro-runtime", version="2.4.5-wasmhome.2", aot_version=5,
                     patches=[], patched_files={}, metadata_sha256=hashlib.sha256(metadata).hexdigest(), **pins)
         files = {path: (root / "build-runtime-port/sources/wamr" / path).read_bytes() for path in ("core/config.h", "core/version.h", "core/iwasm/common/wasm_runtime_common.c")}
         files["wamr-app-framework/LICENSE"] = b"fixture\n"
         files["idf_component.yml"] = metadata
+        if add_header:
+            name = "core/shared/platform/esp-idf/new-header.h"
+            data = b"/* pinned added header */\n"
+            patch = ("diff --git a/" + name + " b/" + name + "\n"
+                     "new file mode 100644\n--- /dev/null\n+++ b/" + name
+                     + "\n@@ -0,0 +1 @@\n+/* pinned added header */\n").encode()
+            (port / "header.patch").write_bytes(patch)
+            lock["patches"] = [dict(path="header.patch", sha256=hashlib.sha256(patch).hexdigest())]
+            lock["patched_files"][name] = hashlib.sha256(data).hexdigest()
+            files[name] = data
         package_hash = hashlib.sha256()
         for name, data in sorted(files.items()):
             package_hash.update(name.encode())
@@ -45,6 +55,21 @@ class RuntimePackageTests(unittest.TestCase):
         lock["package_sha256"] = package_hash.hexdigest()
         (port / "lock.json").write_text(json.dumps(lock))
         return acquire(root)
+
+    def test_added_patch_file_is_required_and_hash_checked(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            self.fixture(root, add_header=True)
+            header = root / PACKAGE / "core/shared/platform/esp-idf/new-header.h"
+            original = header.read_bytes()
+            header.write_bytes(b"forged header\n")
+            with self.assertRaisesRegex(ValueError, "patched runtime file changed"):
+                verify(root)
+            header.write_bytes(original)
+            verify(root)
+            header.unlink()
+            with self.assertRaisesRegex(ValueError, "missing or extra"):
+                verify(root)
 
     def test_fresh_acquisition_repeat_and_tampering(self):
         with tempfile.TemporaryDirectory() as temporary:

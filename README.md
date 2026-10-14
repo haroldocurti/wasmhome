@@ -54,7 +54,7 @@ reproduction do not establish physical viability.
 - Python 3.11 or newer
 - Official WASI-SDK 27.0 Linux x86_64 package and its verified extraction
 - Candidate `wamrc` built from upstream WAMR 2.4.5 SHA `25bd7eb63e828e4bd242cc9b38d260b4b31c6605` with Xtensa LLVM
-- Independent candidate runtime `wasmhome/wasm-micro-runtime` 2.4.5-wasmhome.1; see [candidate port and reproduction](docs/runtime-port-candidato.md)
+- Independent candidate runtime `wasmhome/wasm-micro-runtime` 2.4.5-wasmhome.2; see [candidate port and reproduction](docs/runtime-port-candidato.md)
 
 ## Build
 
