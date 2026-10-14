@@ -183,6 +183,12 @@ guest. Valores iniciais de 8 KiB para stack/heap são somente provisórios por
 serem o baseline E1; páginas, tamanho máximo de artefato, heap global e filas
 precisam ser fixados e aceitos com o módulo real e a medição da placa.
 
+Os módulos de referência são ligados com uma stack linear de 8 KiB
+(`-Wl,-z,stack-size=8192`) e memória inicial de uma página (64 KiB), com teto de
+duas páginas. Sem a opção explícita de stack, o `wasm-ld` reserva 64 KiB para a
+stack linear por padrão e o segmento estático ultrapassa a página inicial; a
+opção mantém o artefato alinhado à stack provisória de 8 KiB do manager.
+
 Cada chamada executa exatamente um export de entrada por tick ou requisição;
 não há chamadas guest recursivas. O prazo de resposta funcional de controle é
 300 ms fim a fim, medido pelo observador desde o envio até a recepção. O limite

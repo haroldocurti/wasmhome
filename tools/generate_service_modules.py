@@ -96,6 +96,7 @@ def build(root, sdk, package, wamrc, receipt, idf):
             clang_flags = [
                 str(clang), "--target=wasm32-wasi", "-O2", "-nostdlib",
                 "-fno-builtin", "-Wl,--no-entry", "-Wl,--export-memory",
+                "-Wl,-z,stack-size=8192",
                 "-Wl,--initial-memory=65536", "-Wl,--max-memory=131072",
                 "-Wl,--strip-all",
             ]
