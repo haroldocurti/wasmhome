@@ -82,19 +82,28 @@ ESP-IDF 5.2.6 agenda a exclusão do timer de forma assíncrona; os timers/gates
 agora permanecem no slot estático e deadlines evitam que callbacks atrasados
 atinjam outra chamada. Um caso host exercita esse caminho.
 
-A revisão independente final, o build com os pins em ESP-IDF, a auditoria das
-configurações efetivas e a prova funcional na placa com restauração continuam
-pendentes. Esta máquina tem PowerShell 7.6.6 e um `wamrc 2.4.5` cujo SHA-256 e
-recibo correspondem ao runtime fixado `2.4.5-wasmhome.3`; o R5 disponível no
-pacote de toolchain E1 corresponde ao runtime `.1` e não serve para esta geração.
-Os probes do binário `.3` listam `xtensa` como alvo e `esp32s3` como CPU
-reconhecida; as flags AOT do projeto continuam sem override de CPU até a revisão
-do AOT gerado.
-Não encontrei ESP-IDF 5.2.6/`idf.py`, Xtensa GCC, nem o pacote ou instalação
-WASI-SDK 27.0 nos caminhos locais examinados. A geração/build com proveniência
-continua indisponível, além de exigir checkout limpo. Há uma porta serial
-enumerada, mas a placa/firmware nela não foi identificada nem acessada. Portanto,
-a implementação local não equivale ao aceite da #12 e não amplia a prova E1.
+Os seis payloads Wasm/AOT foram gerados e verificados com WASI-SDK 27.0, clang
+20.1.8, `wamrc 2.4.5` e IDF v5.2.6 fixado. A stack linear Wasm foi explicitada
+em 8 KiB para caber na memória inicial de uma página; o máximo continua em duas
+páginas. O verificador do array C incorporado foi corrigido após a primeira
+execução revelar que comparava texto com bytes.
+
+Os firmwares `module-interp` e `module-aot` compilaram para ESP32-S3. Os
+`sdkconfig` efetivos carregam `CONFIG_WASMHOME_MODULE_SERVICES=y`, limite de
+65.536 bytes por artefato, duas páginas, stacks Wasm/heap por módulo de 8 KiB e
+stack solicitada por worker de 12 KiB. O primeiro habilita o interpretador
+clássico e deixa AOT desligado; o segundo habilita AOT. A configuração CMake dos
+dois confirma `WAMR_BUILD_AOT_VALIDATOR=1`; os bounds checks não são
+configuráveis em runtime e `WASM_DISABLE_HW_BOUND_CHECK` permanece no valor
+habilitado para checagem. Os arquivos de build, configurações efetivas e hashes
+ficam nos diretórios locais ignorados `build/module-interp` e `build/module-aot`.
+
+A revisão independente final da implementação/build ainda está pendente; a
+aprovação B registrada anteriormente cobre a proposta ABI. Nenhum firmware foi
+executado na placa nesta etapa. A porta serial enumerada ainda não teve placa e
+firmware identificados, então não foi aberta; a prova funcional e o procedimento
+de backup/restauração continuam pendentes. Builds e testes de host não equivalem
+ao aceite físico da #12, nem concluem #13/#14.
 
 
 Preparado em 13/10/2026 por solicitação do usuário. Modelo de todos os agentes:
