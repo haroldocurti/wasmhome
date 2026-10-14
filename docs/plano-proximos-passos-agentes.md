@@ -69,8 +69,32 @@ O aceite físico da #9 remove a dependência de viabilidade; não entrega a #12.
    da bancada. Publicar critérios e limites. Serviços completos #13/#14,
    atualização remota e campanha permanecem nas suas entregas próprias.
 
-Os passos 1–6 são trabalho pendente. Não há implementação nem aceite da #12
-nesta publicação; o plano organiza a próxima entrega sem ampliar a prova E1.
+### Estado de execução — 14/10/2026
+
+O contrato ABI v1, o gerenciador persistente e os módulos de serviço foram
+implementados no checkout. Os testes de host para helpers do ABI e para o
+gerenciador com shims ESP/WAMR passam (2 testes); eles validam o contrato e as
+decisões do manager, não o runtime ESP-IDF/WAMR real. Foram adicionadas linhas
+`WASMHOME_MODULE_MEMORY` para registrar heap interno/PSRAM, contadores WAMR,
+capacidade de payload das filas, stacks solicitadas, watchdogs persistentes e
+sobreposição/liberação. A revisão local do ciclo do watchdog encontrou que o
+ESP-IDF 5.2.6 agenda a exclusão do timer de forma assíncrona; os timers/gates
+agora permanecem no slot estático e deadlines evitam que callbacks atrasados
+atinjam outra chamada. Um caso host exercita esse caminho.
+
+A revisão independente final, o build com os pins em ESP-IDF, a auditoria das
+configurações efetivas e a prova funcional na placa com restauração continuam
+pendentes. Esta máquina tem PowerShell 7.6.6 e um `wamrc 2.4.5` cujo SHA-256 e
+recibo correspondem ao runtime fixado `2.4.5-wasmhome.3`; o R5 disponível no
+pacote de toolchain E1 corresponde ao runtime `.1` e não serve para esta geração.
+Os probes do binário `.3` listam `xtensa` como alvo e `esp32s3` como CPU
+reconhecida; as flags AOT do projeto continuam sem override de CPU até a revisão
+do AOT gerado.
+Não encontrei ESP-IDF 5.2.6/`idf.py`, Xtensa GCC, nem o pacote ou instalação
+WASI-SDK 27.0 nos caminhos locais examinados. A geração/build com proveniência
+continua indisponível, além de exigir checkout limpo. Há uma porta serial
+enumerada, mas a placa/firmware nela não foi identificada nem acessada. Portanto,
+a implementação local não equivale ao aceite da #12 e não amplia a prova E1.
 
 
 Preparado em 13/10/2026 por solicitação do usuário. Modelo de todos os agentes:

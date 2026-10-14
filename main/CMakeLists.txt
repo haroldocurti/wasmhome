@@ -18,7 +18,7 @@ if(CONFIG_WASMHOME_NATIVE_SERVICES)
     endif()
 endif()
 
-if(NOT EXPERIMENT_SCENARIO STREQUAL "native" AND NOT CMAKE_BUILD_EARLY_EXPANSION)
+if((EXPERIMENT_SCENARIO STREQUAL "interp" OR EXPERIMENT_SCENARIO STREQUAL "aot") AND NOT CMAKE_BUILD_EARLY_EXPANSION)
     execute_process(
         COMMAND "${PYTHON}" "${CMAKE_SOURCE_DIR}/tools/validate_build_config.py" --artifact-integrity
         RESULT_VARIABLE ARTIFACT_VALIDATION_RESULT
@@ -76,8 +76,53 @@ elseif(EXPERIMENT_SCENARIO STREQUAL "aot")
     list(APPEND SCENARIO_REQUIRES "wasm-micro-runtime")
     set(SCENARIO_DEFINE WASMHOME_SCENARIO_AOT=1)
     list(APPEND SCENARIO_SOURCE "../artifacts/benchmark_aot_embedded.c")
+elseif(EXPERIMENT_SCENARIO STREQUAL "module-interp" OR EXPERIMENT_SCENARIO STREQUAL "module-aot")
+    if(NOT CONFIG_WASMHOME_MODULE_SERVICES)
+        message(FATAL_ERROR "The module-* scenarios require CONFIG_WASMHOME_MODULE_SERVICES=y")
+    endif()
+    if(EXPERIMENT_SCENARIO STREQUAL "module-interp")
+        if(NOT CMAKE_BUILD_EARLY_EXPANSION AND
+           (NOT EXISTS "${CMAKE_SOURCE_DIR}/artifacts/service_telemetry_wasm_embedded.c" OR
+            NOT EXISTS "${CMAKE_SOURCE_DIR}/artifacts/service_control_v1_wasm_embedded.c" OR
+            NOT EXISTS "${CMAKE_SOURCE_DIR}/artifacts/service_control_v2_wasm_embedded.c"))
+            message(FATAL_ERROR "Service Wasm images missing; run tools/generate_service_modules.py")
+        endif()
+        set(MODULE_ARTIFACT_SUFFIX "wasm")
+        set(SCENARIO_DEFINE WASMHOME_SCENARIO_MODULE_INTERP=1)
+    else()
+        if(NOT CMAKE_BUILD_EARLY_EXPANSION AND
+           (NOT EXISTS "${CMAKE_SOURCE_DIR}/artifacts/service_telemetry_aot_embedded.c" OR
+            NOT EXISTS "${CMAKE_SOURCE_DIR}/artifacts/service_control_v1_aot_embedded.c" OR
+            NOT EXISTS "${CMAKE_SOURCE_DIR}/artifacts/service_control_v2_aot_embedded.c"))
+            message(FATAL_ERROR "Service AOT images missing; run tools/generate_service_modules.py")
+        endif()
+        set(MODULE_ARTIFACT_SUFFIX "aot")
+        set(SCENARIO_DEFINE WASMHOME_SCENARIO_MODULE_AOT=1)
+    endif()
+    if(NOT CMAKE_BUILD_EARLY_EXPANSION)
+        execute_process(
+            COMMAND "${PYTHON}" "${CMAKE_SOURCE_DIR}/tools/generate_service_modules.py" --verify
+            RESULT_VARIABLE SERVICE_MODULE_VALIDATION_RESULT
+            OUTPUT_VARIABLE SERVICE_MODULE_VALIDATION_OUTPUT
+            ERROR_VARIABLE SERVICE_MODULE_VALIDATION_ERROR)
+        if(NOT SERVICE_MODULE_VALIDATION_RESULT EQUAL 0)
+            message(FATAL_ERROR "Issue #12 service module integrity check failed: ${SERVICE_MODULE_VALIDATION_ERROR}")
+        endif()
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+            "${CMAKE_SOURCE_DIR}/artifacts/service-modules-manifest.json"
+            "${CMAKE_SOURCE_DIR}/workload/service_telemetry.c"
+            "${CMAKE_SOURCE_DIR}/workload/service_control.c"
+            "${CMAKE_SOURCE_DIR}/tools/generate_service_modules.py"
+            "${CMAKE_SOURCE_DIR}/tools/toolchain_provenance.py")
+    endif()
+    list(APPEND SCENARIO_REQUIRES "wasm-micro-runtime" "pthread" "mbedtls")
+    list(APPEND SCENARIO_SOURCE
+        "module_abi_v1.c" "module_manager.c"
+        "../artifacts/service_telemetry_${MODULE_ARTIFACT_SUFFIX}_embedded.c"
+        "../artifacts/service_control_v1_${MODULE_ARTIFACT_SUFFIX}_embedded.c"
+        "../artifacts/service_control_v2_${MODULE_ARTIFACT_SUFFIX}_embedded.c")
 else()
-    message(FATAL_ERROR "EXPERIMENT_SCENARIO must be native, interp or aot")
+    message(FATAL_ERROR "EXPERIMENT_SCENARIO must be native, interp, aot, module-interp or module-aot")
 endif()
 
 if(CONFIG_WASMHOME_NATIVE_SERVICES)
@@ -88,6 +133,12 @@ if(CONFIG_WASMHOME_RUN_BENCHMARK)
     list(APPEND SCENARIO_REQUIRES "pthread")
 endif()
 
+if(CONFIG_WASMHOME_MODULE_SERVICES)
+    if(NOT EXPERIMENT_SCENARIO STREQUAL "module-interp" AND NOT EXPERIMENT_SCENARIO STREQUAL "module-aot")
+        message(FATAL_ERROR "WASMHOME_MODULE_SERVICES requires a dedicated module-interp or module-aot scenario")
+    endif()
+endif()
+
 idf_component_register(
     SRCS ${SCENARIO_SOURCE}
     INCLUDE_DIRS "." "../workload"
@@ -95,6 +146,18 @@ idf_component_register(
 )
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE ${SCENARIO_DEFINE})
+
+if(CONFIG_WASMHOME_MODULE_SERVICES)
+    idf_component_get_property(WAMR_MODULE_COMPONENT_DIR wasm-micro-runtime COMPONENT_DIR)
+    if(NOT WAMR_MODULE_COMPONENT_DIR)
+        message(FATAL_ERROR "Unable to locate pinned WAMR component for start-function metadata validation")
+    endif()
+    target_include_directories(${COMPONENT_LIB} PRIVATE
+        "${WAMR_MODULE_COMPONENT_DIR}/core/iwasm/common"
+        "${WAMR_MODULE_COMPONENT_DIR}/core/iwasm/interpreter"
+        "${WAMR_MODULE_COMPONENT_DIR}/core/iwasm/aot")
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE WASM_MEM_ALLOC_WITH_USAGE=1)
+endif()
 
 if(EXPERIMENT_SCENARIO STREQUAL "native")
     # ESP-IDF performance defaults to -O2. The comparison protocol fixes -O3

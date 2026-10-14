@@ -94,10 +94,12 @@ ser decodificado; essa resolução é uma propriedade da leitura física.
 ### `CONTROL_REQUEST`
 
 Corpo `!Qi`: `sample_id:u64`, `input_temperature_mC:i32`. O observador usa ID
-positivo, envia uma entrada de controle conhecida e mantém o mesmo ID em qualquer
-resposta correlata. A entrada é um estímulo da regra de controle, não uma segunda
-leitura física do DS18B20. O domínio definido para o estímulo é −55 000…125 000
-m°C, incluindo os limites físicos de medição do DS18B20.
+positivo, estritamente crescente para cada novo pedido dentro do boot, e mantém
+o mesmo ID em qualquer resposta correlata. Uma duplicata ou conflito pode
+reutilizar um ID existente; não é uma nova admissão. A entrada é um estímulo da
+regra de controle, não uma segunda leitura física do DS18B20. O domínio definido
+para o estímulo é −55 000…125 000 m°C, incluindo os limites físicos de medição
+do DS18B20.
 
 ### `CONTROL_RESULT`
 
@@ -186,9 +188,11 @@ da campanha de resiliência usam o canal serial de ensaio e são correlacionados
   conteúdo não inicia segundo download; a resposta de aceite é repetida. Mesmo
   `attempt_id` com outra sequência ou outro conteúdo recebe
   `ATTEMPT_CONFLICT`. Duplicata de `CONTROL_REQUEST` com o mesmo `sample_id` e
-  corpo devolve o resultado registrado sem executar duas vezes; mesmo ID com
-  corpo diferente é descartado e registrado como `control_id_conflict`. Não há
-  retransmissão automática pelo observador.
+  corpo devolve o resultado registrado sem executar duas vezes enquanto a
+  entrada estiver no cache limitado do boot; mesmo ID com corpo diferente é
+  descartado e registrado como `control_id_conflict`. ID abaixo do maior ID
+  admitido que já saiu do cache é `stale`, não é executado novamente nem recebe
+  resposta fabricada. Não há retransmissão automática pelo observador.
 - O observador só envia comandos ao endereço configurado. UDP não autentica nem
   cifra; HTTPS e a assinatura do manifesto validam o artefato em outra camada.
 

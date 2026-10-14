@@ -14,9 +14,10 @@ WAMR_SHA = "25bd7eb63e828e4bd242cc9b38d260b4b31c6605"
 LLVM_SHA = "344b928e67bfc1d07cb150609c55548e86a9bf19"
 WASI_SHA = "b7d4d944c88503e4f21d84af07ac293e3440b1b6210bfd7fe78e0afd92c23bc2"
 WASI_URL = "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-27/wasi-sdk-27.0-x86_64-linux.tar.gz"
-GENERATORS = ("tools/build-artifacts.ps1", "tools/generate_artifacts.py", "tools/toolchain_provenance.py",
-              "tools/validate_build_config.py", "tools/embed_artifact.py", "tools/runtime_package.py",
-              "tools/evidence_json.py", "tools/record_wamrc_build.py", "runtime-port/lock.json", "runtime-port/esp-idf.patch", "runtime-port/idf_component.yml")
+GENERATORS = ("tools/build-artifacts.ps1", "tools/build-module-firmware.ps1", "tools/generate_artifacts.py", "tools/toolchain_provenance.py",
+              "tools/generate_service_modules.py", "tools/validate_build_config.py", "tools/embed_artifact.py", "tools/runtime_package.py",
+              "workload/service_telemetry.c", "workload/service_control.c",
+              "sdkconfig.module-services", "tools/evidence_json.py", "tools/record_wamrc_build.py", "runtime-port/lock.json", "runtime-port/esp-idf.patch", "runtime-port/idf_component.yml")
 
 
 def sha(path):
