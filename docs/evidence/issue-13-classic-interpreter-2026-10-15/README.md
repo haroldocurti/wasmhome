@@ -53,10 +53,12 @@ A captura estável documentada em
 [`issue-12-allocator-alignment-2026-10-15`](../issue-12-allocator-alignment-2026-10-15/README.md)
 é apoio, não aceite independente para a #13. Ela registrou 84 telemetrias
 válidas, 78 resultados em 79 controles e um lote separado com 10/10 respostas.
-Os registros brutos ficam fora do repositório e não foi possível estabelecer
-uma proveniência contemporânea completa entre a captura, o endpoint local e a
-configuração efetiva do BIN. A #13 precisa de uma execução correlacionada e
-reproduzível.
+O JSONL privado dessa captura também registra bind curinga em todas as
+interfaces, que recebeu os datagramas; isso confirma que o bind curinga, por si
+só, funciona neste host. Os registros brutos ficam fora do repositório e não
+foi possível estabelecer uma proveniência contemporânea completa entre aquela
+captura, o endpoint local e a configuração efetiva do BIN. Ela não substitui a
+prova da #13, que ainda precisa ser reproduzível e correlacionada.
 
 ## Restauração
 
