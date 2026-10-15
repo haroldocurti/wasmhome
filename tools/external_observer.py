@@ -153,10 +153,14 @@ class Observer:
                 return
             self.last_sample[packet.boot_id] = (sample, packet.body["temperature_mC"])
             if packet.body["sensor_status"] != SensorStatus.VALID or packet.body["age_ms"] > self.max_sample_age_ms:
-                self.event("telemetry_unavailable", now)
+                self.event("telemetry_unavailable", now, boot_id=packet.boot_id,
+                           sequence=packet.sequence, sample_id=sample,
+                           age_ms=packet.body["age_ms"])
             else:
                 self.telemetry_times.append(now)
-                self.event("telemetry_valid", now)
+                self.event("telemetry_valid", now, boot_id=packet.boot_id,
+                           sequence=packet.sequence, sample_id=sample,
+                           age_ms=packet.body["age_ms"])
             return
         if packet.attempt_id != self.attempt_id:
             self.event("wrong_attempt", now)
@@ -204,15 +208,24 @@ class Observer:
                    and packet.body["requested_gpio"] == expected
                    and packet.body["observed_gpio"] == expected)
         if latency > self.timeout_ns:
-            self.event("late_control", now, sample_id=packet.body["sample_id"], latency_ns=latency, correct=correct)
+            self.event("late_control", now, sample_id=packet.body["sample_id"], latency_ns=latency,
+                       correct=correct, boot_id=packet.boot_id, module_version=version,
+                       input_temperature_mC=request["packet"].body["input_temperature_mC"])
         elif not correct:
-            self.event("incorrect_control", now, sample_id=packet.body["sample_id"], expected_gpio=expected)
+            self.event("incorrect_control", now, sample_id=packet.body["sample_id"],
+                       expected_gpio=expected, boot_id=packet.boot_id, module_version=version,
+                       input_temperature_mC=request["packet"].body["input_temperature_mC"],
+                       requested_gpio=packet.body["requested_gpio"],
+                       observed_gpio=packet.body["observed_gpio"])
         else:
             request["success"] = True
             self.success_times.append(now)
             self.success_by_boot[packet.boot_id] += 1
             self.event("control_valid", now, sample_id=packet.body["sample_id"], latency_ns=latency,
-                       boot_id=packet.boot_id, module_version=version)
+                       boot_id=packet.boot_id, module_version=version,
+                       input_temperature_mC=request["packet"].body["input_temperature_mC"],
+                       requested_gpio=packet.body["requested_gpio"],
+                       observed_gpio=packet.body["observed_gpio"])
             if self.accepted_ns is not None and version == 2 and self.activated_ns is None:
                 self.activated_ns = now
                 self.event("v2_observed", now)
@@ -224,6 +237,7 @@ class Observer:
         return {
             "attempt_id": str(self.attempt_id), "boot_ids": self.boots,
             "period_ns": self.period_ns, "timeout_ns": self.timeout_ns,
+            "initial_version": self.initial_version,
             "max_sample_age_ms": self.max_sample_age_ms,
             "sent_controls": len(self.requests),
             "valid_controls_by_boot": dict(self.success_by_boot),
