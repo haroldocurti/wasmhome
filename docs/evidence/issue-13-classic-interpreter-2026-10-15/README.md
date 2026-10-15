@@ -59,5 +59,7 @@ byte a byte. A placa ficou no bootloader ROM, sem alteração da NVS original.
 
 Confirmar e observar passivamente o caminho UDP entre a estação Wi-Fi da placa
 e o host antes de repetir o ensaio. A prova de aceite deve combinar, na mesma
-execução, o boot UART e a captura de telemetria e respostas de controle. Esta
-entrega depende também da integração do PR #30, sobre cujo commit foi preparada.
+execução, o boot UART e a captura de telemetria e respostas de controle. A PR
+#30, dependência da #12, foi integrada à `main` no commit
+`298bfaa33584e64763ca97b35407f662cca7938b`. A PR #31 agora usa `main` como base;
+seu diff permanece restrito a este relatório.
