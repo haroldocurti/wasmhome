@@ -1,6 +1,6 @@
 # Checklist de execução do plano
 
-## Estado atual — 14/10/2026
+## Estado do plano — atualizado em 15/10/2026
 
 A #7 permanece concluída. A #11 teve aceite físico no ensaio
 `services-run03`, fonte `a91ff5e`: v1 e v2 passaram 45 critérios cada,
@@ -24,12 +24,12 @@ continuou idêntica. A captura final confirmou sua execução, sem leitura integ
 posterior. Uma sessão de 30 chamadas não representa 30 atualizações independentes.
 As falhas anteriores permanecem documentadas; o aceite é de viabilidade mínima.
 
-Próxima etapa: #12 → #13/#14. A distribuição Luna xhigh da #12 separa implementação
-do gerenciador, testes de contrato/ciclo de vida e revisão de memória/configuração.
-O coordenador integra, publica e opera a placa com exclusividade.
-A #15 está concluída. #16/#17/#18 seguem suas dependências; #19 → piloto #20 →
-campanha #21; #22 → #23 → análise #24. Tamanho amostral e timeout continuam
-condicionados ao piloto.
+A #12 foi integrada pela PR #30. As evidências físicas de #13 e #14 estão
+documentadas, respectivamente, nas PRs #31 e #32, ainda aguardando integração.
+A #15 está concluída nesta PR. Depois de integrar essas três PRs, as próximas
+etapas são #16/#17/#18, que seguem suas dependências; #19 → piloto #20 → campanha
+#21; #22 → #23 → análise #24. Tamanho amostral e timeout continuam condicionados
+ao piloto.
 
 [Aceite físico A/B/C](evidence/e1-physical-2026-10-14/README.md)
 · [Tentativa anterior](evidence/aot-run-8b3bddd-2026-10-14/README.md)
