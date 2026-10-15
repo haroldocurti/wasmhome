@@ -49,6 +49,13 @@ A primeira transferência AOT também encontrou MTU incompatível: o CT anunciav
 - `python3 -B tools/generate_service_modules.py --verify`: módulos Wasm/AOT verificados contra o manifesto da revisão de origem.
 - `python3 -B tools/signed_artifacts.py verify-set --package <captura> --public-key <pin independente> --expected-campaign-id issue15-bench-20261015 --expected-aot-toolchain-id wamr-2.4.5-wasmhome.3`: seis artefatos verificados.
 
+A revisão posterior à captura acrescentou duas regressões de disponibilidade:
+uma conexão TCP sem `ClientHello` preserva os demais downloads e é encerrada
+quando o limite de negociação expira. A suíte atual tem 20 testes, todos
+aprovados; os seis artefatos privados da captura também foram novamente
+verificados com o pin independente. Essa revisão não altera a proveniência da
+captura acima.
+
 ## Limite do aceite
 
 Esta evidência conclui geração, assinatura, verificação no host e transporte HTTPS da #15. Ela não comprova download pelo MCU, integração do verificador no firmware, persistência do piso antirretorno em NVS, rollback nem OTA. Esses critérios permanecem nas issues #16–18 e #22. Nenhuma chave privada, configuração de Wi-Fi, log bruto ou ELF privado foi incluído.

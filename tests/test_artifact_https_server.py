@@ -3,6 +3,7 @@ import http.client
 import json
 import pathlib
 import shutil
+import socket
 import ssl
 import subprocess
 import tempfile
@@ -129,6 +130,20 @@ class ArtifactHTTPSTests(unittest.TestCase):
             ))
         finally:
             server.server_close()
+
+    def test_idle_tcp_connection_does_not_block_other_tls_downloads(self):
+        # A connected client may never send ClientHello. The accept loop must
+        # remain available while that client's handler waits for TLS input.
+        with socket.create_connection(("127.0.0.1", self.server.server_port), timeout=2):
+            with urllib.request.urlopen(self.base + "/index.json", context=self.context,
+                                        timeout=2) as response:
+                self.assertEqual(response.status, 200)
+                self.assertEqual(response.read(), (self.package / "index.json").read_bytes())
+
+    def test_idle_tls_handshake_is_closed_after_timeout(self):
+        self.server.request_timeout = 0.15
+        with socket.create_connection(("127.0.0.1", self.server.server_port), timeout=2) as idle:
+            self.assertEqual(idle.recv(1), b"")
 
     def test_cose_media_type_identifies_sign1(self):
         path = "/scenario-1/firmware/v1/manifest.cose"

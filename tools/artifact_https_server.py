@@ -192,6 +192,7 @@ class ArtifactHandler(http.server.BaseHTTPRequestHandler):
 class ArtifactHTTPServer(http.server.ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = False
+    request_timeout = 10
 
     def __init__(self, address, root, cert, key, log_path, server_name, server_ip,
                  signing_public_key, expected_campaign_id, expected_aot_toolchain_id):
@@ -216,7 +217,23 @@ class ArtifactHTTPServer(http.server.ThreadingHTTPServer):
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.minimum_version = ssl.TLSVersion.TLSv1_2
         context.load_cert_chain(certfile=str(cert_path), keyfile=str(key_path))
-        self.socket = context.wrap_socket(self.socket, server_side=True)
+        # Defer negotiation until after ThreadingHTTPServer dispatches the
+        # accepted connection. Otherwise one silent TCP peer blocks accept().
+        self.socket = context.wrap_socket(self.socket, server_side=True,
+                                          do_handshake_on_connect=False)
+
+    def get_request(self):
+        connection, address = super().get_request()
+        connection.settimeout(self.request_timeout)
+        return connection, address
+
+    def process_request_thread(self, request, client_address):
+        try:
+            request.do_handshake()
+        except OSError:
+            self.shutdown_request(request)
+            return
+        super().process_request_thread(request, client_address)
 
     def host_header_allowed(self, value):
         if not value or any(character.isspace() for character in value) or any(

@@ -47,6 +47,9 @@ O serviço fixa `wasmhome-bench.test`, `192.168.0.138`, campanha
 exige construir e validar novamente o pacote e atualizar a unidade. A porta
 serve somente `GET`/`HEAD`; outros métodos retornam `405` e `Allow: GET, HEAD`.
 Os eventos são gravados em `/var/log/wasmhome/issue15/http.jsonl`.
+A negociação TLS acontece na thread de cada cliente, com limite de 10 segundos
+por operação de rede. Uma conexão TCP que não envia `ClientHello` não bloqueia
+a aceitação de outros clientes e é encerrada ao expirar esse limite.
 
 ## Cliente e verificação
 
