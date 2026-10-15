@@ -27,6 +27,7 @@ static SemaphoreHandle_t transport_lock;
 static struct sockaddr_in observer;
 static int udp_socket = -1;
 static uint64_t tx_sequence[256];
+static wh_observation_tx_stats_t observation_tx_stats;
 static wh_request_handler_t request_handler;
 static uint32_t request_handler_in_flight;
 static bool started;
@@ -43,6 +44,21 @@ static const char *scenario = "aot";
 #endif
 
 uint64_t wh_platform_boot_id(void) { return boot_id; }
+
+static wh_observation_tx_type_stats_t *
+observation_tx_stats_for_type(uint8_t type)
+{
+    switch (type) {
+    case WH_TELEMETRY:
+        return &observation_tx_stats.telemetry;
+    case WH_CONTROL_RESULT:
+        return &observation_tx_stats.control_result;
+    case WH_UPDATE_ACCEPTANCE:
+        return &observation_tx_stats.update_acceptance;
+    default:
+        return NULL;
+    }
+}
 
 void wh_platform_event(const char *event, esp_err_t status)
 {
@@ -84,26 +100,58 @@ esp_err_t wh_observation_set_handler(wh_request_handler_t handler)
 esp_err_t wh_observation_send(uint8_t type, const uint8_t attempt[16],
                               const uint8_t *body, size_t body_size)
 {
-    if (type != WH_TELEMETRY && type != WH_CONTROL_RESULT && type != WH_UPDATE_ACCEPTANCE)
-        return ESP_ERR_INVALID_ARG;
+    wh_observation_tx_type_stats_t *stats = observation_tx_stats_for_type(type);
+    if (!stats) return ESP_ERR_INVALID_ARG;
     if (!transport_lock) return ESP_ERR_INVALID_STATE;
     uint8_t data[68];
     xSemaphoreTake(transport_lock, portMAX_DELAY);
+    stats->calls++;
     esp_err_t err = ESP_ERR_INVALID_STATE;
-    if (udp_socket >= 0 && (xEventGroupGetBits(network) & NETWORK_READY) && tx_sequence[type] != UINT64_MAX) {
+    const bool socket_ready = udp_socket >= 0;
+    const bool network_ready = network &&
+        (xEventGroupGetBits(network) & NETWORK_READY) != 0;
+    const bool sequence_ready = tx_sequence[type] != UINT64_MAX;
+    if (!socket_ready || !network_ready || !sequence_ready) {
+        stats->not_ready++;
+        if (!socket_ready) stats->socket_unavailable++;
+        if (!network_ready) stats->network_unavailable++;
+        if (!sequence_ready) stats->sequence_exhausted++;
+    }
+    if (socket_ready && network_ready && sequence_ready) {
         uint64_t next = tx_sequence[type] + 1;
         size_t n = wh_wire_encode(data, sizeof(data), type, attempt, next,
                                   boot_id, esp_timer_get_time(), body, body_size);
-        if (!n) err = ESP_ERR_INVALID_ARG;
-        else {
+        if (!n) {
+            err = ESP_ERR_INVALID_ARG;
+            stats->encode_failed++;
+        } else {
             tx_sequence[type] = next;
+            stats->sendto_calls++;
             int result = sendto(udp_socket, data, n, 0, (struct sockaddr *)&observer, sizeof(observer));
+            int send_errno = errno;
             err = result == (int)n ? ESP_OK : ESP_FAIL;
+            if (err == ESP_OK) stats->accepted++;
+            else {
+                stats->failed++;
+                stats->last_failure_result = (int32_t)result;
+                stats->last_failure_errno = result < 0 ? send_errno : 0;
+                stats->last_failure_sequence = next;
+            }
         }
     }
     xSemaphoreGive(transport_lock);
     if (err == ESP_FAIL) wh_platform_event("udp_send_failed", err);
     return err;
+}
+
+esp_err_t wh_platform_observation_tx_stats(wh_observation_tx_stats_t *out)
+{
+    if (!out) return ESP_ERR_INVALID_ARG;
+    if (!transport_lock) return ESP_ERR_INVALID_STATE;
+    xSemaphoreTake(transport_lock, portMAX_DELAY);
+    *out = observation_tx_stats;
+    xSemaphoreGive(transport_lock);
+    return ESP_OK;
 }
 
 static void wifi_event(void *arg, esp_event_base_t base, int32_t id, void *data)

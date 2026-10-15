@@ -158,6 +158,7 @@ static const char *TAG = "wh_module_manager";
 static portMUX_TYPE manager_creation_mux = portMUX_INITIALIZER_UNLOCKED;
 static portMUX_TYPE allocator_mux = portMUX_INITIALIZER_UNLOCKED;
 static portMUX_TYPE reservation_mux = portMUX_INITIALIZER_UNLOCKED;
+static portMUX_TYPE module_io_mux = portMUX_INITIALIZER_UNLOCKED;
 static uint64_t allocator_cap_bytes;
 static uint64_t allocator_live_bytes;
 static uint64_t allocator_peak_bytes;
@@ -213,11 +214,43 @@ static uint64_t telemetry_runtime_busy_drops;
 static uint64_t tx_failures;
 static uint64_t control_execution_failures;
 static uint64_t gpio_failures;
+typedef struct {
+    uint64_t telemetry_ticks;
+    uint64_t telemetry_guest_successes;
+    uint64_t telemetry_publish_calls;
+    uint64_t telemetry_publish_accepted;
+    uint64_t telemetry_output_enqueued;
+    uint64_t telemetry_output_enqueue_failures;
+    uint64_t telemetry_output_lock_failures;
+    uint64_t telemetry_body_failures;
+    uint64_t telemetry_reservation_lock_busy_drops;
+    uint64_t control_requests_invalid;
+    uint64_t control_requests_received;
+    uint64_t control_requests_inactive;
+    uint64_t control_requests_admitted;
+    uint64_t control_request_replays;
+    uint64_t control_results_produced;
+    uint64_t control_result_output_enqueued;
+    uint64_t update_acceptance_output_enqueued;
+    uint64_t control_output_queue_drops;
+    uint64_t tx_dequeued_telemetry;
+    uint64_t tx_dequeued_control_result;
+    uint64_t tx_dequeued_update_acceptance;
+    uint64_t tx_dequeued_other;
+    uint64_t tx_send_api_failures;
+} module_io_counters_t;
+static module_io_counters_t module_io;
 static uint32_t telemetry_stack_high_water;
 static uint32_t control_stack_high_water;
 static control_replay_record_t replay_records[WH_CONTROL_REPLAY_CAPACITY];
 static size_t replay_next;
 static uint64_t highest_control_sample_id;
+
+#define MODULE_IO_INCREMENT(field) do { \
+    portENTER_CRITICAL(&module_io_mux); \
+    module_io.field++; \
+    portEXIT_CRITICAL(&module_io_mux); \
+} while (0)
 
 static void slot_release(module_slot_t *slot);
 static void *tx_worker_entry(void *argument);
@@ -1105,9 +1138,7 @@ reserve_telemetry_output(void)
     bool reserved = false;
     if (!telemetry_queue_lock ||
         xSemaphoreTake(telemetry_queue_lock, 0) != pdTRUE) {
-        portENTER_CRITICAL(&reservation_mux);
-        telemetry_queue_full_drops++;
-        portEXIT_CRITICAL(&reservation_mux);
+        MODULE_IO_INCREMENT(telemetry_reservation_lock_busy_drops);
         return false;
     }
     if (telemetry_output_queue &&
@@ -1188,6 +1219,7 @@ native_publish_telemetry(wasm_exec_env_t exec_env, uint64_t *args)
     module_context_t *context = callback_context(exec_env, WH_MODULE_ROLE_TELEMETRY);
     uint32_t status = WH_ERR_STATE;
     if (context) {
+        MODULE_IO_INCREMENT(telemetry_publish_calls);
         if (context->publish_count != 0) {
             context->duplicate = true;
             context->invocation_error = true;
@@ -1198,6 +1230,7 @@ native_publish_telemetry(wasm_exec_env_t exec_env, uint64_t *args)
         } else {
             context->publish_count = 1;
             context->telemetry_reserved = true;
+            MODULE_IO_INCREMENT(telemetry_publish_accepted);
             status = WH_OK;
         }
     }
@@ -1289,7 +1322,14 @@ enqueue_control_output(const tx_item_t *item, bool reservation_held)
     if (reservation_held) increment_control_reservation();
     if (control_output_queue && xQueueSend(control_output_queue, item, 0) == pdTRUE)
         sent = true;
-    if (!sent) tx_failures++;
+    if (!sent) {
+        tx_failures++;
+        MODULE_IO_INCREMENT(control_output_queue_drops);
+    } else if (item->type == WH_CONTROL_RESULT) {
+        MODULE_IO_INCREMENT(control_result_output_enqueued);
+    } else if (item->type == WH_UPDATE_ACCEPTANCE) {
+        MODULE_IO_INCREMENT(update_acceptance_output_enqueued);
+    }
     xSemaphoreGive(manager_lock);
     return sent;
 }
@@ -1299,17 +1339,24 @@ enqueue_telemetry_output(const tx_item_t *item)
 {
     bool sent = false;
     if (!telemetry_queue_lock ||
-        xSemaphoreTake(telemetry_queue_lock, portMAX_DELAY) != pdTRUE)
+        xSemaphoreTake(telemetry_queue_lock, portMAX_DELAY) != pdTRUE) {
+        MODULE_IO_INCREMENT(telemetry_output_lock_failures);
+        MODULE_IO_INCREMENT(telemetry_output_enqueue_failures);
         return false;
+    }
     if (telemetry_output_queue && telemetry_output_reservations &&
         xQueueSend(telemetry_output_queue, item, 0) == pdTRUE) {
         telemetry_output_reservations--;
         sent = true;
+        MODULE_IO_INCREMENT(telemetry_output_enqueued);
     } else if (telemetry_output_reservations) {
         telemetry_output_reservations--;
         portENTER_CRITICAL(&reservation_mux);
         telemetry_queue_full_drops++;
         portEXIT_CRITICAL(&reservation_mux);
+        MODULE_IO_INCREMENT(telemetry_output_enqueue_failures);
+    } else {
+        MODULE_IO_INCREMENT(telemetry_output_enqueue_failures);
     }
     xSemaphoreGive(telemetry_queue_lock);
     return sent;
@@ -1346,12 +1393,15 @@ wh_module_manager_handle_request(const uint8_t *packet, size_t length)
 {
     if (!packet || length != WH_CONTROL_PACKET_SIZE || !wh_wire_valid(packet, length) ||
         packet[5] != WH_CONTROL_REQUEST) {
+        MODULE_IO_INCREMENT(control_requests_invalid);
         wh_platform_event("module_control_request_invalid", ESP_ERR_INVALID_ARG);
         return;
     }
 
     xSemaphoreTake(manager_lock, portMAX_DELAY);
+    MODULE_IO_INCREMENT(control_requests_received);
     if (!manager_started || !accepting_requests || !control_queue) {
+        MODULE_IO_INCREMENT(control_requests_inactive);
         xSemaphoreGive(manager_lock);
         return;
     }
@@ -1367,6 +1417,7 @@ wh_module_manager_handle_request(const uint8_t *packet, size_t length)
         : (int32_t)((int64_t)temperature_bits - 0x100000000LL);
     if (request.sample_id == 0 || request.temperature_mC < -55000 ||
         request.temperature_mC > 125000) {
+        MODULE_IO_INCREMENT(control_requests_invalid);
         wh_platform_event("module_control_request_invalid", ESP_ERR_INVALID_ARG);
         xSemaphoreTake(manager_lock, portMAX_DELAY);
         if (request_handlers_in_flight) request_handlers_in_flight--;
@@ -1388,6 +1439,7 @@ wh_module_manager_handle_request(const uint8_t *packet, size_t length)
             control_result_reservations++;
             cached_copy = *cached;
             replayed = true;
+            MODULE_IO_INCREMENT(control_request_replays);
         } else {
             control_admission_refusals++;
         }
@@ -1400,6 +1452,7 @@ wh_module_manager_handle_request(const uint8_t *packet, size_t length)
         if (xQueueSend(control_queue, &job, 0) == pdTRUE) {
             admitted = true;
             highest_control_sample_id = request.sample_id;
+            MODULE_IO_INCREMENT(control_requests_admitted);
         } else {
             increment_control_reservation();
             control_admission_refusals++;
@@ -1476,6 +1529,7 @@ capture_snapshot(void)
 static void
 run_telemetry_tick(void)
 {
+    MODULE_IO_INCREMENT(telemetry_ticks);
     module_slot_t *slot = &telemetry_slot;
     wh_abi_snapshot_v1_t snapshot = capture_snapshot();
     module_context_t *context = &slot->context;
@@ -1491,6 +1545,8 @@ run_telemetry_tick(void)
     const bool call_ok = call_with_limit(slot, slot->entry_fn, 0, NULL,
                                          WH_TELEMETRY_EXECUTION_LIMIT_US, &result);
     context->invocation_active = false;
+    if (call_ok && result == 0 && !context->invocation_error && !context->duplicate)
+        MODULE_IO_INCREMENT(telemetry_guest_successes);
     if (call_ok && result == 0 && !context->invocation_error &&
         !context->duplicate && context->publish_count == 1 &&
         context->telemetry_reserved) {
@@ -1498,6 +1554,7 @@ run_telemetry_tick(void)
         if (telemetry_body_from_sample(&snapshot, item.body)) {
             (void)enqueue_telemetry_output(&item);
         } else {
+            MODULE_IO_INCREMENT(telemetry_body_failures);
             release_telemetry_reservation();
         }
     } else if (context->telemetry_reserved) {
@@ -1516,6 +1573,14 @@ run_telemetry_tick(void)
 }
 
 static void
+increment_manager_counter(uint64_t *counter)
+{
+    xSemaphoreTake(manager_lock, portMAX_DELAY);
+    (*counter)++;
+    xSemaphoreGive(manager_lock);
+}
+
+static void
 execute_control_request(const control_request_t *request)
 {
     module_slot_t *slot = active_control;
@@ -1523,7 +1588,7 @@ execute_control_request(const control_request_t *request)
     uint8_t observed = 255;
     uint8_t status = WH_CONTROL_EXECUTION_ERROR;
     if (!slot || slot->state != WH_MODULE_SLOT_ACTIVE) {
-        control_execution_failures++;
+        increment_manager_counter(&control_execution_failures);
     } else {
         module_context_t *context = &slot->context;
         context->sample_id = request->sample_id;
@@ -1557,7 +1622,7 @@ execute_control_request(const control_request_t *request)
             } else {
                 observed = 255;
                 status = WH_CONTROL_EXECUTION_ERROR;
-                gpio_failures++;
+                increment_manager_counter(&gpio_failures);
             }
         } else {
             if (context->gpio_count == 1 && context->publish_count == 1 &&
@@ -1565,7 +1630,7 @@ execute_control_request(const control_request_t *request)
                 context->published_requested == context->requested_gpio &&
                 !context->invocation_error && !context->duplicate)
                 requested = context->requested_gpio;
-            control_execution_failures++;
+            increment_manager_counter(&control_execution_failures);
         }
         context->gpio_count = 0;
         context->publish_count = 0;
@@ -1574,6 +1639,7 @@ execute_control_request(const control_request_t *request)
     uint8_t body[WH_CONTROL_RESULT_BODY_SIZE];
     control_result_body(body, request->sample_id, slot ? slot->module_version : 1,
                         requested, observed, status);
+    MODULE_IO_INCREMENT(control_results_produced);
     replay_store(request->sample_id, request->temperature_mC, body);
     tx_item_t item = {.type = WH_CONTROL_RESULT, .body_size = WH_CONTROL_RESULT_BODY_SIZE};
     memcpy(item.attempt, request->packet + 8, sizeof(item.attempt));
@@ -1651,6 +1717,91 @@ worker_start_report(bool ok, bool *field)
     *field = ok;
     xSemaphoreGive(manager_lock);
     xSemaphoreGive(worker_startup);
+}
+
+static void
+module_io_snapshot(void)
+{
+    module_io_counters_t io;
+    portENTER_CRITICAL(&module_io_mux);
+    io = module_io;
+    portEXIT_CRITICAL(&module_io_mux);
+
+    uint64_t control_refusals;
+    uint64_t telemetry_busy_drops;
+    uint64_t aggregate_tx_failures;
+    uint64_t control_failures;
+    uint64_t gpio_error_count;
+    xSemaphoreTake(manager_lock, portMAX_DELAY);
+    control_refusals = control_admission_refusals;
+    telemetry_busy_drops = telemetry_runtime_busy_drops;
+    aggregate_tx_failures = tx_failures;
+    control_failures = control_execution_failures;
+    gpio_error_count = gpio_failures;
+    xSemaphoreGive(manager_lock);
+
+    uint64_t telemetry_queue_drops;
+    portENTER_CRITICAL(&reservation_mux);
+    telemetry_queue_drops = telemetry_queue_full_drops;
+    portEXIT_CRITICAL(&reservation_mux);
+
+    const UBaseType_t control_job_depth = control_queue
+        ? uxQueueMessagesWaiting(control_queue) : 0;
+    const UBaseType_t control_output_depth = control_output_queue
+        ? uxQueueMessagesWaiting(control_output_queue) : 0;
+    const UBaseType_t telemetry_output_depth = telemetry_output_queue
+        ? uxQueueMessagesWaiting(telemetry_output_queue) : 0;
+    wh_observation_tx_stats_t tx_stats = {0};
+    const esp_err_t tx_stats_status = wh_platform_observation_tx_stats(&tx_stats);
+
+#define WH_TX_STATS_ARGS(stats) \
+    (stats).calls, (stats).sendto_calls, (stats).accepted, (stats).failed, \
+    (stats).not_ready, (stats).socket_unavailable, (stats).network_unavailable, \
+    (stats).sequence_exhausted, (stats).encode_failed, \
+    (stats).last_failure_result, (stats).last_failure_errno, \
+    (stats).last_failure_sequence
+    /* Array layouts are documented in the issue #13 evidence README. */
+    printf("WASMHOME_MODULE_IO,{\"schema\":\"wasmhome-module-io-v1\",\"boot_id\":\"%016" PRIx64
+           "\",\"us\":%" PRId64 ",\"snapshot_status\":%d,"
+           "\"tel\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64
+           ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64
+           ",%" PRIu64 ",%u],"
+           "\"ctl\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64
+           ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64
+           ",%" PRIu64 ",%u,%u],"
+           "\"tx\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64
+           ",%" PRIu64 ",%u,%u],"
+           "\"udp\":{\"tel\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64
+           ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64
+           ",%" PRId32 ",%" PRId32 ",%" PRIu64 "],"
+           "\"ctl\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64
+           ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64
+           ",%" PRId32 ",%" PRId32 ",%" PRIu64 "],"
+           "\"upd\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64
+           ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64
+           ",%" PRId32 ",%" PRId32 ",%" PRIu64 "]}}\n",
+           wh_platform_boot_id(), esp_timer_get_time(), (int)tx_stats_status,
+           io.telemetry_ticks, io.telemetry_guest_successes,
+           io.telemetry_publish_calls, io.telemetry_publish_accepted,
+           io.telemetry_output_enqueued, io.telemetry_output_enqueue_failures,
+           io.telemetry_output_lock_failures, io.telemetry_body_failures,
+           telemetry_queue_drops, io.telemetry_reservation_lock_busy_drops,
+           telemetry_busy_drops, (unsigned)telemetry_output_depth,
+           io.control_requests_invalid, io.control_requests_received,
+           io.control_requests_inactive, io.control_requests_admitted,
+           io.control_request_replays, control_refusals,
+           io.control_results_produced, io.control_result_output_enqueued,
+           io.update_acceptance_output_enqueued,
+           io.control_output_queue_drops, control_failures, gpio_error_count,
+           (unsigned)control_job_depth, (unsigned)control_output_depth,
+           io.tx_dequeued_telemetry, io.tx_dequeued_control_result,
+           io.tx_dequeued_update_acceptance, io.tx_dequeued_other,
+           io.tx_send_api_failures, aggregate_tx_failures,
+           (unsigned)telemetry_output_depth, (unsigned)control_output_depth,
+           WH_TX_STATS_ARGS(tx_stats.telemetry),
+           WH_TX_STATS_ARGS(tx_stats.control_result),
+           WH_TX_STATS_ARGS(tx_stats.update_acceptance));
+#undef WH_TX_STATS_ARGS
 }
 
 static void
@@ -1768,6 +1919,7 @@ tx_worker_entry(void *argument)
 {
     (void)argument;
     worker_start_report(true, &tx_worker_ok);
+    TickType_t last_diagnostic_tick = xTaskGetTickCount();
     for (;;) {
         tx_item_t item;
         bool found = control_output_queue &&
@@ -1776,14 +1928,27 @@ tx_worker_entry(void *argument)
             found = xQueueReceive(telemetry_output_queue, &item,
                                   pdMS_TO_TICKS(20)) == pdTRUE;
         if (found) {
+            if (item.type == WH_TELEMETRY)
+                MODULE_IO_INCREMENT(tx_dequeued_telemetry);
+            else if (item.type == WH_CONTROL_RESULT)
+                MODULE_IO_INCREMENT(tx_dequeued_control_result);
+            else if (item.type == WH_UPDATE_ACCEPTANCE)
+                MODULE_IO_INCREMENT(tx_dequeued_update_acceptance);
+            else
+                MODULE_IO_INCREMENT(tx_dequeued_other);
             esp_err_t result = wh_observation_send(item.type, item.attempt,
                                                    item.body, item.body_size);
             if (result != ESP_OK) {
                 xSemaphoreTake(manager_lock, portMAX_DELAY);
                 tx_failures++;
                 xSemaphoreGive(manager_lock);
+                MODULE_IO_INCREMENT(tx_send_api_failures);
             }
-            continue;
+        }
+        const TickType_t now = xTaskGetTickCount();
+        if ((TickType_t)(now - last_diagnostic_tick) >= pdMS_TO_TICKS(5000)) {
+            module_io_snapshot();
+            last_diagnostic_tick = now;
         }
         if (atomic_load_explicit(&tx_stop_requested, memory_order_acquire) &&
             uxQueueMessagesWaiting(control_output_queue) == 0 &&
@@ -2016,6 +2181,9 @@ wh_module_manager_start(const wh_module_image_t *telemetry,
     memset(replay_records, 0, sizeof(replay_records));
     replay_next = 0;
     highest_control_sample_id = 0;
+    portENTER_CRITICAL(&module_io_mux);
+    memset(&module_io, 0, sizeof(module_io));
+    portEXIT_CRITICAL(&module_io_mux);
     control_admission_refusals = telemetry_queue_full_drops = 0;
     telemetry_runtime_busy_drops = tx_failures = 0;
     control_execution_failures = gpio_failures = 0;

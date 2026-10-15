@@ -76,9 +76,41 @@ byte a byte. A placa ficou no bootloader ROM, sem alteração da NVS original.
 
 ## Próxima etapa
 
-Confirmar e observar passivamente o caminho UDP entre a estação Wi-Fi da placa
-e o host antes de repetir o ensaio. A prova de aceite deve combinar, na mesma
-execução, o boot UART e a captura de telemetria e respostas de controle. A PR
-#30, dependência da #12, foi integrada à `main` no commit
-`298bfaa33584e64763ca97b35407f662cca7938b`. A PR #31 agora usa `main` como base;
-seu diff permanece restrito a este relatório.
+O firmware em desenvolvimento para a PR #31 acrescenta uma linha cumulativa
+`WASMHOME_MODULE_IO` a cada cinco segundos. Ela registra os estágios de
+telemetria e controle, profundidade das filas e o resultado local de cada tipo
+de envio UDP. A instrumentação ainda não foi compilada nem executada na placa;
+ela não altera o protocolo UDP. `accepted` significa que `sendto` aceitou o
+datagrama localmente, não que o observador o recebeu.
+
+Os vetores JSON da linha usam estas posições, começando em zero:
+
+- `tel`: ticks, execuções do guest bem-sucedidas, chamadas a `publish`,
+  publicações aceitas, itens enfileirados, falhas de enqueue, falhas do lock,
+  falhas ao montar o corpo, descartes por fila cheia, descartes por contenção
+  da reserva, descartes por execução ocupada e profundidade da fila.
+- `ctl`: pedidos inválidos, pedidos que chegaram ao manager, pedidos recebidos
+  enquanto inativo, admitidos, replays, recusas de admissão, resultados
+  produzidos, resultados enfileirados, aceitações de update enfileiradas,
+  descartes da fila de saída, falhas de execução, falhas de GPIO, profundidade
+  da fila de pedidos e profundidade da fila de saída. `requests_received` é
+  contado no manager; não inclui datagramas descartados antes dele pela camada
+  UDP. `requests_invalid` agrega envelope inválido e campos semânticos inválidos.
+- `tx`: itens retirados das filas de telemetria, resultado de controle,
+  aceitação de update e outros; falhas retornadas pela API de envio; falhas
+  agregadas da fila de saída de controle e da API de envio (sem os descartes da
+  fila de telemetria, que aparecem em `tel`); profundidades das filas de
+  telemetria e de saída de controle.
+- `udp.tel`, `udp.ctl` e `udp.upd`: chamadas, chamadas a `sendto`, datagramas
+  aceitos localmente, falhas de `sendto`, chamadas sem transporte pronto,
+  socket indisponível, rede indisponível, sequência esgotada, falhas de
+  codificação, resultado bruto da última falha de `sendto`, `errno` dessa falha
+  e sua sequência. Os três últimos valores permanecem zero se não houve falha.
+
+Antes de repetir o ensaio é necessário observar passivamente o caminho UDP
+entre a estação Wi-Fi da placa e o host, por captura no AP/roteador ou por uma
+captura local autorizada. A próxima execução deve correlacionar a linha
+diagnóstica, o boot UART e os datagramas observados na mesma janela. A PR #30,
+dependência da #12, foi integrada à `main` no commit
+`298bfaa33584e64763ca97b35407f662cca7938b`; a PR #31 continua baseada em `main`
+e em rascunho até a prova física de ponta a ponta.
