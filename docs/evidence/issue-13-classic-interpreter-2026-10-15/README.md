@@ -19,9 +19,10 @@ não marca os critérios físicos da #13 como concluídos.
   `b55fd716d61b04bb03eb02786aa8aafd0a2859555c6de753adcb366d43c9e40e`.
 - Os hashes acima identificam a configuração e os artefatos do build usado. O
   log privado `flash-module-interp-final.log` registra a gravação de 843.424
-  bytes no endereço `0x20000` (partição `ota_0`) e `Hash of data verified`;
-  assim, a verificação do esptool está ligada ao BIN identificado pelo hash
-  acima. Os arquivos brutos de captura permanecem fora do repositório.
+  bytes no endereço `0x20000` (partição `ota_0`) e `Hash of data verified`.
+  Esse log não contém o nome nem o hash do BIN; a correlação com o build acima
+  é feita pelos registros privados da sessão, que documentam o comando e o
+  artefato usados. Os arquivos brutos de captura permanecem fora do repositório.
 
 ## Execução física em 15/10/2026
 
