@@ -15,6 +15,7 @@ import sys
 import uuid
 
 UPDATE_PREFIX = "WASMHOME_UPDATE,"
+MODULE_MEMORY_PREFIX = "WASMHOME_MODULE_MEMORY,"
 SUCCESS_PHASES = (
     "accepted",
     "manifest_download_started",
@@ -121,6 +122,24 @@ def parse_update_events(raw: bytes) -> list[dict]:
     return events
 
 
+def parse_module_memory_events(raw: bytes) -> list[dict]:
+    events = []
+    for line_number, line in enumerate(raw.decode("utf-8", errors="replace").splitlines(), 1):
+        marker = line.find(MODULE_MEMORY_PREFIX)
+        if marker < 0:
+            continue
+        encoded = line[marker + len(MODULE_MEMORY_PREFIX):].strip()
+        try:
+            event = json.loads(encoded)
+        except json.JSONDecodeError as error:
+            raise ValueError(f"invalid WASMHOME_MODULE_MEMORY JSON on line {line_number}: {error}") from error
+        if not isinstance(event, dict):
+            raise ValueError(f"WASMHOME_MODULE_MEMORY line {line_number} is not a JSON object")
+        event["_source_line"] = line_number
+        events.append(event)
+    return events
+
+
 def parse_observations(raw: bytes) -> list[dict]:
     rows = []
     for line_number, line in enumerate(raw.decode("utf-8", errors="replace").splitlines(), 1):
@@ -196,6 +215,128 @@ def _heap(event: dict) -> dict:
     }
 
 
+def _module_heap_snapshot(event: dict) -> tuple[bool, dict]:
+    internal = event.get("internal_heap")
+    psram = event.get("psram_heap")
+    internal_ok = False
+    internal_values = {}
+    if isinstance(internal, dict) and internal.get("status") == "measured":
+        values = {key: _number(internal.get(key)) for key in ("total", "free", "largest")}
+        internal_ok = (all(value is not None for value in values.values())
+                       and values["largest"] <= values["free"] <= values["total"])
+        internal_values = values
+
+    psram_ok = False
+    psram_values = {}
+    if isinstance(psram, dict) and psram.get("status") == "not_applicable":
+        psram_ok = all(psram.get(key) is None for key in ("total", "free", "largest"))
+        psram_values = {"status": "not_applicable"}
+    elif isinstance(psram, dict) and psram.get("status") == "measured":
+        values = {key: _number(psram.get(key)) for key in ("total", "free", "largest")}
+        psram_ok = (all(value is not None for value in values.values())
+                    and values["largest"] <= values["free"] <= values["total"])
+        psram_values = {"status": "measured", **values}
+
+    return internal_ok and psram_ok, {
+        "internal_heap": {"status": internal.get("status") if isinstance(internal, dict) else None,
+                          **internal_values},
+        "psram_heap": psram_values,
+    }
+
+
+def _module_memory_lifecycle(events: list[dict], phases: dict) -> dict:
+    required = (
+        ("module_load", "control_candidate", "ok"),
+        ("module_instantiate", "control_candidate", "ok"),
+        ("candidate_overlap", "control_candidate", "ready"),
+        ("control_replaced_old_released", "control", "ok"),
+    )
+    start = phases.get("payload_verified")
+    end = phases.get("previous_control_released")
+    start_line = start.get("_source_line") if start else None
+    end_line = end.get("_source_line") if end else None
+    in_transaction = ([event for event in events
+                       if isinstance(start_line, int) and isinstance(end_line, int)
+                       and start_line < event.get("_source_line", -1) < end_line]
+                      if start_line is not None and end_line is not None else [])
+
+    chosen = {}
+    missing_or_duplicate = []
+    bad_identity = []
+    bad_heap = []
+    failed_candidate_events = [
+        {"phase": event.get("phase"), "status": event.get("status"),
+         "source_line": event.get("_source_line")}
+        for event in in_transaction
+        if event.get("role") == "control_candidate"
+        and (event.get("status") in ("failed", "error", "rejected")
+             or str(event.get("phase", "")).endswith("_failed"))
+    ]
+    snapshots = []
+    for phase, expected_role, expected_status in required:
+        matches = [event for event in in_transaction if event.get("phase") == phase]
+        if len(matches) != 1:
+            missing_or_duplicate.append({"phase": phase, "count": len(matches)})
+            continue
+        event = matches[0]
+        chosen[phase] = event
+        if (event.get("schema") != "wasmhome-module-memory-v1"
+                or event.get("role") != expected_role or event.get("status") != expected_status
+                or event.get("units") != "bytes"):
+            bad_identity.append({"phase": phase, "schema": event.get("schema"),
+                                 "role": event.get("role"), "status": event.get("status"),
+                                 "units": event.get("units")})
+        heap_ok, heap_values = _module_heap_snapshot(event)
+        if not heap_ok:
+            bad_heap.append(phase)
+        allocator = event.get("wamr_allocator")
+        allocator_values = ({key: _number(allocator.get(key)) for key in
+                             ("live", "peak", "calls", "failures", "runtime",
+                              "linear_memory", "artifacts")}
+                            if isinstance(allocator, dict) else {})
+        snapshots.append({"phase": phase, "source_line": event.get("_source_line"),
+                          **heap_values, "wamr_allocator": allocator_values})
+
+    ordered = (len(chosen) == len(required)
+               and all(chosen[left]["_source_line"] < chosen[right]["_source_line"]
+                       for (left, _, _), (right, _, _) in zip(required, required[1:])))
+    floor = phases.get("floor_committed")
+    overlap_after_floor = (floor is not None and "candidate_overlap" in chosen
+                           and floor.get("_source_line", 0) < chosen["candidate_overlap"].get("_source_line", 0))
+    module_load_before_floor = (floor is not None and all(
+        phase not in chosen or chosen[phase].get("_source_line", 0) < floor.get("_source_line", 0)
+        for phase in ("module_load", "module_instantiate")))
+    return {
+        "passed": (start_line is not None and end_line is not None
+                   and not missing_or_duplicate and not bad_identity and not bad_heap
+                   and not failed_candidate_events and ordered
+                   and overlap_after_floor and module_load_before_floor),
+        "required_phases": [phase for phase, _, _ in required],
+        "observed_phase_order": [event.get("phase") for event in sorted(
+            in_transaction, key=lambda item: item.get("_source_line", -1))
+            if event.get("phase") in {phase for phase, _, _ in required}],
+        "transaction_line_bounds": {"after_payload_verified": start_line,
+                                     "before_previous_control_released": end_line},
+        "missing_or_duplicate": missing_or_duplicate,
+        "identity_or_status_errors": bad_identity,
+        "invalid_heap_snapshots": bad_heap,
+        "failed_candidate_events": failed_candidate_events,
+        "ordered": ordered,
+        "candidate_loaded_before_floor_commit": module_load_before_floor,
+        "overlap_after_floor_commit": overlap_after_floor,
+        "snapshots": snapshots,
+        "minimum_internal_heap_free_bytes": min(
+            (item["internal_heap"].get("free") for item in snapshots
+             if isinstance(item["internal_heap"].get("free"), int)), default=None),
+        "minimum_internal_heap_largest_block_bytes": min(
+            (item["internal_heap"].get("largest") for item in snapshots
+             if isinstance(item["internal_heap"].get("largest"), int)), default=None),
+        "minimum_psram_free_bytes": min(
+            (item["psram_heap"].get("free") for item in snapshots
+             if isinstance(item["psram_heap"].get("free"), int)), default=None),
+    }
+
+
 def _median(values: list[int]) -> int | None:
     ordered = sorted(values)
     if not ordered:
@@ -206,7 +347,7 @@ def _median(values: list[int]) -> int | None:
     return (ordered[middle - 1] + ordered[middle]) // 2
 
 
-def _checks_for_capture(update_events: list[dict], observations: list[dict],
+def _checks_for_capture(update_events: list[dict], module_memory_events: list[dict], observations: list[dict],
                         observer_summary: dict, expected_scenario: int,
                         expected_sequence: int) -> dict:
     checks: dict[str, dict] = {}
@@ -287,6 +428,9 @@ def _checks_for_capture(update_events: list[dict], observations: list[dict],
          "target_sequence": sessions[0].get("target_sequence") if len(sessions) == 1 else None})
 
     phases = {phase: _phase_event(matching, phase) for phase in SUCCESS_PHASES}
+    module_memory = _module_memory_lifecycle(module_memory_events, phases)
+    put("candidate_memory_lifecycle_observed", module_memory["passed"],
+        {key: value for key, value in module_memory.items() if key != "snapshots"})
     missing = [phase for phase, event in phases.items() if event is None]
     bad_status = [phase for phase, event in phases.items()
                   if event is not None and event.get("status") not in PHASE_STATUSES[phase]]
@@ -430,6 +574,24 @@ def _checks_for_capture(update_events: list[dict], observations: list[dict],
         {"required_phases": list(memory_phases), "missing_or_unmeasured": missing_heap,
          "inconsistent_heap_values": malformed_heap})
 
+    busy_drop_samples = {
+        phase: _number((phases.get(phase) or {}).get("telemetry_runtime_busy_drops"))
+        for phase in ("accepted", "control_activated", "previous_control_released")
+    }
+    available_busy_drop_samples = [value for value in busy_drop_samples.values()
+                                   if value is not None]
+    busy_drop_counter_valid = (
+        not available_busy_drop_samples
+        or (len(available_busy_drop_samples) == 3
+            and all(later >= earlier for earlier, later in zip(
+                available_busy_drop_samples, available_busy_drop_samples[1:])))
+    )
+    busy_drop_delta = (available_busy_drop_samples[-1] - available_busy_drop_samples[0]
+                       if len(available_busy_drop_samples) == 3 and busy_drop_counter_valid else None)
+    put("telemetry_busy_drop_counter_valid", busy_drop_counter_valid,
+        {"samples": busy_drop_samples, "delta": busy_drop_delta,
+         "available": len(available_busy_drop_samples) == 3})
+
     update_accepted = [row for row in observations if row.get("kind") == "update_accepted"]
     v2_observed = [row for row in observations if row.get("kind") == "v2_observed"]
     control_valid = [row for row in observations if row.get("kind") == "control_valid"]
@@ -527,6 +689,9 @@ def _checks_for_capture(update_events: list[dict], observations: list[dict],
     pre_control = [row for row in controls_for_boot if row.get("module_version") == 1
                    and isinstance(row.get("host_monotonic_ns"), int)
                    and (accepted_ns is None or row["host_monotonic_ns"] < accepted_ns)]
+    v1_before_v2 = [row for row in controls_for_boot if row.get("module_version") == 1
+                    and isinstance(row.get("host_monotonic_ns"), int)
+                    and (activated_ns is None or row["host_monotonic_ns"] < activated_ns)]
     all_pre_v2_control = [row for row in controls_for_boot
                           if isinstance(row.get("host_monotonic_ns"), int)
                           and (activated_ns is None or row["host_monotonic_ns"] < activated_ns)]
@@ -536,9 +701,9 @@ def _checks_for_capture(update_events: list[dict], observations: list[dict],
     switch_gap = None
     service_gap = None
     unavailability = None
-    if pre_control and post_control:
+    if v1_before_v2 and post_control:
         switch_gap = min(row["host_monotonic_ns"] for row in post_control) - max(
-            row["host_monotonic_ns"] for row in pre_control)
+            row["host_monotonic_ns"] for row in v1_before_v2)
     if all_pre_v2_control and post_control:
         service_gap = min(row["host_monotonic_ns"] for row in post_control) - max(
             row["host_monotonic_ns"] for row in all_pre_v2_control)
@@ -555,6 +720,11 @@ def _checks_for_capture(update_events: list[dict], observations: list[dict],
                             if event.get("status") in ("rejected", "error")
                             or any(marker in str(event.get("phase", "")).lower()
                                    for marker in ("fail", "rollback", "rejected"))]
+    unattributed_failures = [event for event in update_events if event not in matching
+                             and (event.get("status") in ("rejected", "error")
+                                  or event.get("failure") not in (None, "none")
+                                  or any(marker in str(event.get("phase", "")).lower()
+                                         for marker in ("fail", "rollback", "rejected")))]
     regressed_results = [row for row in controls_for_boot
                          if row.get("module_version") == 1
                          and isinstance(activated_ns, int)
@@ -569,15 +739,19 @@ def _checks_for_capture(update_events: list[dict], observations: list[dict],
                           and isinstance(row.get("host_monotonic_ns"), int)
                           and row["host_monotonic_ns"] >= activated_ns]
     put("no_failure_rollback_or_version_regression",
-        not failed_update_events and not regressed_results,
+        not failed_update_events and not unattributed_failures and not regressed_results,
         {"failure_or_rollback_event_count": len(failed_update_events),
+         "unattributed_failure_event_count": len(unattributed_failures),
          "v1_results_after_v2_activation": len(regressed_results)})
+    candidate_failures = module_memory["failed_candidate_events"]
+    recovery_required = bool(failed_update_events or unattributed_failures
+                             or regressed_results or candidate_failures)
 
     return checks, matching, phases, {
         "accepted_ns": accepted_ns,
         "activated_ns": activated_ns,
         "update_total_ns_from_trigger": observer_summary.get("update_total_ns"),
-        "control_v1_to_first_v2_gap_ns": switch_gap,
+        "last_v1_to_first_v2_gap_ns": switch_gap,
         "last_valid_control_to_first_v2_gap_ns": service_gap,
         "control_unavailability_estimate_ns": unavailability,
         "telemetry_baseline_median_cadence_ns": telemetry_cadence_ns,
@@ -593,12 +767,36 @@ def _checks_for_capture(update_events: list[dict], observations: list[dict],
         "lost_controls": observer_summary.get("lost_controls"),
         "unresolved_sequence_gaps": observer_summary.get("unresolved_sequence_gaps", {}),
         "observer_counters": observer_summary.get("counters", {}),
+        "telemetry_runtime_busy_drops": {
+            "samples": busy_drop_samples,
+            "delta": busy_drop_delta,
+            "available": len(available_busy_drop_samples) == 3,
+        },
+        "module_memory_lifecycle": module_memory,
+        "recovery": {
+            "recovery_required": recovery_required,
+            "recovery_observed": bool(failed_update_events or unattributed_failures
+                                       or candidate_failures),
+            "rollback_or_failure_events": [
+                {"phase": event.get("phase"), "status": event.get("status"),
+                 "failure": event.get("failure"), "source_line": event.get("_source_line")}
+                for event in failed_update_events + unattributed_failures],
+            "candidate_lifecycle_failures": candidate_failures,
+            "version_regression_count": len(regressed_results),
+            "successful_activation": control_swapped,
+            "old_control_release_confirmed": (
+                phases.get("previous_control_released") is not None
+                and "control_replaced_old_released" in module_memory["observed_phase_order"]),
+            "interpretation": ("recovery_required_after_observed_failure" if recovery_required
+                               else "no_failure_observed_recovery_not_exercised"),
+        },
     }
 
 
 def analyze(update_raw: bytes, observations_raw: bytes, summary_raw: bytes,
             expected_scenario: int, expected_sequence: int = 2) -> dict:
     update_events = parse_update_events(update_raw)
+    module_memory_events = parse_module_memory_events(update_raw)
     observations = parse_observations(observations_raw)
     try:
         observer_summary = json.loads(summary_raw)
@@ -608,7 +806,8 @@ def analyze(update_raw: bytes, observations_raw: bytes, summary_raw: bytes,
         raise ValueError("observer summary must be a JSON object")
 
     checks, matching, phases, service_metrics = _checks_for_capture(
-        update_events, observations, observer_summary, expected_scenario, expected_sequence)
+        update_events, module_memory_events, observations, observer_summary,
+        expected_scenario, expected_sequence)
     phase_times = {phase: _number(event.get("elapsed_us"))
                    for phase, event in phases.items() if event is not None}
     phase_durations = {}
@@ -657,6 +856,8 @@ def analyze(update_raw: bytes, observations_raw: bytes, summary_raw: bytes,
         "internal_free_drop_from_acceptance_bytes": (
             snapshots[0]["internal_free_bytes"] - min(internal_free)
             if snapshots and snapshots[0]["internal_free_bytes"] is not None and internal_free else None),
+        "module_lifecycle": service_metrics.get("module_memory_lifecycle"),
+        "recovery": service_metrics.get("recovery"),
     }
     return {
         "schema": "wasmhome-module-update-analysis-v1",
