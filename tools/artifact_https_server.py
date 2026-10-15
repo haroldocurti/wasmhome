@@ -199,7 +199,7 @@ class ArtifactHTTPServer(http.server.ThreadingHTTPServer):
                                                       expected_campaign_id, expected_aot_toolchain_id)
         self.package_root = package_root
         self.campaign_id = index["campaign_id"]
-        self.server_name = server_name
+        self.expected_server_name = server_name
         self.server_ip = server_ip
         self.allowed = allowed
         self.artifact_count = len(index["artifacts"])
@@ -223,7 +223,7 @@ class ArtifactHTTPServer(http.server.ThreadingHTTPServer):
                 character in "/?#@%\\" for character in value):
             return False
         authority = value.lower()
-        hosts = {self.server_name.lower().rstrip("."), self.server_ip.lower()}
+        hosts = {self.expected_server_name.lower().rstrip("."), self.server_ip.lower()}
         return authority in hosts or authority in {f"{host}:{self.server_port}" for host in hosts}
 
 

@@ -117,6 +117,19 @@ class ArtifactHTTPSTests(unittest.TestCase):
         self.assertEqual(payload, expected)
         self.assertEqual(hashlib.sha256(payload).hexdigest(), hashlib.sha256(expected).hexdigest())
 
+    def test_configured_dns_host_survives_http_server_reverse_dns_assignment(self):
+        server = ArtifactHTTPServer(
+            ("127.0.0.1", 0), self.package, self.certificate, self.tls_key,
+            self.log_path, "configured-artifact-name.test", "127.0.0.1", self.public,
+            "issue15-fixture", "wamr-2.4.5-wasmhome.3",
+        )
+        try:
+            self.assertTrue(server.host_header_allowed(
+                f"configured-artifact-name.test:{server.server_port}"
+            ))
+        finally:
+            server.server_close()
+
     def test_cose_media_type_identifies_sign1(self):
         path = "/scenario-1/firmware/v1/manifest.cose"
         with urllib.request.urlopen(self.base + path, context=self.context, timeout=5) as response:
