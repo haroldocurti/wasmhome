@@ -20,6 +20,11 @@ bootloader ROM.
 - ELF SHA-256: `f20ee30c878e0b2e56499055b7a864083d42be7b951121b12bdb1610b0eef111`.
 - `sdkconfig` efetiva SHA-256:
   `b55fd716d61b04bb03eb02786aa8aafd0a2859555c6de753adcb366d43c9e40e`.
+- A `sdkconfig` efetiva, o BIN e o ELF foram conferidos por hash e permanecem
+  no diretório local ignorado pelo Git
+  `build/issue12-module-interp-physical/`. A configuração inclui dados locais
+  de rede e fica fora do repositório; publiquei somente os flags relevantes e
+  seu hash.
 - Os hashes acima identificam a configuração e os artefatos do build usado. O
   log privado `flash-module-interp-final.log` registra a gravação de 843.424
   bytes no endereço `0x20000` (partição `ota_0`) e `Hash of data verified`.
@@ -108,13 +113,21 @@ Os vetores JSON da linha usam estas posições, começando em zero:
   publicações aceitas, itens enfileirados, falhas de enqueue, falhas do lock,
   falhas ao montar o corpo, descartes por fila cheia, descartes por contenção
   da reserva, descartes por execução ocupada e profundidade da fila.
-- `ctl`: pedidos inválidos, pedidos que chegaram ao manager, pedidos recebidos
+- `ctl`: rejeições do handler, pedidos que chegaram ao manager, pedidos recebidos
   enquanto inativo, admitidos, replays, recusas de admissão, resultados
   produzidos, resultados enfileirados, aceitações de update enfileiradas,
   descartes da fila de saída, falhas de execução, falhas de GPIO, profundidade
   da fila de pedidos e profundidade da fila de saída. `requests_received` é
-  contado no manager; não inclui datagramas descartados antes dele pela camada
-  UDP. `requests_invalid` agrega envelope inválido e campos semânticos inválidos.
+  contado no manager para `CONTROL_REQUEST` validado pelo handler, antes da
+  checagem de atividade; inclui pedidos válidos recebidos enquanto inativo.
+  `requests_invalid` conta chamadas rejeitadas por
+  `wh_module_manager_handle_request`; não é o total de datagramas UDP inválidos.
+  No fluxo UDP atual, quadros/origens não aceitos e pedidos de outro boot são
+  descartados antes do manager e geram `udp_discarded` ou `control_wrong_boot`.
+  O parser encaminha `UPDATE_TRIGGER`, mas este handler aceita apenas
+  `CONTROL_REQUEST`, portanto triggers encaminhados são contados como rejeições
+  do handler. A validação de `sample_id` e temperatura no handler repete regras
+  do parser e não incrementa para tráfego UDP normal.
 - `tx`: itens retirados das filas de telemetria, resultado de controle,
   aceitação de update e outros; falhas retornadas pela API de envio; falhas
   agregadas da fila de saída de controle e da API de envio (sem os descartes da
