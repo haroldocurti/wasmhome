@@ -35,6 +35,7 @@ STUBS = {
         #define ESP_ERR_INVALID_STATE 0x102
         #define ESP_ERR_NO_MEM 0x103
         #define ESP_ERR_TIMEOUT 0x104
+        #define ESP_ERR_INVALID_SIZE 0x105
     ''',
     "esp_heap_caps.h": r'''
         #pragma once
@@ -269,6 +270,7 @@ STUBS = {
 HARNESS = r'''
 #define _POSIX_C_SOURCE 200809L
 #include "module_manager.h"
+#include "module_update.h"
 #include "esp_heap_caps.h"
 #include "esp_timer.h"
 #include "freertos/queue.h"
@@ -355,6 +357,21 @@ static sent_record_t sent[256];
 static size_t sent_count;
 static atomic_uint gpio_calls;
 static atomic_int gpio_mode;
+
+esp_err_t wh_module_update_resolve_boot_control(
+    const wh_module_image_t *embedded, wh_module_image_t *resolved,
+    uint8_t **owned_bytes)
+{
+    *resolved = *embedded;
+    *owned_bytes = NULL;
+    return ESP_OK;
+}
+esp_err_t wh_module_update_start(void) { return ESP_OK; }
+void wh_module_update_handle_trigger(const uint8_t *packet, size_t length)
+{
+    (void)packet;
+    (void)length;
+}
 static atomic_uint event_count;
 static atomic_uint live_modules, live_instances, live_exec_envs, live_timers;
 static atomic_uint instantiate_calls, start_probe_count, control_call_count;
@@ -365,6 +382,101 @@ static wh_sensor_sample_t sensor_sample = {77, 26400, 0, WH_SENSOR_VALID};
 static RuntimeInitArgs captured_init_args;
 static fake_timer_t *timer_handles[3];
 static unsigned timer_handle_count;
+static wh_module_image_t image(uint8_t id, uint8_t version);
+static size_t current_sent_count(void);
+static size_t control_send_count_since(size_t after);
+static void send_control(uint64_t sample_id, int32_t temp, uint8_t attempt_id);
+static void sleep_ms(unsigned ms);
+static void assert_fully_released(void);
+
+typedef struct {
+    int mode;
+    unsigned loaded, instantiated, health, floor, activated, released;
+} update_test_state_t;
+
+static esp_err_t update_commit_test(
+    void *context, const wh_module_slot_info_t *telemetry,
+    const wh_module_slot_info_t *candidate,
+    wh_module_selection_outcome_t *outcome)
+{
+    update_test_state_t *state = context;
+    assert(telemetry && telemetry->generation != 0);
+    assert(candidate && candidate->module_version == 2);
+    if (state->mode == 0) {
+        *outcome = WH_MODULE_SELECTION_NOT_COMMITTED;
+        return ESP_FAIL;
+    }
+    if (state->mode == 1) {
+        *outcome = WH_MODULE_SELECTION_COMMITTED;
+        return ESP_OK;
+    }
+    *outcome = WH_MODULE_SELECTION_UNKNOWN;
+    return ESP_FAIL;
+}
+
+static void update_event_test(void *context, const char *phase,
+                              const wh_module_slot_info_t *telemetry,
+                              const wh_module_slot_info_t *control,
+                              uint64_t telemetry_busy_drops)
+{
+    update_test_state_t *state = context;
+    assert(telemetry && telemetry->generation != 0);
+    assert(control && control->module_version == 2);
+    (void)telemetry_busy_drops;
+    if (strcmp(phase, "candidate_loaded") == 0) state->loaded++;
+    else if (strcmp(phase, "candidate_instantiated") == 0) state->instantiated++;
+    else if (strcmp(phase, "candidate_health_check") == 0) state->health++;
+    else if (strcmp(phase, "floor_committed") == 0) state->floor++;
+    else if (strcmp(phase, "control_activated") == 0) state->activated++;
+    else if (strcmp(phase, "previous_control_released") == 0) state->released++;
+}
+
+static void test_durable_module_activation_outcomes(void)
+{
+    wh_module_image_t telemetry = image(IMG_TELEMETRY, 1);
+    wh_module_image_t control = image(IMG_CONTROL_V1, 1);
+    assert(wh_module_manager_start(&telemetry, &control) == ESP_OK);
+    wh_module_image_t candidate = image(IMG_CONTROL_V2, 2);
+    update_test_state_t state = {.mode = 0};
+    unsigned gpio_before = atomic_load(&gpio_calls);
+    size_t sent_before = current_sent_count();
+    assert(wh_module_manager_activate_control(&candidate, update_commit_test,
+                                               update_event_test, &state) != ESP_OK);
+    wh_module_manager_info_t info;
+    assert(wh_module_manager_get_info(&info) == ESP_OK);
+    assert(info.control.module_version == 1);
+    assert(atomic_load(&gpio_calls) == gpio_before);
+    assert(control_send_count_since(sent_before) == 0);
+    assert(atomic_load(&live_modules) == 2);
+    assert(state.loaded == 1 && state.instantiated == 1 && state.health == 1);
+    assert(state.floor == 0 && state.activated == 0 && state.released == 0);
+
+    state.mode = 1;
+    assert(wh_module_manager_activate_control(&candidate, update_commit_test,
+                                               update_event_test, &state) == ESP_OK);
+    assert(wh_module_manager_get_info(&info) == ESP_OK);
+    assert(info.control.module_version == 2);
+    assert(atomic_load(&gpio_calls) == gpio_before);
+    assert(control_send_count_since(sent_before) == 0);
+    assert(state.loaded == 2 && state.instantiated == 2 && state.health == 2);
+    assert(state.floor == 1 && state.activated == 1 && state.released == 1);
+    assert(atomic_load(&live_modules) == 2);
+
+    state.mode = 2;
+    assert(wh_module_manager_activate_control(&candidate, update_commit_test,
+                                               update_event_test, &state) != ESP_OK);
+    assert(wh_module_manager_get_info(&info) == ESP_OK);
+    assert(info.control.module_version == 2);
+    assert(atomic_load(&live_modules) == 3); /* Unknown commit keeps candidate resident. */
+    assert(wh_module_manager_prepare_control(&candidate) == ESP_ERR_INVALID_STATE);
+    sent_before = current_sent_count();
+    send_control(9, 32000, 9);
+    sleep_ms(40);
+    assert(control_send_count_since(sent_before) == 0); /* Degraded manager fails closed. */
+    assert(atomic_load(&gpio_calls) == gpio_before);
+    assert(wh_module_manager_stop() == ESP_OK);
+    assert_fully_released();
+}
 
 static void wait_flag(atomic_bool *flag)
 {
@@ -972,6 +1084,8 @@ int main(void)
     test_metadata_rejection_and_cleanup();
     fprintf(stderr, "callbacks\n");
     test_callback_contract_replay_swap_and_allocator();
+    fprintf(stderr, "durable update outcomes\n");
+    test_durable_module_activation_outcomes();
     fprintf(stderr, "control failures\n");
     test_control_failure_outputs_and_safe_swap_wait();
     fprintf(stderr, "swap wait\n");

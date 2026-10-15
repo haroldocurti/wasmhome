@@ -68,12 +68,38 @@ typedef struct {
     wh_module_slot_info_t control;
 } wh_module_manager_info_t;
 
+typedef enum {
+    WH_MODULE_SELECTION_NOT_COMMITTED = 0,
+    WH_MODULE_SELECTION_COMMITTED = 1,
+    WH_MODULE_SELECTION_UNKNOWN = 2,
+} wh_module_selection_outcome_t;
+
+typedef esp_err_t (*wh_module_control_commit_fn)(
+    void *context, const wh_module_slot_info_t *telemetry,
+    const wh_module_slot_info_t *candidate,
+    wh_module_selection_outcome_t *outcome);
+typedef void (*wh_module_control_event_fn)(
+    void *context, const char *phase,
+    const wh_module_slot_info_t *telemetry,
+    const wh_module_slot_info_t *control,
+    uint64_t telemetry_runtime_busy_drops);
+
 /* Initialize the singleton WAMR runtime and activate both role-specific images. */
 esp_err_t wh_module_manager_start(const wh_module_image_t *telemetry,
                                   const wh_module_image_t *control);
 
 /* Prepare a new control image; the active image remains usable until safe swap. */
 esp_err_t wh_module_manager_prepare_control(const wh_module_image_t *candidate);
+
+/* Load and health-check a candidate on the control worker, invoke commit_fn
+ * before changing the active pointer, then swap and release the old module.
+ * A commit outcome of UNKNOWN leaves the candidate resident and disables
+ * control admission until reboot reconciliation decides from the NVS ledger. */
+esp_err_t wh_module_manager_activate_control(
+    const wh_module_image_t *candidate,
+    wh_module_control_commit_fn commit_fn,
+    wh_module_control_event_fn event_fn,
+    void *context);
 
 /* Stop workers, drain calls, release both slots, then destroy the singleton runtime. */
 esp_err_t wh_module_manager_stop(void);

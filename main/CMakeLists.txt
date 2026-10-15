@@ -115,9 +115,9 @@ elseif(EXPERIMENT_SCENARIO STREQUAL "module-interp" OR EXPERIMENT_SCENARIO STREQ
             "${CMAKE_SOURCE_DIR}/tools/generate_service_modules.py"
             "${CMAKE_SOURCE_DIR}/tools/toolchain_provenance.py")
     endif()
-    list(APPEND SCENARIO_REQUIRES "wasm-micro-runtime" "pthread" "mbedtls")
+    list(APPEND SCENARIO_REQUIRES "wasm-micro-runtime" "pthread" "mbedtls" "esp_partition")
     list(APPEND SCENARIO_SOURCE
-        "module_abi_v1.c" "module_manager.c"
+        "module_abi_v1.c" "module_manager.c" "module_slot_store.c" "module_update.c"
         "../artifacts/service_telemetry_${MODULE_ARTIFACT_SUFFIX}_embedded.c"
         "../artifacts/service_control_v1_${MODULE_ARTIFACT_SUFFIX}_embedded.c"
         "../artifacts/service_control_v2_${MODULE_ARTIFACT_SUFFIX}_embedded.c")

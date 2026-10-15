@@ -10,6 +10,7 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "mbedtls/sha256.h"
+#include "module_update.h"
 #include "platform.h"
 #include "sdkconfig.h"
 #include "wasm.h"
@@ -56,6 +57,7 @@ typedef struct {
     module_slot_t *slot;
     uint64_t generation;
     bool preparing;
+    bool dry_run;
     bool invocation_active;
     bool import_violation;
     bool invocation_error;
@@ -137,6 +139,9 @@ typedef enum {
 
 typedef struct prepare_command {
     const wh_module_image_t *image;
+    wh_module_control_commit_fn commit_fn;
+    wh_module_control_event_fn event_fn;
+    void *context;
     SemaphoreHandle_t done;
     esp_err_t result;
 } prepare_command_t;
@@ -198,6 +203,7 @@ static atomic_bool stop_requested;
 static atomic_bool tx_stop_requested;
 static bool manager_started;
 static bool accepting_requests;
+static bool manager_degraded;
 static bool handler_installed;
 static bool manager_starting;
 static bool manager_stopping;
@@ -222,6 +228,8 @@ static uint64_t highest_control_sample_id;
 static void slot_release(module_slot_t *slot);
 static void *tx_worker_entry(void *argument);
 static void update_stack_high_water(uint32_t *destination);
+static void slot_info_copy(wh_module_slot_info_t *out, const module_slot_t *slot,
+                           wh_module_role_t role);
 
 static bool
 manager_ensure_lock(void)
@@ -854,7 +862,8 @@ call_with_limit(module_slot_t *slot, wasm_function_inst_t function,
 
 static esp_err_t
 slot_load(module_slot_t *slot, wh_module_role_t role,
-          const wh_module_image_t *image, bool candidate)
+          const wh_module_image_t *image, bool candidate,
+          wh_module_control_event_fn event_fn, void *event_context)
 {
     if (!slot || !image || !image->bytes || image->size == 0 ||
         image->size > CONFIG_WASMHOME_MODULE_MAX_ARTIFACT_BYTES ||
@@ -931,6 +940,16 @@ slot_load(module_slot_t *slot, wh_module_role_t role,
         return ESP_FAIL;
     }
     module_memory_event("module_load", memory_role_name(role, candidate), "ok");
+    if (candidate && role == WH_MODULE_ROLE_CONTROL && event_fn) {
+        wh_module_slot_info_t telemetry_info, control_info;
+        slot_info_copy(&telemetry_info, &telemetry_slot, WH_MODULE_ROLE_TELEMETRY);
+        slot_info_copy(&control_info, slot, WH_MODULE_ROLE_CONTROL);
+        xSemaphoreTake(manager_lock, portMAX_DELAY);
+        const uint64_t busy_drops = telemetry_runtime_busy_drops;
+        xSemaphoreGive(manager_lock);
+        event_fn(event_context, "candidate_loaded", &telemetry_info, &control_info,
+                 busy_drops);
+    }
     const bool no_start = module_has_no_start(slot->module);
     const bool imports_valid = validate_imports(slot->module, role);
     const bool exports_valid = validate_exports(slot->module, role);
@@ -966,6 +985,16 @@ slot_load(module_slot_t *slot, wh_module_role_t role,
         return ESP_FAIL;
     }
     module_memory_event("module_instantiate", memory_role_name(role, candidate), "ok");
+    if (candidate && role == WH_MODULE_ROLE_CONTROL && event_fn) {
+        wh_module_slot_info_t telemetry_info, control_info;
+        slot_info_copy(&telemetry_info, &telemetry_slot, WH_MODULE_ROLE_TELEMETRY);
+        slot_info_copy(&control_info, slot, WH_MODULE_ROLE_CONTROL);
+        xSemaphoreTake(manager_lock, portMAX_DELAY);
+        const uint64_t busy_drops = telemetry_runtime_busy_drops;
+        xSemaphoreGive(manager_lock);
+        event_fn(event_context, "candidate_instantiated", &telemetry_info, &control_info,
+                 busy_drops);
+    }
 
     slot->context = (module_context_t){
         .magic = WH_MODULE_MAGIC,
@@ -1090,8 +1119,10 @@ callback_context(wasm_exec_env_t exec_env, wh_module_role_t role)
         }
         return NULL;
     }
+    const bool dry_run_candidate = context->dry_run && context->slot->candidate &&
+        context->slot->state == WH_MODULE_SLOT_PREPARING;
     if (context->preparing || !context->invocation_active ||
-        context->slot->state != WH_MODULE_SLOT_ACTIVE) {
+        (context->slot->state != WH_MODULE_SLOT_ACTIVE && !dry_run_candidate)) {
         context->invocation_error = true;
         context->import_violation = true;
         return NULL;
@@ -1344,8 +1375,15 @@ replay_find(uint64_t sample_id)
 void
 wh_module_manager_handle_request(const uint8_t *packet, size_t length)
 {
-    if (!packet || length != WH_CONTROL_PACKET_SIZE || !wh_wire_valid(packet, length) ||
-        packet[5] != WH_CONTROL_REQUEST) {
+    if (!packet || !wh_wire_valid(packet, length)) {
+        wh_platform_event("module_control_request_invalid", ESP_ERR_INVALID_ARG);
+        return;
+    }
+    if (packet[5] == WH_UPDATE_TRIGGER) {
+        wh_module_update_handle_trigger(packet, length);
+        return;
+    }
+    if (length != WH_CONTROL_PACKET_SIZE || packet[5] != WH_CONTROL_REQUEST) {
         wh_platform_event("module_control_request_invalid", ESP_ERR_INVALID_ARG);
         return;
     }
@@ -1624,9 +1662,9 @@ runtime_bootstrap(void *argument)
     if (!wasm_runtime_init_thread_env()) return (void *)(intptr_t)result;
     if (initialize_runtime() &&
         slot_load(&telemetry_slot, WH_MODULE_ROLE_TELEMETRY,
-                  images->telemetry, false) == ESP_OK &&
+                  images->telemetry, false, NULL, NULL) == ESP_OK &&
         slot_load(&control_slots[0], WH_MODULE_ROLE_CONTROL,
-                  images->control, false) == ESP_OK) {
+                  images->control, false, NULL, NULL) == ESP_OK) {
         telemetry_slot.state = WH_MODULE_SLOT_ACTIVE;
         control_slots[0].state = WH_MODULE_SLOT_ACTIVE;
         active_control = &control_slots[0];
@@ -1688,8 +1726,79 @@ telemetry_thread_entry(void *argument)
     return NULL;
 }
 
+static void
+emit_control_manager_event(wh_module_control_event_fn event_fn,
+                           void *event_context, const char *phase,
+                           const module_slot_t *control)
+{
+    if (!event_fn) return;
+    wh_module_slot_info_t telemetry_info, control_info;
+    slot_info_copy(&telemetry_info, &telemetry_slot, WH_MODULE_ROLE_TELEMETRY);
+    slot_info_copy(&control_info, control, WH_MODULE_ROLE_CONTROL);
+    xSemaphoreTake(manager_lock, portMAX_DELAY);
+    const uint64_t busy_drops = telemetry_runtime_busy_drops;
+    xSemaphoreGive(manager_lock);
+    event_fn(event_context, phase, &telemetry_info, &control_info, busy_drops);
+}
+
 static esp_err_t
-prepare_control_on_worker(const wh_module_image_t *image)
+candidate_control_health_check(module_slot_t *slot)
+{
+    static const int32_t temperatures[] = {23000, 32000, 27000, 23000};
+    if (!slot || (slot->module_version != 1 && slot->module_version != 2) ||
+        slot->state != WH_MODULE_SLOT_PREPARING)
+        return ESP_ERR_INVALID_ARG;
+    const uint8_t expected[] = {
+        0, 1, (uint8_t)(slot->module_version == 1 ? 1 : 0), 0,
+    };
+
+    module_context_t *context = &slot->context;
+    context->dry_run = true;
+    for (size_t i = 0; i < sizeof(temperatures) / sizeof(temperatures[0]); ++i) {
+        context->sample_id = i + 1;
+        context->gpio_count = 0;
+        context->publish_count = 0;
+        context->requested_gpio = 255;
+        context->published_sample_id = 0;
+        context->published_requested = 255;
+        context->duplicate = false;
+        context->invocation_error = false;
+        context->import_violation = false;
+        context->preparing = false;
+        context->invocation_active = true;
+        wasm_val_t arguments[2] = {
+            {.kind = WASM_I64, .of.i64 = (int64_t)context->sample_id},
+            {.kind = WASM_I32, .of.i32 = temperatures[i]},
+        };
+        int32_t result = -1;
+        const bool call_ok = call_with_limit(slot, slot->entry_fn, 2, arguments,
+                                             WH_CONTROL_EXECUTION_LIMIT_US,
+                                             &result);
+        context->invocation_active = false;
+        const bool valid = call_ok && result == 0 && !context->invocation_error &&
+            !context->duplicate && context->gpio_count == 1 &&
+            context->publish_count == 1 &&
+            context->published_sample_id == context->sample_id &&
+            context->requested_gpio == expected[i] &&
+            context->published_requested == expected[i];
+        if (!valid) {
+            context->dry_run = false;
+            context->gpio_count = 0;
+            context->publish_count = 0;
+            return ESP_ERR_INVALID_STATE;
+        }
+    }
+    context->dry_run = false;
+    context->gpio_count = 0;
+    context->publish_count = 0;
+    return ESP_OK;
+}
+
+static esp_err_t
+prepare_control_on_worker(const wh_module_image_t *image,
+                          wh_module_control_commit_fn commit_fn,
+                          wh_module_control_event_fn event_fn,
+                          void *event_context)
 {
     module_slot_t *old_slot = active_control;
     if (!old_slot || old_slot->state != WH_MODULE_SLOT_ACTIVE)
@@ -1700,9 +1809,19 @@ prepare_control_on_worker(const wh_module_image_t *image)
         return ESP_ERR_INVALID_STATE;
     if (new_slot->state != WH_MODULE_SLOT_EMPTY) slot_release(new_slot);
 
-    esp_err_t result = slot_load(new_slot, WH_MODULE_ROLE_CONTROL, image, true);
+    esp_err_t result = slot_load(new_slot, WH_MODULE_ROLE_CONTROL, image, true,
+                                 commit_fn ? event_fn : NULL, event_context);
     if (result != ESP_OK) return result;
-    new_slot->state = WH_MODULE_SLOT_READY;
+    new_slot->state = commit_fn ? WH_MODULE_SLOT_PREPARING : WH_MODULE_SLOT_READY;
+    if (commit_fn) {
+        result = candidate_control_health_check(new_slot);
+        if (result != ESP_OK) {
+            slot_release(new_slot);
+            return result;
+        }
+        emit_control_manager_event(event_fn, event_context,
+                                  "candidate_health_check", new_slot);
+    }
     if (atomic_load_explicit(&old_slot->in_flight, memory_order_acquire)) {
         slot_release(new_slot);
         return ESP_ERR_INVALID_STATE;
@@ -1715,6 +1834,32 @@ prepare_control_on_worker(const wh_module_image_t *image)
         return ESP_ERR_INVALID_STATE;
     }
     xSemaphoreGive(manager_lock);
+
+    if (commit_fn) {
+        wh_module_slot_info_t telemetry_info, control_info;
+        slot_info_copy(&telemetry_info, &telemetry_slot, WH_MODULE_ROLE_TELEMETRY);
+        slot_info_copy(&control_info, new_slot, WH_MODULE_ROLE_CONTROL);
+        wh_module_selection_outcome_t outcome = WH_MODULE_SELECTION_UNKNOWN;
+        result = commit_fn(event_context, &telemetry_info, &control_info, &outcome);
+        if (outcome == WH_MODULE_SELECTION_UNKNOWN ||
+            (result == ESP_OK && outcome != WH_MODULE_SELECTION_COMMITTED)) {
+            /* The NVS write may have completed even if its readback failed.
+               Keep both resident modules and fail closed until boot recovery
+               selects the durable ledger entry. */
+            xSemaphoreTake(manager_lock, portMAX_DELAY);
+            manager_degraded = true;
+            accepting_requests = false;
+            xSemaphoreGive(manager_lock);
+            return result == ESP_OK ? ESP_ERR_INVALID_STATE : result;
+        }
+        if (outcome != WH_MODULE_SELECTION_COMMITTED) {
+            slot_release(new_slot);
+            return result == ESP_OK ? ESP_ERR_INVALID_STATE : result;
+        }
+        result = ESP_OK; /* A verified ledger readback wins over an ambiguous write status. */
+        emit_control_manager_event(event_fn, event_context, "floor_committed", new_slot);
+    }
+
     module_memory_event("candidate_overlap", "control_candidate", "ready");
     xSemaphoreTake(manager_lock, portMAX_DELAY);
     if (active_control != old_slot || old_slot->state != WH_MODULE_SLOT_ACTIVE) {
@@ -1726,8 +1871,13 @@ prepare_control_on_worker(const wh_module_image_t *image)
     new_slot->state = WH_MODULE_SLOT_ACTIVE;
     active_control = new_slot;
     xSemaphoreGive(manager_lock);
+    if (commit_fn)
+        emit_control_manager_event(event_fn, event_context, "control_activated", new_slot);
     slot_release(old_slot);
     module_memory_event("control_replaced_old_released", "control", "ok");
+    if (commit_fn)
+        emit_control_manager_event(event_fn, event_context,
+                                   "previous_control_released", new_slot);
     return ESP_OK;
 }
 
@@ -1753,7 +1903,9 @@ control_thread_entry(void *argument)
         if (job.kind == CONTROL_JOB_REQUEST) {
             execute_control_request(&job.request);
         } else if (job.kind == CONTROL_JOB_PREPARE && job.prepare) {
-            job.prepare->result = prepare_control_on_worker(job.prepare->image);
+            job.prepare->result = prepare_control_on_worker(
+                job.prepare->image, job.prepare->commit_fn,
+                job.prepare->event_fn, job.prepare->context);
             xSemaphoreGive(job.prepare->done);
         }
         xSemaphoreGive(api_lock);
@@ -1988,6 +2140,7 @@ wh_module_manager_start(const wh_module_image_t *telemetry,
         return ESP_ERR_INVALID_STATE;
     }
     manager_starting = true;
+    manager_degraded = false;
     telemetry_stack_high_water = control_stack_high_water = 0;
     xSemaphoreGive(manager_lock);
     portENTER_CRITICAL(&allocator_mux);
@@ -2029,10 +2182,35 @@ wh_module_manager_start(const wh_module_image_t *telemetry,
     shutdown_thread_created = false;
     telemetry_worker_ok = control_worker_ok = tx_worker_ok = false;
 
-    bootstrap_args_t bootstrap = {.telemetry = telemetry, .control = control};
+    wh_module_image_t resolved_control = *control;
+    uint8_t *restored_control_bytes = NULL;
+    esp_err_t restore_status = wh_module_update_resolve_boot_control(
+        control, &resolved_control, &restored_control_bytes);
+    if (restore_status == ESP_OK)
+        restore_status = wh_module_update_start();
+    if (restore_status != ESP_OK) {
+        if (restored_control_bytes) heap_caps_free(restored_control_bytes);
+        manager_delete_resources();
+        xSemaphoreTake(manager_lock, portMAX_DELAY);
+        manager_starting = false;
+        xSemaphoreGive(manager_lock);
+        return restore_status;
+    }
+    if (!resolved_control.bytes || resolved_control.size == 0 ||
+        resolved_control.size > CONFIG_WASMHOME_MODULE_MAX_ARTIFACT_BYTES ||
+        !wh_abi_module_version_valid(resolved_control.module_version)) {
+        if (restored_control_bytes) heap_caps_free(restored_control_bytes);
+        manager_delete_resources();
+        xSemaphoreTake(manager_lock, portMAX_DELAY);
+        manager_starting = false;
+        xSemaphoreGive(manager_lock);
+        return ESP_ERR_INVALID_SIZE;
+    }
+    bootstrap_args_t bootstrap = {.telemetry = telemetry, .control = &resolved_control};
     void *bootstrap_result = NULL;
     if (!pthread_start(&bootstrap_thread, runtime_bootstrap, &bootstrap,
                        "wh_wasm_boot")) {
+        if (restored_control_bytes) heap_caps_free(restored_control_bytes);
         manager_delete_resources();
         xSemaphoreTake(manager_lock, portMAX_DELAY);
         manager_starting = false;
@@ -2046,6 +2224,11 @@ wh_module_manager_start(const wh_module_image_t *telemetry,
         return ESP_FAIL;
     }
     bootstrap_thread_created = false;
+    if (restored_control_bytes) {
+        memset(restored_control_bytes, 0, resolved_control.size);
+        heap_caps_free(restored_control_bytes);
+        restored_control_bytes = NULL;
+    }
     if ((esp_err_t)(intptr_t)bootstrap_result != ESP_OK) {
         manager_delete_resources();
         xSemaphoreTake(manager_lock, portMAX_DELAY);
@@ -2130,6 +2313,13 @@ wh_module_manager_prepare_control(const wh_module_image_t *candidate)
         !wh_abi_module_version_valid(candidate->module_version))
         return ESP_ERR_INVALID_ARG;
     if (!manager_public_enter()) return ESP_ERR_INVALID_STATE;
+    xSemaphoreTake(manager_lock, portMAX_DELAY);
+    const bool degraded = manager_degraded;
+    xSemaphoreGive(manager_lock);
+    if (degraded) {
+        manager_public_leave();
+        return ESP_ERR_INVALID_STATE;
+    }
     if (!control_queue) {
         manager_public_leave();
         return ESP_ERR_INVALID_STATE;
@@ -2152,6 +2342,57 @@ wh_module_manager_prepare_control(const wh_module_image_t *candidate)
         return ESP_FAIL;
     }
     esp_err_t result = command.result;
+    vSemaphoreDelete(done);
+    manager_public_leave();
+    return result;
+}
+
+esp_err_t
+wh_module_manager_activate_control(
+    const wh_module_image_t *candidate,
+    wh_module_control_commit_fn commit_fn,
+    wh_module_control_event_fn event_fn,
+    void *context)
+{
+    if (!candidate || !candidate->bytes || candidate->size == 0 ||
+        candidate->size > CONFIG_WASMHOME_MODULE_MAX_ARTIFACT_BYTES ||
+        !wh_abi_module_version_valid(candidate->module_version) ||
+        !commit_fn || !event_fn)
+        return ESP_ERR_INVALID_ARG;
+    if (!manager_public_enter()) return ESP_ERR_INVALID_STATE;
+    xSemaphoreTake(manager_lock, portMAX_DELAY);
+    const bool degraded = manager_degraded;
+    xSemaphoreGive(manager_lock);
+    if (degraded || !control_queue) {
+        manager_public_leave();
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    SemaphoreHandle_t done = xSemaphoreCreateBinary();
+    if (!done) {
+        manager_public_leave();
+        return ESP_ERR_NO_MEM;
+    }
+    prepare_command_t command = {
+        .image = candidate,
+        .commit_fn = commit_fn,
+        .event_fn = event_fn,
+        .context = context,
+        .done = done,
+        .result = ESP_FAIL,
+    };
+    control_job_t job = {.kind = CONTROL_JOB_PREPARE, .prepare = &command};
+    if (xQueueSend(control_queue, &job, 0) != pdTRUE) {
+        vSemaphoreDelete(done);
+        manager_public_leave();
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (xSemaphoreTake(done, portMAX_DELAY) != pdTRUE) {
+        vSemaphoreDelete(done);
+        manager_public_leave();
+        return ESP_FAIL;
+    }
+    const esp_err_t result = command.result;
     vSemaphoreDelete(done);
     manager_public_leave();
     return result;
