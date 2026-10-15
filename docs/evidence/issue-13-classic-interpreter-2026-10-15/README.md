@@ -8,13 +8,20 @@ não marca os critérios físicos da #13 como concluídos.
 ## Perfil gravado
 
 - ESP32-S3, interpretador clássico WAMR habilitado e AOT desabilitado.
+- Flags relevantes da configuração efetiva: `CONFIG_IDF_TARGET_ESP32S3=y`,
+  `CONFIG_WAMR_ENABLE_INTERP=y`, `CONFIG_WAMR_INTERP_CLASSIC=y` e
+  `# CONFIG_WAMR_ENABLE_AOT is not set`.
 - Serviços modulares ativos: módulo de telemetria e módulo de controle v1.
 - BIN: 843.424 bytes, SHA-256
   `1682f908277cef22778a74acfd43b0d1d60191e764406cd6445df401a5bd5c64`.
 - ELF SHA-256: `f20ee30c878e0b2e56499055b7a864083d42be7b951121b12bdb1610b0eef111`.
 - `sdkconfig` efetiva SHA-256:
   `b55fd716d61b04bb03eb02786aa8aafd0a2859555c6de753adcb366d43c9e40e`.
-- O receipt do esptool confirma escrita e verificação do BIN em `ota_0`.
+- Os hashes acima identificam a configuração e os artefatos do build usado. O
+  log privado `flash-module-interp-final.log` registra a gravação de 843.424
+  bytes no endereço `0x20000` (partição `ota_0`) e `Hash of data verified`;
+  assim, a verificação do esptool está ligada ao BIN identificado pelo hash
+  acima. Os arquivos brutos de captura permanecem fora do repositório.
 
 ## Execução física em 15/10/2026
 
