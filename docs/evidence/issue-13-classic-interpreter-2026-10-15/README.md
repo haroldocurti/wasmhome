@@ -18,25 +18,34 @@ não marca os critérios físicos da #13 como concluídos.
 
 ## Execução física em 15/10/2026
 
-A captura UART cobre o reset e registra `boot_observed`,
+As capturas UART correlacionadas cobrem os resets e registram `boot_observed`,
 `platform_initialized`, `module_ready` para os dois módulos,
 `services_active`, `first_telemetry_operation`, `workers_ready`,
 `module_manager_ready`, `wifi_ip_acquired` e `udp_bound`, todos sem erro. Não
 aparecem falhas de abertura ou envio UDP, desconexão Wi-Fi, nem reinício durante
 a janela observada.
 
-O observador foi iniciado antes do reset, usou o endereço e a porta compilados
-no firmware, e executou por 30 segundos com período de 100 ms. O lease DHCP
-registrado na UART era o mesmo da execução imediatamente anterior. Ainda assim,
-o resultado contém somente `session_start`, 300 ciclos `awaiting_boot` e
-`session_end`: zero datagramas recebidos, zero telemetrias decodificadas e zero
-controles enviados. Portanto, o boot e a prontidão dos módulos estão provados;
-a entrega de telemetria ao host e o retorno de controle continuam sem prova.
+Foram feitas duas execuções de 30 segundos, ambas correlacionadas com UART ativa
+desde antes do reset. Na primeira, o observador escutou em todas as interfaces
+locais (`0.0.0.0:3333`), com o peer derivado da UART; na segunda, escutou no
+endereço local configurado como destino no firmware. O bind curinga da primeira
+execução é válido para receber datagramas destinados a qualquer interface local;
+portanto, a diferença de bind não explica o resultado. O lease DHCP e o gateway
+registrados na UART coincidiram nas duas sessões.
+
+As duas execuções registraram somente `session_start`, 300 ciclos
+`awaiting_boot` e `session_end`: zero datagramas recebidos, zero telemetrias
+decodificadas e zero controles enviados. O boot, a prontidão dos módulos e o
+bind local do socket estão provados; `udp_bound` não confirma o envio de cada
+datagrama. A UART não registra confirmação individual de `sendto`, então os
+dados disponíveis não distinguem ausência de envio pelo dispositivo de perda
+ou isolamento no caminho Wi-Fi–Ethernet.
 
 Uma captura passiva na interface Ethernet não foi possível: o host negou a
-abertura do socket de captura (`Operation not permitted`). Sem essa observação,
-os registros não distinguem entre ausência de envio pelo dispositivo e perda ou
-isolamento no caminho Wi-Fi–Ethernet.
+abertura do socket de captura (`Operation not permitted`). As duas UARTs
+correlacionadas anunciam BSSIDs diferentes sob o mesmo SSID; isso é uma pista de
+mudança de ponto de acesso, mas não prova a causa. Sem captura no AP/roteador ou
+no host, o ponto da perda continua desconhecido.
 
 ## Evidência anterior da #12
 
