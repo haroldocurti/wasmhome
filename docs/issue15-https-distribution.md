@@ -9,6 +9,8 @@ ela não implementa nem persiste o piso antirretorno no MCU.
 
 - A chave P-256 de assinatura COSE é criada e usada somente pelo usuário
   `wasmhome` no CT107. A chave privada não sai do diretório privado do assinador.
+- O perfil ES256 usa assinatura `R || S` de 64 bytes com `S` normalizado para
+  low-S, para obter uma representação canônica.
 - O serviço HTTPS roda como `wasmhome-http`, sem acesso ao diretório do assinador.
   Ele valida toda a matriz e as assinaturas antes de iniciar, e só então serve
   os caminhos imutáveis do `index.json`.

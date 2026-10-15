@@ -6,6 +6,8 @@ deterministic CBOR subset required by the WasmHome envelope contract.
 """
 
 import argparse
+import ctypes
+import errno
 import hashlib
 import hmac
 import json
@@ -13,6 +15,7 @@ import os
 import pathlib
 import re
 import shutil
+import stat
 import subprocess
 import tempfile
 
@@ -25,6 +28,7 @@ SCENARIOS = {
 }
 MAX_PAYLOAD = {1: 7 * 1024 * 1024, 2: 65536, 3: 65536}
 MAX_ENVELOPE = 4096
+MAX_NESTING = 32
 UINT32_MAX = (1 << 32) - 1
 UINT64_MAX = (1 << 64) - 1
 P256_ORDER = int("FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551", 16)
@@ -101,7 +105,8 @@ def _argument(data, offset, additional):
     return value, end
 
 
-def _decode_one(data, offset=0):
+def _decode_one(data, offset=0, depth=0):
+    require(depth <= MAX_NESTING, "CBOR nesting depth exceeds configured limit")
     require(offset < len(data), "truncated CBOR item")
     initial = data[offset]
     major, additional = initial >> 5, initial & 31
@@ -127,31 +132,34 @@ def _decode_one(data, offset=0):
     if major == 4:
         result = []
         for _ in range(value):
-            item, offset = _decode_one(data, offset)
+            item, offset = _decode_one(data, offset, depth + 1)
             result.append(item)
         return result, offset
     if major == 5:
         result = {}
         for _ in range(value):
-            key, offset = _decode_one(data, offset)
+            key, offset = _decode_one(data, offset, depth + 1)
             try:
                 duplicate = key in result
             except TypeError as error:
                 raise ValueError("unsupported unhashable CBOR map key") from error
             require(not duplicate, "duplicate CBOR map key")
-            item, offset = _decode_one(data, offset)
+            item, offset = _decode_one(data, offset, depth + 1)
             result[key] = item
         return result, offset
     if major == 6:
-        tagged, offset = _decode_one(data, offset)
+        tagged, offset = _decode_one(data, offset, depth + 1)
         return CborTag(value, tagged), offset
     raise ValueError("unsupported CBOR major type")
 
 
 def cbor_decode(data):
-    value, offset = _decode_one(data)
-    require(offset == len(data), "trailing bytes after CBOR item")
-    require(cbor_encode(value) == data, "CBOR is not deterministically encoded")
+    try:
+        value, offset = _decode_one(data)
+        require(offset == len(data), "trailing bytes after CBOR item")
+        require(cbor_encode(value) == data, "CBOR is not deterministically encoded")
+    except RecursionError as error:
+        raise ValueError("CBOR nesting depth exceeds parser limit") from error
     return value
 
 
@@ -414,11 +422,31 @@ def _json_load(path, max_bytes=65536):
         path = pathlib.Path(path)
         require(path.is_file() and not path.is_symlink(), "JSON input is missing or a symlink")
         data = _read_limited(path, max_bytes, "JSON input")
+        depth = 0
+        in_string = False
+        escaped = False
+        for byte in data:
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif byte == 0x5C:
+                    escaped = True
+                elif byte == 0x22:
+                    in_string = False
+            elif byte == 0x22:
+                in_string = True
+            elif byte in (0x5B, 0x7B):
+                depth += 1
+                require(depth <= MAX_NESTING, "JSON nesting depth exceeds configured limit")
+            elif byte in (0x5D, 0x7D):
+                depth = max(0, depth - 1)
         return json.loads(data.decode("utf-8", errors="strict"), object_pairs_hook=unique,
                           parse_constant=lambda value: (_ for _ in ()).throw(
                               ValueError(f"invalid JSON constant: {value}")))
     except json.JSONDecodeError as error:
         raise ValueError("invalid JSON input") from error
+    except RecursionError as error:
+        raise ValueError("JSON nesting depth exceeds parser limit") from error
 
 
 def _safe_relative(root, relative):
@@ -435,17 +463,49 @@ def _safe_relative(root, relative):
 
 def _read_limited(path, limit, description):
     path = pathlib.Path(path)
-    metadata = path.stat()
-    require(metadata.st_size <= limit, f"{description} exceeds configured limit")
-    with path.open("rb") as stream:
-        data = stream.read(limit + 1)
-    require(len(data) <= limit and len(data) == metadata.st_size,
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as error:
+        raise ValueError(f"{description} cannot be opened safely") from error
+    try:
+        with os.fdopen(descriptor, "rb") as stream:
+            metadata = os.fstat(stream.fileno())
+            require(stat.S_ISREG(metadata.st_mode), f"{description} must be a regular file")
+            require(metadata.st_size <= limit, f"{description} exceeds configured limit")
+            data = stream.read(limit + 1)
+            after = os.fstat(stream.fileno())
+            stable = (metadata.st_dev == after.st_dev and metadata.st_ino == after.st_ino and
+                      metadata.st_size == after.st_size and metadata.st_mtime_ns == after.st_mtime_ns and
+                      metadata.st_ctime_ns == after.st_ctime_ns)
+    except OSError as error:
+        raise ValueError(f"{description} could not be read safely") from error
+    require(stable and len(data) <= limit and len(data) == metadata.st_size,
             f"{description} changed or exceeded limit while reading")
     return data
 
 
+def _rename_directory_noreplace(source, destination):
+    require(os.name == "posix" and hasattr(os, "O_NOFOLLOW"),
+            "atomic no-overwrite publication requires Linux renameat2")
+    libc = ctypes.CDLL(None, use_errno=True)
+    renameat2 = getattr(libc, "renameat2", None)
+    require(renameat2 is not None, "atomic no-overwrite publication requires renameat2")
+    renameat2.argtypes = (ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p,
+                          ctypes.c_uint)
+    renameat2.restype = ctypes.c_int
+    result = renameat2(-100, os.fsencode(source), -100, os.fsencode(destination), 1)
+    if result != 0:
+        error_number = ctypes.get_errno()
+        if error_number == errno.EEXIST:
+            raise ValueError("output directory was created during artifact generation")
+        raise OSError(error_number, os.strerror(error_number), os.fspath(destination))
+
+
 def sign_set(config_path, output_root, private_key):
-    config_path = pathlib.Path(config_path).resolve()
+    config_path = pathlib.Path(config_path)
+    require(not config_path.is_symlink(), "JSON input is missing or a symlink")
+    config_path = config_path.absolute()
     output = pathlib.Path(output_root).absolute()
     require(not os.path.lexists(output), "output directory already exists; refusing to overwrite")
     config = _json_load(config_path)
@@ -523,8 +583,7 @@ def sign_set(config_path, output_root, private_key):
             path.chmod(0o750 if path.is_dir() else 0o640)
         stage.chmod(0o750)
         verify_set(stage, stage / "signing-public.der")
-        require(not os.path.lexists(output), "output directory was created during artifact generation")
-        os.replace(stage, output)
+        _rename_directory_noreplace(stage, output)
         return index
     except BaseException:
         shutil.rmtree(stage, ignore_errors=True)

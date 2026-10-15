@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import pathlib
 import shutil
 import subprocess
@@ -11,6 +12,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 from signed_artifacts import (  # noqa: E402
     CborTag,
+    _json_load,
+    _rename_directory_noreplace,
     _manifest_values,
     _signature_structure,
     build_envelope,
@@ -185,8 +188,32 @@ class SignedArtifactTests(unittest.TestCase):
         broken_link.symlink_to(self.root / "missing-target")
         with self.assertRaisesRegex(ValueError, "already exists"):
             sign_set(config, broken_link, self.private_key)
+        config_link = self.root / "config-link.json"
+        config_link.symlink_to(config)
+        with self.assertRaisesRegex(ValueError, "symlink"):
+            sign_set(config_link, self.root / "symlink-config-output", self.private_key)
         with self.assertRaisesRegex(ValueError, "configured limit"):
             sign_set(config, self.root / "too-large", self.private_key)
+
+    def test_rejects_deep_cbor_and_json_nesting_as_value_errors(self):
+        with self.assertRaisesRegex(ValueError, "CBOR nesting depth"):
+            cbor_decode(b"\x81" * 2000 + b"\xf6")
+        deep_json = self.root / "deep.json"
+        deep_json.write_text("[" * 2000 + "null" + "]" * 2000, encoding="ascii")
+        with self.assertRaisesRegex(ValueError, "JSON nesting depth"):
+            _json_load(deep_json)
+
+    @unittest.skipUnless(os.name == "posix", "renameat2 is a Linux publication primitive")
+    def test_atomic_package_publication_never_replaces_empty_directory(self):
+        stage = self.root / "stage"
+        output = self.root / "output"
+        stage.mkdir()
+        (stage / "payload").write_bytes(b"staged")
+        output.mkdir()
+        with self.assertRaisesRegex(ValueError, "created during artifact generation"):
+            _rename_directory_noreplace(stage, output)
+        self.assertTrue((stage / "payload").is_file())
+        self.assertEqual(list(output.iterdir()), [])
 
     def test_private_key_permissions_and_p256_are_required(self):
         self.private_key.chmod(0o644)
@@ -228,6 +255,15 @@ class SignedArtifactTests(unittest.TestCase):
         (typed_package / "index.json").write_text(json.dumps(index), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "target/base API"):
             verify_set(typed_package, self.public_key)
+
+        if hasattr(os, "mkfifo"):
+            fifo_package = self.root / "fifo-package"
+            shutil.copytree(package, fifo_package)
+            first_payload = fifo_package / index["artifacts"][0]["payload_path"]
+            first_payload.unlink()
+            os.mkfifo(first_payload)
+            with self.assertRaisesRegex(ValueError, "regular file"):
+                verify_set(fifo_package, self.public_key)
 
 
 if __name__ == "__main__":
