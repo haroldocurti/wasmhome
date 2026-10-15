@@ -6,6 +6,7 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_ota_ops.h"
+#include "esp_partition.h"
 #include "esp_sntp.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -118,6 +119,7 @@ typedef struct {
     uint64_t accepted_floor;
     uint32_t expected_bytes;
     uint32_t received_bytes;
+    uint64_t event_elapsed_us_override;
     uint8_t payload_sha256[32];
     uint8_t manifest_sha256[32];
     bool manifest_known;
@@ -481,6 +483,19 @@ static esp_err_t ledger_prepare(const wh_signed_update_manifest_t *manifest,
             memcpy(ledger.pending_payload_sha256, manifest->payload_sha256, 32);
             memcpy(ledger.pending_manifest_sha256, manifest->manifest_sha256, 32);
             err = ledger_store(&ledger);
+            if (err != ESP_OK) {
+                /* Resolve an ambiguous commit before the caller may begin the
+                   sink. The sentinel proves no slot was reserved and no
+                   destructive write could have started in this attempt. */
+                update_ledger_t observed;
+                esp_err_t read_err = ledger_load(&observed);
+                if (read_err == ESP_OK && pending_matches(&observed, manifest) &&
+                    observed.pending_phase == PENDING_DOWNLOADING &&
+                    observed.pending_slot == WH_SIGNED_UPDATE_NO_ACTIVE_SLOT &&
+                    (!attempt_id || bytes_equal(observed.pending_attempt_id,
+                                                attempt_id, 16)))
+                    err = ESP_OK;
+            }
         }
     }
     xSemaphoreGive(lock);
@@ -996,11 +1011,13 @@ static void emit_operation_event(update_operation_t *operation,
         .payload_bytes_received = operation->received_bytes,
         .current_task_stack_high_water_bytes =
             (uint32_t)(uxTaskGetStackHighWaterMark(NULL) * sizeof(StackType_t)),
-        .elapsed_us = (uint64_t)esp_timer_get_time(),
+        .elapsed_us = operation->event_elapsed_us_override
+            ? operation->event_elapsed_us_override : (uint64_t)esp_timer_get_time(),
         .elapsed_scope = "boot",
         .payload_sha256 = payload_hash,
         .manifest_sha256 = operation->manifest_known ? operation->manifest_sha256 : NULL,
     };
+    operation->event_elapsed_us_override = 0;
     if (operation->event_fn) operation->event_fn(operation->event_context, &event);
     wh_signed_update_emit_event(&event);
 }
@@ -1137,16 +1154,26 @@ static esp_err_t read_manifest(update_operation_t *operation,
         if (failure_out) *failure_out = WH_SIGNED_UPDATE_FAILURE_ENVELOPE;
         return ESP_ERR_INVALID_SIZE;
     }
-    emit_operation_event(operation, WH_SIGNED_UPDATE_PHASE_MANIFEST_DOWNLOADED,
-                         WH_SIGNED_UPDATE_FAILURE_NONE, NULL);
-    if (!parse_envelope(envelope, received, parsed, failure_out)) return ESP_ERR_INVALID_ARG;
-    if (!validate_manifest_policy(parsed, operation->scenario,
-                                  operation->release_version,
-                                  operation->expected_sequence)) {
-        if (failure_out) *failure_out = WH_SIGNED_UPDATE_FAILURE_POLICY;
-        return ESP_ERR_INVALID_VERSION;
+    operation->event_elapsed_us_override = (uint64_t)esp_timer_get_time();
+    const bool envelope_valid = parse_envelope(envelope, received, parsed, failure_out);
+    if (parsed->manifest_size &&
+        bytes_nonzero(parsed->manifest.manifest_sha256, 32)) {
+        memcpy(operation->manifest_sha256, parsed->manifest.manifest_sha256, 32);
+        operation->manifest_known = true;
     }
-    operation->expected_bytes = parsed->manifest.payload_size;
+    if (envelope_valid) operation->expected_bytes = parsed->manifest.payload_size;
+    bool policy_valid = false;
+    if (envelope_valid)
+        policy_valid = validate_manifest_policy(parsed, operation->scenario,
+            operation->release_version, operation->expected_sequence);
+    if (envelope_valid && !policy_valid && failure_out)
+        *failure_out = WH_SIGNED_UPDATE_FAILURE_POLICY;
+    emit_operation_event(operation, WH_SIGNED_UPDATE_PHASE_MANIFEST_DOWNLOADED,
+                         envelope_valid && policy_valid ? WH_SIGNED_UPDATE_FAILURE_NONE :
+                             (failure_out ? *failure_out : WH_SIGNED_UPDATE_FAILURE_ENVELOPE),
+                         NULL);
+    if (!envelope_valid) return ESP_ERR_INVALID_ARG;
+    if (!policy_valid) return ESP_ERR_INVALID_VERSION;
     memcpy(operation->manifest_sha256, parsed->manifest.manifest_sha256, 32);
     operation->manifest_known = true;
     if (failure_out) *failure_out = WH_SIGNED_UPDATE_FAILURE_NONE;
@@ -1286,6 +1313,8 @@ esp_err_t wh_signed_update_download(uint8_t scenario, const char *release_versio
         transfer_failure = WH_SIGNED_UPDATE_FAILURE_PAYLOAD_HASH;
     }
     uint8_t chunk[UPDATE_READ_CHUNK_BYTES];
+    uint32_t last_progress_bytes = 0;
+    const uint32_t progress_interval_bytes = 64u * 1024u;
     while (err == ESP_OK && operation.received_bytes < operation.expected_bytes) {
         const uint32_t remaining = operation.expected_bytes - operation.received_bytes;
         const size_t request = remaining < sizeof(chunk) ? remaining : sizeof(chunk);
@@ -1302,8 +1331,13 @@ esp_err_t wh_signed_update_download(uint8_t scenario, const char *release_versio
             break;
         }
         operation.received_bytes += (uint32_t)count;
-        emit_operation_event(&operation, WH_SIGNED_UPDATE_PHASE_PAYLOAD_DOWNLOAD_PROGRESS,
-                             WH_SIGNED_UPDATE_FAILURE_NONE, NULL);
+        if (operation.received_bytes - last_progress_bytes >= progress_interval_bytes ||
+            operation.received_bytes == operation.expected_bytes) {
+            emit_operation_event(&operation,
+                WH_SIGNED_UPDATE_PHASE_PAYLOAD_DOWNLOAD_PROGRESS,
+                WH_SIGNED_UPDATE_FAILURE_NONE, NULL);
+            last_progress_bytes = operation.received_bytes;
+        }
     }
     if (err == ESP_OK && mbedtls_md_finish(&hash_context, operation.payload_sha256) != 0) {
         err = ESP_FAIL;
@@ -1348,6 +1382,7 @@ esp_err_t wh_signed_update_download(uint8_t scenario, const char *release_versio
     return ESP_OK;
 }
 
+#if defined(CONFIG_WASMHOME_NATIVE_OTA)
 static wh_signed_update_manifest_t manifest_from_state(const wh_signed_update_state_t *state)
 {
     wh_signed_update_manifest_t manifest = {0};
@@ -1464,6 +1499,24 @@ static void emit_floor_committed(const wh_signed_update_state_t *state)
     wh_signed_update_emit_event(&event);
 }
 
+static const esp_partition_t *app_partition_at(uint32_t address)
+{
+    esp_partition_iterator_t iterator = esp_partition_find(
+        ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_ANY, NULL);
+    const esp_partition_t *match = NULL;
+    while (iterator) {
+        const esp_partition_t *partition = esp_partition_get(iterator);
+        if (partition && partition->address == address) {
+            match = partition;
+            break;
+        }
+        iterator = esp_partition_next(iterator);
+    }
+    esp_partition_iterator_release(iterator);
+    return match;
+}
+#endif
+
 esp_err_t wh_signed_update_reconcile_native_boot(void)
 {
 #if defined(CONFIG_WASMHOME_NATIVE_OTA)
@@ -1474,16 +1527,38 @@ esp_err_t wh_signed_update_reconcile_native_boot(void)
     const esp_partition_t *running = esp_ota_get_running_partition();
     if (!running) return ESP_ERR_NOT_FOUND;
     if (running->address != state.pending_slot) {
-        const bool rollback = state.pending_phase == PENDING_ACTIVATING &&
-            state.pending_slot != WH_SIGNED_UPDATE_NO_ACTIVE_SLOT;
+        wh_signed_update_manifest_t manifest = manifest_from_state(&state);
+        bool rollback = false;
+        bool activation_was_not_selected = false;
+        if (state.pending_phase == PENDING_ACTIVATING &&
+            state.pending_slot != WH_SIGNED_UPDATE_NO_ACTIVE_SLOT) {
+            const esp_partition_t *candidate = app_partition_at(state.pending_slot);
+            const esp_partition_t *boot = esp_ota_get_boot_partition();
+            esp_ota_img_states_t candidate_state;
+            esp_err_t candidate_err = candidate
+                ? esp_ota_get_state_partition(candidate, &candidate_state)
+                : ESP_ERR_NOT_FOUND;
+            rollback = candidate_err == ESP_OK &&
+                (candidate_state == ESP_OTA_IMG_ABORTED ||
+                 candidate_state == ESP_OTA_IMG_INVALID);
+            activation_was_not_selected = candidate_err == ESP_OK && boot &&
+                boot->address == running->address &&
+                candidate_state == ESP_OTA_IMG_NEW;
+        }
         wh_signed_update_event_t event = event_from_state(&state,
             rollback ? WH_SIGNED_UPDATE_PHASE_ROLLBACK_DETECTED
-                     : WH_SIGNED_UPDATE_PHASE_UPDATE_FAILED,
+                     : (state.pending_phase == PENDING_ACTIVATING
+                        ? WH_SIGNED_UPDATE_PHASE_ACTIVATION_INTERRUPTED
+                        : WH_SIGNED_UPDATE_PHASE_UPDATE_FAILED),
             rollback ? WH_SIGNED_UPDATE_FAILURE_POLICY
                      : WH_SIGNED_UPDATE_FAILURE_PERSISTENCE);
         wh_signed_update_emit_event(&event);
-        wh_signed_update_manifest_t manifest = manifest_from_state(&state);
-        return wh_signed_update_abort(&manifest);
+        if (rollback || activation_was_not_selected ||
+            state.pending_phase != PENDING_ACTIVATING)
+            return wh_signed_update_abort(&manifest);
+        /* The bootloader did not prove rollback and selection state is
+           inconclusive. Keep pending to avoid claiming recovery or losing it. */
+        return ESP_OK;
     }
     esp_ota_img_states_t image_state;
     err = esp_ota_get_state_partition(running, &image_state);
@@ -1508,6 +1583,12 @@ esp_err_t wh_signed_update_reconcile_native_boot(void)
         return ESP_OK;
     }
     if (image_state == ESP_OTA_IMG_VALID) {
+        wh_signed_update_event_t health_event = event_from_state(&state,
+            WH_SIGNED_UPDATE_PHASE_HEALTH_CHECK_PASSED,
+            WH_SIGNED_UPDATE_FAILURE_NONE);
+        health_event.running_sha256 = running_sha256;
+        health_event.health_reconciled = true;
+        wh_signed_update_emit_event(&health_event);
         wh_signed_update_manifest_t manifest = manifest_from_state(&state);
         err = wh_signed_update_commit(&manifest, state.pending_slot);
         wh_signed_update_state_t committed;
