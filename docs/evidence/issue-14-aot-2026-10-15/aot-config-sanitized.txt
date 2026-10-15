@@ -8,4 +8,24 @@ CONFIG_WASMHOME_UDP_PORT=3333
 CONFIG_WASMHOME_WIFI_SSID=<configured; redacted>
 CONFIG_WASMHOME_WIFI_PASSWORD=<configured; redacted>
 CONFIG_WASMHOME_OBSERVER_IPV4=<configured; redacted>
-# Build audit: interpreter not compiled; AOT validator and bounds checks active.
+
+# Build provenance. Build outputs are local and ignored by Git.
+source_commit=298bfaa33584e64763ca97b35407f662cca7938b
+source_tree=aef782e794ff86c8f4181a3281b2d035f92c4bc9
+sdkconfig_sha256=65eb8e7d4685fbc4619f1ea054312b3bfd882cf6b63b8333af2e65669f8bdace
+cmake_cache_sha256=1e91f547dacc3ae943e4f328803742142d5e84719b599f69e6819cefc6428324
+build_ninja_sha256=edaf6daec39aa41b65ad5489a941aecb94a9ba1ad9691551e6912e94a108138c
+compile_commands_sha256=a8213d0d1c1ce597f52764b7b157da210fd1f8276bf839f773594400b024f7e8
+wasm_micro_runtime_archive_sha256=2e6e015f5b6a332c1cd665911c8869941356ce1793641a61de5738780fbd7a33
+linker_map_sha256=db0595e05ba738763b1239f0b63b51d791ac162c2b078386b0c230ed13d58e98
+firmware_elf_sha256=1854af9256ad46e2af542f0a3ee8b6e0f30867aa02107d7fd2a9a5defb858d3e
+firmware_bin_sha256=3f7891d1f3f422dafafbc8b820cb430965833fa29f6dd1f59e807f182a719a7b
+
+# Sanitized build audit: sdkconfig has AOT enabled and interpreter unset;
+# CMakeCache has WAMR_BUILD_AOT_VALIDATOR=1 and WAMR_CONFIGURABLE_BOUNDS_CHECKS=0.
+# The compile database has 944 entries, including 38 WAMR source units and no
+# interpreter source units. WASM_CONFIGURABLE_BOUNDS_CHECKS=0 keeps mandatory
+# bounds checks enabled in this project's CMake configuration.
+# The linker map and ELF contain aot_module_validate; ELF and WAMR archive have
+# no interpreter runtime symbols. The AOT telemetry and control modules match
+# the SHA-256 values recorded in the README.

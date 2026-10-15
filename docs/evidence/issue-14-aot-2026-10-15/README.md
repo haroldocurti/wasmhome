@@ -25,18 +25,19 @@ WASI SDK 27. O gerador usou `--target=xtensa --bounds-checks=1
 |---|---|
 | Firmware BIN gravado em OTA0 | `3f7891d1f3f422dafafbc8b820cb430965833fa29f6dd1f59e807f182a719a7b` |
 | ELF do firmware | `1854af9256ad46e2af542f0a3ee8b6e0f30867aa02107d7fd2a9a5defb858d3e` |
-| [Trecho sanitizado da configuração AOT](aot-config-sanitized.txt) | `e5e4574bc1575eba24a6e0ecb757f6c79f0e10e6ec2ccda2b2d39fa8abcc8dd4` |
+| [Trecho sanitizado da configuração e auditoria AOT](aot-config-sanitized.txt) | `67388f44f74c11f834d48593b48e8f8b81e676834be3062f00f0b2b9a4ee961a` |
 | Telemetria AOT v1 | `e8c6e6ff9c7fc01445adc32b181d755252b99758c01af68970b51d6ad445ea63` |
 | Controle AOT v1 (carregado no ensaio) | `a9c4c7e440ee37e7b53dbcb6d2e8009dd00e4a6fe278180bb9b9ef485e0a5746` |
 | Controle AOT v2 (incluído, não ativado neste ensaio) | `293d78b1af5e0c7e76593d9b8e755692ee311d8427c43d94673ddfd499d5bf53` |
 
 A configuração selecionou `module-aot`, habilitou o WAMR AOT e os serviços
 modulares, e escolheu controle v1. O interpretador não foi compilado no firmware
-de captura. A revisão independente do build confirmou AOT nas 38 unidades WAMR,
-ausência de símbolos do interpretador, inclusão dos módulos AOT sem módulos Wasm,
-presença do `aot_module_validate` e bounds checks ativos. O BIN tem 829.280
-bytes e cabe na partição física OTA0 de 7 MiB. A configuração `sdkconfig` completa
-e seu hash ficam privados, pois ela contém credenciais e endereços locais.
+de captura. A auditoria do build capturado, registrada no trecho sanitizado
+abaixo, confirma AOT nas 38 unidades WAMR, ausência de fontes e símbolos do
+interpretador, inclusão dos módulos AOT sem módulos Wasm, presença do
+`aot_module_validate` e bounds checks ativos. O BIN tem 829.280 bytes e cabe na
+partição física OTA0 de 7 MiB. A configuração `sdkconfig` completa permanece
+privada, pois contém credenciais e endereços locais.
 
 ## Captura física
 
