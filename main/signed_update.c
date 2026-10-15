@@ -919,9 +919,10 @@ static bool parse_envelope(const uint8_t *data, size_t size,
                            wh_signed_update_failure_t *failure_out)
 {
     if (failure_out) *failure_out = WH_SIGNED_UPDATE_FAILURE_ENVELOPE;
-    if (!data || !parsed || size > WH_SIGNED_UPDATE_MAX_ENVELOPE_BYTES || size < 3 ||
-        data[0] != 0xd2) return false;
+    if (!parsed) return false;
     memset(parsed, 0, sizeof(*parsed));
+    if (!data || size > WH_SIGNED_UPDATE_MAX_ENVELOPE_BYTES || size < 3 ||
+        data[0] != 0xd2) return false;
     cbor_cursor_t cursor = {.data = data, .size = size, .offset = 1};
     uint64_t count;
     size_t bytes_size;
