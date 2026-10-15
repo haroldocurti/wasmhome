@@ -58,6 +58,76 @@ config WASMHOME_NATIVE_SERVICES
         Installs the real native telemetry and versioned hysteresis control
         services over UDP v1. This option is native-scenario only and is
         mutually exclusive with diagnostics and benchmark firmware.
+
+config WASMHOME_SIGNED_UPDATE
+    bool "Enable signed HTTPS artifact updates"
+    default n
+    depends on WASMHOME_NATIVE_SERVICES || WASMHOME_MODULE_SERVICES
+    select MBEDTLS_HAVE_TIME_DATE
+    select APP_PROJECT_VER_FROM_CONFIG
+    help
+        Enables the shared fixed-path HTTPS/COSE downloader and persistent
+        anti-rollback state. Trust files are public inputs embedded at build
+        time; do not put private signing or TLS keys in this firmware.
+
+config WASMHOME_NATIVE_OTA
+    bool "Allow signed native application OTA"
+    default n
+    depends on WASMHOME_SIGNED_UPDATE && WASMHOME_NATIVE_SERVICES
+    select BOOTLOADER_APP_ROLLBACK_ENABLE
+    help
+        Enables the native UPDATE_TRIGGER path to stage an authenticated ESP-IDF
+        application in the inactive OTA slot and request a reboot.
+
+config WASMHOME_UPDATE_CA_CERT_PATH
+    string "Local path to the trusted HTTPS CA certificate (PEM)"
+    default ""
+    depends on WASMHOME_SIGNED_UPDATE
+
+config WASMHOME_UPDATE_SIGNING_PUBLIC_KEY_PATH
+    string "Local path to the pinned COSE signing public key (DER)"
+    default ""
+    depends on WASMHOME_SIGNED_UPDATE
+
+config WASMHOME_UPDATE_SERVER_IPV4
+    string "Fixed HTTPS artifact server IPv4"
+    default "192.168.0.138"
+    depends on WASMHOME_SIGNED_UPDATE
+
+config WASMHOME_UPDATE_SERVER_NAME
+    string "Expected HTTPS certificate DNS name"
+    default "wasmhome-bench.test"
+    depends on WASMHOME_SIGNED_UPDATE
+
+config WASMHOME_UPDATE_SERVER_PORT
+    int "HTTPS artifact server port"
+    range 1 65535
+    default 8444
+    depends on WASMHOME_SIGNED_UPDATE
+
+config WASMHOME_UPDATE_CAMPAIGN_ID
+    string "Compiled signed artifact campaign ID"
+    default "issues16-18-bench-20261015"
+    depends on WASMHOME_SIGNED_UPDATE
+
+config WASMHOME_UPDATE_AOT_TOOLCHAIN_ID
+    string "Compiled expected AOT toolchain identity"
+    default "wamr-2.4.5-wasmhome.3"
+    depends on WASMHOME_SIGNED_UPDATE
+
+config WASMHOME_UPDATE_TIME_SERVER
+    string "SNTP server used to validate TLS certificate dates"
+    default "pool.ntp.org"
+    depends on WASMHOME_SIGNED_UPDATE
+
+config WASMHOME_UPDATE_RELEASE_VERSION
+    string "Release label required by the signed update manifest"
+    default "v1"
+    depends on WASMHOME_SIGNED_UPDATE
+    help
+        Must match APP_PROJECT_VER, which is embedded into esp_app_desc. Set both
+        values to v1 for the bootstrap build and v2 for the OTA candidate.
+
 config WASMHOME_CONTROL_VERSION
     int "Native control policy version fixed in this build"
     range 1 2
