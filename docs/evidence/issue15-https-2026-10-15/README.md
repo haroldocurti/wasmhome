@@ -45,7 +45,7 @@ A primeira transferência AOT também encontrou MTU incompatível: o CT anunciav
 
 ## Verificação reproduzível
 
-- `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest tests.test_signed_artifacts tests.test_artifact_https_server -v`: 18 testes passaram. A suíte cobre assinatura/hash/sequência/toolchain inválidos e validação de TLS/Host/método/caminho.
+- `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest tests.test_signed_artifacts tests.test_artifact_https_server -v`: 20 testes passaram. A suíte cobre assinatura/hash/sequência/toolchain inválidos, validação de TLS/Host/método/caminho e bloqueio por handshake TLS ocioso.
 - `python3 -B tools/generate_service_modules.py --verify`: módulos Wasm/AOT verificados contra o manifesto da revisão de origem.
 - `python3 -B tools/signed_artifacts.py verify-set --package <captura> --public-key <pin independente> --expected-campaign-id issue15-bench-20261015 --expected-aot-toolchain-id wamr-2.4.5-wasmhome.3`: seis artefatos verificados.
 
