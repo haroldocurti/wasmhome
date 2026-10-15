@@ -12,6 +12,25 @@
 #include "platform.h"
 #include "sdkconfig.h"
 
+#if defined(CONFIG_WASMHOME_MODULE_SERVICES)
+#include "module_manager.h"
+#if defined(WASMHOME_SCENARIO_MODULE_INTERP)
+extern const uint8_t service_telemetry_wasm[];
+extern const uint32_t service_telemetry_wasm_len;
+extern const uint8_t service_control_v1_wasm[];
+extern const uint32_t service_control_v1_wasm_len;
+extern const uint8_t service_control_v2_wasm[];
+extern const uint32_t service_control_v2_wasm_len;
+#elif defined(WASMHOME_SCENARIO_MODULE_AOT)
+extern const uint8_t service_telemetry_aot[];
+extern const uint32_t service_telemetry_aot_len;
+extern const uint8_t service_control_v1_aot[];
+extern const uint32_t service_control_v1_aot_len;
+extern const uint8_t service_control_v2_aot[];
+extern const uint32_t service_control_v2_aot_len;
+#endif
+#endif
+
 #if defined(CONFIG_WASMHOME_RUN_BENCHMARK)
 #include <pthread.h>
 #endif
@@ -35,6 +54,14 @@
 #elif defined(WASMHOME_SCENARIO_AOT)
 #if !defined(CONFIG_WAMR_ENABLE_AOT) || defined(CONFIG_WAMR_ENABLE_INTERP)
 #error "Scenario C requires only the WAMR AOT runtime"
+#endif
+#elif defined(WASMHOME_SCENARIO_MODULE_INTERP)
+#if !defined(CONFIG_WAMR_ENABLE_INTERP) || !defined(CONFIG_WAMR_INTERP_CLASSIC) || defined(CONFIG_WAMR_ENABLE_AOT)
+#error "module-interp requires only the WAMR classic interpreter"
+#endif
+#elif defined(WASMHOME_SCENARIO_MODULE_AOT)
+#if !defined(CONFIG_WAMR_ENABLE_AOT) || defined(CONFIG_WAMR_ENABLE_INTERP)
+#error "module-aot requires only the WAMR AOT runtime"
 #endif
 #endif
 #endif
@@ -346,6 +373,37 @@ static bool start_benchmark_thread(void)
 void app_main(void)
 {
     ESP_ERROR_CHECK(wh_platform_start());
+#if defined(CONFIG_WASMHOME_MODULE_SERVICES)
+#if defined(WASMHOME_SCENARIO_MODULE_INTERP)
+    const wh_module_image_t telemetry = {
+        .bytes = service_telemetry_wasm,
+        .size = service_telemetry_wasm_len,
+        .module_version = 1,
+    };
+    const wh_module_image_t control = CONFIG_WASMHOME_MODULE_CONTROL_VERSION == 1
+        ? (wh_module_image_t){.bytes = service_control_v1_wasm,
+                              .size = service_control_v1_wasm_len,
+                              .module_version = 1}
+        : (wh_module_image_t){.bytes = service_control_v2_wasm,
+                              .size = service_control_v2_wasm_len,
+                              .module_version = 2};
+#else
+    const wh_module_image_t telemetry = {
+        .bytes = service_telemetry_aot,
+        .size = service_telemetry_aot_len,
+        .module_version = 1,
+    };
+    const wh_module_image_t control = CONFIG_WASMHOME_MODULE_CONTROL_VERSION == 1
+        ? (wh_module_image_t){.bytes = service_control_v1_aot,
+                              .size = service_control_v1_aot_len,
+                              .module_version = 1}
+        : (wh_module_image_t){.bytes = service_control_v2_aot,
+                              .size = service_control_v2_aot_len,
+                              .module_version = 2};
+#endif
+    ESP_ERROR_CHECK(wh_module_manager_start(&telemetry, &control));
+    return;
+#endif
 #if defined(CONFIG_WASMHOME_NATIVE_SERVICES)
     ESP_ERROR_CHECK(wh_native_services_start());
 #endif

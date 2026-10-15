@@ -92,6 +92,42 @@ the firmware emits one CSV row per measured repetition after five warm-up runs. 
 [`docs/experiment-protocol.md`](docs/experiment-protocol.md) before collecting
 data.
 
+## Module manager firmware (#12)
+
+The ABI-v1 guest sources are `workload/service_telemetry.c` and
+`workload/service_control.c`. `tools/generate_service_modules.py` builds their
+Wasm and Xtensa AOT images and generates the embedded C files under the ignored
+`artifacts/` directory. The build wrapper runs that generator, verifies the
+toolchain receipts, and gives each scenario its own `sdkconfig` and build
+directory. The generated services prove loading and the manager ABI. A minimum
+physical proof on ESP32-S3-N16R8 ran telemetry and control together in the
+classic-interpreter profile, including GPIO loopback; physical AOT execution
+belongs to #14. See the [#12 physical evidence](docs/evidence/issue-12-allocator-alignment-2026-10-15/README.md)
+for results, limits, and restoration details.
+
+Set `WASI_SDK_PATH`, `WAMRC`, and `IDF_PATH`, then build either dedicated
+scenario from the ESP-IDF PowerShell environment:
+
+```powershell
+./tools/build-module-firmware.ps1 -Scenario module-interp `
+  -WasiSdkPackage /receipts/wasi-sdk-27.0-x86_64-linux.tar.gz `
+  -WamrcBuildReceipt /receipts/wamrc-build-receipt.json
+./tools/build-module-firmware.ps1 -Scenario module-aot `
+  -WasiSdkPackage /receipts/wasi-sdk-27.0-x86_64-linux.tar.gz `
+  -WamrcBuildReceipt /receipts/wamrc-build-receipt.json
+```
+
+These builds use the module-service sdkconfig profile, set the target to
+ESP32-S3, and enable WAMR's usage-aware allocator without changing the pinned
+runtime package. Keep Wi-Fi and observer credentials in a local sdkconfig, not
+in the checked-in profile. The firmware emits `WASMHOME_MODULE_MEMORY` snapshots
+at runtime, slot load/instantiate, candidate overlap, and release boundaries;
+they separate ESP-IDF heap readings from WAMR allocator counters and label queue
+payload capacity, requested worker stacks, and retained watchdog slots as
+manager-side categories. Watchdog timer handles and gates stay with the static
+slots across generations because ESP-IDF 5.2.6 dispatches timer deletion
+asynchronously; late callbacks check the active call's deadline.
+
 ## Local checks
 
 ```powershell

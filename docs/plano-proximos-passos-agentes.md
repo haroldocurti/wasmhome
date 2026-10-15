@@ -69,8 +69,63 @@ O aceite físico da #9 remove a dependência de viabilidade; não entrega a #12.
    da bancada. Publicar critérios e limites. Serviços completos #13/#14,
    atualização remota e campanha permanecem nas suas entregas próprias.
 
-Os passos 1–6 são trabalho pendente. Não há implementação nem aceite da #12
-nesta publicação; o plano organiza a próxima entrega sem ampliar a prova E1.
+### Estado de execução — 14/10/2026
+
+O contrato ABI v1, o gerenciador persistente e os módulos de serviço foram
+implementados no checkout. Os testes de host para helpers do ABI e para o
+gerenciador com shims ESP/WAMR passam (2 testes); eles validam o contrato e as
+decisões do manager, não o runtime ESP-IDF/WAMR real. Foram adicionadas linhas
+`WASMHOME_MODULE_MEMORY` para registrar heap interno/PSRAM, contadores WAMR,
+capacidade de payload das filas, stacks solicitadas, watchdogs persistentes e
+sobreposição/liberação. A revisão local do ciclo do watchdog encontrou que o
+ESP-IDF 5.2.6 agenda a exclusão do timer de forma assíncrona; os timers/gates
+agora permanecem no slot estático e deadlines evitam que callbacks atrasados
+atinjam outra chamada. Um caso host exercita esse caminho.
+
+Os seis payloads Wasm/AOT foram gerados e verificados com WASI-SDK 27.0, clang
+20.1.8, `wamrc 2.4.5` e IDF v5.2.6 fixado. A stack linear Wasm foi explicitada
+em 8 KiB para caber na memória inicial de uma página; o máximo continua em duas
+páginas. O verificador do array C incorporado foi corrigido após a primeira
+execução revelar que comparava texto com bytes.
+
+Os firmwares `module-interp` e `module-aot` compilaram para ESP32-S3. Os
+`sdkconfig` efetivos carregam `CONFIG_WASMHOME_MODULE_SERVICES=y`, limite de
+65.536 bytes por artefato, duas páginas, stacks Wasm/heap por módulo de 8 KiB e
+stack solicitada por worker de 12 KiB. O primeiro habilita o interpretador
+clássico e deixa AOT desligado; o segundo habilita AOT. A configuração CMake dos
+dois confirma `WAMR_BUILD_AOT_VALIDATOR=1`; os bounds checks não são
+configuráveis em runtime e `WASM_DISABLE_HW_BOUND_CHECK` permanece no valor
+habilitado para checagem. Os arquivos de build, configurações efetivas e hashes
+ficam nos diretórios locais ignorados `build/module-interp` e `build/module-aot`.
+
+A revisão independente final da implementação/build ainda está pendente; a
+aprovação B registrada anteriormente cobre a proposta ABI. Nenhum firmware foi
+executado na placa nesta etapa. A porta serial enumerada ainda não teve placa e
+firmware identificados, então não foi aberta; a prova funcional e o procedimento
+de backup/restauração continuam pendentes. Builds e testes de host não equivalem
+ao aceite físico da #12, nem concluem #13/#14.
+
+### Atualização — 15/10/2026
+
+A revisão independente do diff do allocator e do shim não encontrou bloqueio. A
+falha de alinhamento foi corrigida com alocação alinhada a 8 bytes e `realloc`
+aloca/copia/libera, preservando o bloco antigo se a nova alocação falhar. As
+alocações WAMR de runtime permanecem no heap interno; memória linear usa PSRAM
+quando habilitada. `WASM_ENABLE_BULK_MEMORY=1` mantém o layout dos metadados
+privados do WAMR compatível com o pin usado pelo gerenciador.
+
+Os testes de host passaram (ABI v1 e gerenciador). Os firmwares de interpretador
+clássico e AOT compilaram. Na placa, o perfil de interpretador clássico iniciou
+telemetria e controle juntos e completou loopback GPIO. O observador registrou
+84 telemetrias válidas, sem lacunas de sequência, e 78 controles válidos em 79
+tentativas; o primeiro controle expirou. Um lote de controle separado passou
+10/10. A prova física AOT continua reservada à #14. Os detalhes, hashes e limites
+estão em [evidência física #12](evidence/issue-12-allocator-alignment-2026-10-15/README.md).
+
+O `ota_0` original foi restaurado com verificação de hash. A NVS foi restaurada
+e a leitura final é byte a byte igual ao backup. A placa ficou no bootloader ROM
+após essa última gravação para preservar exatamente a NVS; o firmware original
+foi inicializado e capturado antes da restauração final da NVS.
 
 
 Preparado em 13/10/2026 por solicitação do usuário. Modelo de todos os agentes:

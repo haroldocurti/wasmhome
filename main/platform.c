@@ -28,9 +28,14 @@ static struct sockaddr_in observer;
 static int udp_socket = -1;
 static uint64_t tx_sequence[256];
 static wh_request_handler_t request_handler;
+static uint32_t request_handler_in_flight;
 static bool started;
 #if defined(WASMHOME_SCENARIO_NATIVE)
 static const char *scenario = "native";
+#elif defined(WASMHOME_SCENARIO_MODULE_INTERP)
+static const char *scenario = "module-interp";
+#elif defined(WASMHOME_SCENARIO_MODULE_AOT)
+static const char *scenario = "module-aot";
 #elif defined(WASMHOME_SCENARIO_INTERP)
 static const char *scenario = "interp";
 #else
@@ -64,6 +69,15 @@ esp_err_t wh_observation_set_handler(wh_request_handler_t handler)
     xSemaphoreTake(transport_lock, portMAX_DELAY);
     request_handler = handler;
     xSemaphoreGive(transport_lock);
+    if (!handler) {
+        for (;;) {
+            xSemaphoreTake(transport_lock, portMAX_DELAY);
+            const uint32_t in_flight = request_handler_in_flight;
+            xSemaphoreGive(transport_lock);
+            if (in_flight == 0) break;
+            vTaskDelay(1);
+        }
+    }
     return ESP_OK;
 }
 
@@ -160,9 +174,16 @@ static void udp_task(void *arg)
             }
             xSemaphoreTake(transport_lock, portMAX_DELAY);
             wh_request_handler_t handler = request_handler;
+            if (handler) request_handler_in_flight++;
             xSemaphoreGive(transport_lock);
-            if (handler) handler(data, (size_t)n);
-            else wh_platform_event("service_not_installed", ESP_ERR_NOT_SUPPORTED);
+            if (handler) {
+                handler(data, (size_t)n);
+                xSemaphoreTake(transport_lock, portMAX_DELAY);
+                if (request_handler_in_flight) request_handler_in_flight--;
+                xSemaphoreGive(transport_lock);
+            } else {
+                wh_platform_event("service_not_installed", ESP_ERR_NOT_SUPPORTED);
+            }
         }
         xSemaphoreTake(transport_lock, portMAX_DELAY);
         udp_socket = -1;

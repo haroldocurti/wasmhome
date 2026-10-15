@@ -67,4 +67,58 @@ config WASMHOME_CONTROL_VERSION
         Version 1 uses the 25 C threshold; version 2 uses the 30 C threshold.
         The selected value is compiled into firmware and cannot be changed at
         runtime.
+
+config WASMHOME_MODULE_SERVICES
+    bool "Run the ABI v1 Wasm telemetry and control modules"
+    default n
+    depends on !WASMHOME_NATIVE_SERVICES && !WASMHOME_PLATFORM_SELFTEST && !WASMHOME_OBSERVER_SELFTEST && !WASMHOME_RUN_BENCHMARK
+    help
+        Starts the persistent WAMR manager in interpreter/AOT firmware. Two
+        role-specific module images must be embedded by the service artifact
+        build. Defaults below are provisional and require board acceptance.
+
+config WASMHOME_MODULE_CONTROL_VERSION
+    int "Host-assigned control module version"
+    range 1 2
+    default 1
+    depends on WASMHOME_MODULE_SERVICES
+    help
+        Selects the embedded control v1/v2 image. This host metadata is written
+        into CONTROL_RESULT and is not read from the guest.
+
+config WASMHOME_MODULE_MAX_ARTIFACT_BYTES
+    int "Maximum bytes per embedded module artifact (provisional)"
+    range 1024 1048576
+    default 65536
+    depends on WASMHOME_MODULE_SERVICES
+
+config WASMHOME_MODULE_MAX_MEMORY_PAGES
+    int "Maximum linear-memory pages per module (provisional)"
+    range 1 64
+    default 2
+    depends on WASMHOME_MODULE_SERVICES
+
+config WASMHOME_MODULE_WASM_STACK_BYTES
+    int "Wasm execution stack bytes per module (provisional)"
+    range 4096 32768
+    default 8192
+    depends on WASMHOME_MODULE_SERVICES
+
+config WASMHOME_MODULE_APP_HEAP_BYTES
+    int "Host-managed app heap bytes per module (provisional)"
+    range 4096 65536
+    default 8192
+    depends on WASMHOME_MODULE_SERVICES
+
+config WASMHOME_MODULE_ALLOCATOR_CAP_BYTES
+    int "Global WAMR plus artifact live-byte cap (provisional)"
+    range 32768 2097152
+    default 524288
+    depends on WASMHOME_MODULE_SERVICES
+
+config WASMHOME_MODULE_HOST_THREAD_STACK_BYTES
+    int "Manager pthread stack bytes (provisional)"
+    range 8192 32768
+    default 12288
+    depends on WASMHOME_MODULE_SERVICES
 endmenu
