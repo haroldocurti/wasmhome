@@ -203,7 +203,7 @@ class SignedArtifactTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "JSON nesting depth"):
             _json_load(deep_json)
 
-    @unittest.skipUnless(os.name == "posix", "renameat2 is a Linux publication primitive")
+    @unittest.skipUnless(sys.platform == "linux", "renameat2 is a Linux publication primitive")
     def test_atomic_package_publication_never_replaces_empty_directory(self):
         stage = self.root / "stage"
         output = self.root / "output"
