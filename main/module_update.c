@@ -165,8 +165,6 @@ static void update_pipeline_event(void *context, wh_signed_update_event_t *event
     update_attempt_t *attempt = context;
     if (!attempt || !event) return;
     event->origin_boot_id = attempt->request.origin_boot_id;
-    event->elapsed_us = (uint64_t)esp_timer_get_time();
-    event->elapsed_scope = "boot";
     attempt->payload_bytes_expected = event->payload_bytes_expected;
     attempt->payload_bytes_received = event->payload_bytes_received;
     if (event->phase == WH_SIGNED_UPDATE_PHASE_PAYLOAD_VERIFIED)
