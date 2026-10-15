@@ -1,0 +1,38 @@
+[Unit]
+Description=WasmHome issue 15 verified artifact HTTPS endpoint
+Wants=network-online.target
+After=network-online.target
+Requires=wasmhome-issue15-firewall.service
+After=wasmhome-issue15-firewall.service
+BindsTo=wasmhome-issue15-firewall.service
+
+[Service]
+Type=simple
+User=wasmhome-http
+Group=wasmhome-http
+WorkingDirectory=/opt/wasmhome/issue15
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -B /opt/wasmhome/issue15/artifact_https_server.py --package /srv/wasmhome-http/issue15/package --certificate /etc/wasmhome/https/issue15/server.crt --private-key /etc/wasmhome/https/issue15/server.key --signing-public-key /etc/wasmhome/pki/issue15/signing-public.der --log /var/log/wasmhome/issue15/http.jsonl --bind 192.168.0.138 --port 8443 --server-name wasmhome-bench.test --server-ip 192.168.0.138 --expected-campaign-id issue15-bench-20261015 --expected-aot-toolchain-id wamr-2.4.5-wasmhome.3
+Restart=on-failure
+RestartSec=2s
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+LockPersonality=true
+RestrictSUIDSGID=true
+MemoryDenyWriteExecute=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LogsDirectory=wasmhome/issue15
+LogsDirectoryMode=0750
+
+[Install]
+WantedBy=multi-user.target

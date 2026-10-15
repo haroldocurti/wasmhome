@@ -1,0 +1,14 @@
+[Unit]
+Description=Restrict the WasmHome issue 15 endpoint to the capture host
+After=local-fs.target nftables.service
+Before=wasmhome-issue15-artifacts.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=-/usr/sbin/nft delete table inet wasmhome_issue15
+ExecStart=/usr/sbin/nft -f /etc/wasmhome/issue15/firewall.nft
+ExecStop=-/usr/sbin/nft delete table inet wasmhome_issue15
+
+[Install]
+WantedBy=multi-user.target

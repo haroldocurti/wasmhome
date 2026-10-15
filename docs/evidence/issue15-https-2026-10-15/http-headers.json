@@ -1,0 +1,136 @@
+{
+  "index.json": {
+    "cache_control": "public, max-age=31536000, immutable",
+    "content_length": "3917",
+    "content_type": "application/json",
+    "etag": "\"sha256-2d7923583f001e6d53f86fc95ca9a9806b2cd9c4f3bb008fe729674adf7695f1\"",
+    "http_status": 200,
+    "x_content_type_options": "nosniff"
+  },
+  "scenario-1/firmware/v1/firmware.bin": {
+    "cache_control": "public, max-age=31536000, immutable",
+    "content_length": "747232",
+    "content_type": "application/octet-stream",
+    "etag": "\"sha256-7b3cc3bb8061c72e4483c16fdac730522739a026ae1232598f23890020d60af6\"",
+    "http_status": 200,
+    "x_content_type_options": "nosniff"
+  },
+  "scenario-1/firmware/v1/manifest.cose": {
+    "cache_control": "public, max-age=31536000, immutable",
+    "content_length": "186",
+    "content_type": "application/cose; cose-type=\"cose-sign1\"",
+    "etag": "\"sha256-80a53edc530322f16e1228626e9b6d50786d68d9b086c28e88ca75c24ca7e596\"",
+    "http_status": 200,
+    "x_content_type_options": "nosniff"
+  },
+  "scenario-1/firmware/v2/firmware.bin": {
+    "cache_control": "public, max-age=31536000, immutable",
+    "content_length": "747232",
+    "content_type": "application/octet-stream",
+    "etag": "\"sha256-fc3005152183dba32535709e62ddab964bbfed012b72bfeafd33815faabae8f4\"",
+    "http_status": 200,
+    "x_content_type_options": "nosniff"
+  },
+  "scenario-1/firmware/v2/manifest.cose": {
+    "cache_control": "public, max-age=31536000, immutable",
+    "content_length": "186",
+    "content_type": "application/cose; cose-type=\"cose-sign1\"",
+    "etag": "\"sha256-dde47f870551dc9bc0264ab3802aab999029b457a539a920aa8eaa19a08e9418\"",
+    "http_status": 200,
+    "x_content_type_options": "nosniff"
+  },
+  "scenario-2/gpio-control/v1/control.wasm": {
+    "cache_control": "public, max-age=31536000, immutable",
+    "content_length": "328",
+    "content_type": "application/wasm",
+    "etag": "\"sha256-80e885af2f93152efa9f66f04955edb82cbe1920332b32b729b9c48c4307bff2\"",
+    "http_status": 200,
+    "x_content_type_options": "nosniff"
+  },
+  "scenario-2/gpio-control/v1/manifest.cose": {
+    "cache_control": "public, max-age=31536000, immutable",
+    "content_length": "188",
+    "content_type": "application/cose; cose-type=\"cose-sign1\"",
+    "etag": "\"sha256-29725289a9e71dcf5736f822472c3ad2aa01c0d8395a7c517f397fbb8033509f\"",
+    "http_status": 200,
+    "x_content_type_options": "nosniff"
+  },
+  "scenario-2/gpio-control/v2/control.wasm": {
+    "cache_control": "public, max-age=31536000, immutable",
+    "content_length": "328",
+    "content_type": "application/wasm",
+    "etag": "\"sha256-3a972948112397acdaad03c81714a3daf147ecce926f0854341e58a350f3d5c5\"",
+    "http_status": 200,
+    "x_content_type_options": "nosniff"
+  },
+  "scenario-2/gpio-control/v2/manifest.cose": {
+    "cache_control": "public, max-age=31536000, immutable",
+    "content_length": "188",
+    "content_type": "application/cose; cose-type=\"cose-sign1\"",
+    "etag": "\"sha256-804b994d5c5d5a2f220979ad115a2649975279d1f5ac06d8ced767e355af7bc7\"",
+    "http_status": 200,
+    "x_content_type_options": "nosniff"
+  },
+  "scenario-3/gpio-control/v1/control.aot": {
+    "cache_control": "public, max-age=31536000, immutable",
+    "content_length": "1256",
+    "content_type": "application/vnd.wasmhome.aot",
+    "etag": "\"sha256-a9c4c7e440ee37e7b53dbcb6d2e8009dd00e4a6fe278180bb9b9ef485e0a5746\"",
+    "http_status": 200,
+    "x_content_type_options": "nosniff"
+  },
+  "scenario-3/gpio-control/v1/manifest.cose": {
+    "cache_control": "public, max-age=31536000, immutable",
+    "content_length": "209",
+    "content_type": "application/cose; cose-type=\"cose-sign1\"",
+    "etag": "\"sha256-2fe20535c089e97ffb08c91c6650174b1bb82d05d4b8ccf8502205bc7b50f3a8\"",
+    "http_status": 200,
+    "x_content_type_options": "nosniff"
+  },
+  "scenario-3/gpio-control/v2/control.aot": {
+    "cache_control": "public, max-age=31536000, immutable",
+    "content_length": "1256",
+    "content_type": "application/vnd.wasmhome.aot",
+    "etag": "\"sha256-293d78b1af5e0c7e76593d9b8e755692ee311d8427c43d94673ddfd499d5bf53\"",
+    "http_status": 200,
+    "x_content_type_options": "nosniff"
+  },
+  "scenario-3/gpio-control/v2/manifest.cose": {
+    "cache_control": "public, max-age=31536000, immutable",
+    "content_length": "209",
+    "content_type": "application/cose; cose-type=\"cose-sign1\"",
+    "etag": "\"sha256-f0a4a30653f51d43694044690cf48879123bf3561adebd49c3da257569b2cf40\"",
+    "http_status": 200,
+    "x_content_type_options": "nosniff"
+  },
+  "signing-public.der": {
+    "cache_control": "public, max-age=31536000, immutable",
+    "content_length": "91",
+    "content_type": "application/octet-stream",
+    "etag": "\"sha256-5a068ceb66e76b886b676982ea94ac9fa75a6f8b26a47fe54657459e8570fcd2\"",
+    "http_status": 200,
+    "x_content_type_options": "nosniff"
+  },
+  "unknown_path": {
+    "cache_control": "no-store",
+    "content_length": "10",
+    "content_type": "text/plain; charset=utf-8",
+    "http_status": 404,
+    "x_content_type_options": "nosniff"
+  },
+  "unsupported_method": {
+    "allow": "GET, HEAD",
+    "cache_control": "no-store",
+    "content_length": "19",
+    "content_type": "text/plain; charset=utf-8",
+    "http_status": 405,
+    "x_content_type_options": "nosniff"
+  },
+  "wrong_http_host": {
+    "cache_control": "no-store",
+    "content_length": "20",
+    "content_type": "text/plain; charset=utf-8",
+    "http_status": 421,
+    "x_content_type_options": "nosniff"
+  }
+}
