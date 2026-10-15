@@ -1,0 +1,63 @@
+{
+  "generated_modules": [
+    {
+      "bytes": 328,
+      "format": "wasm",
+      "scenario": 2,
+      "sha256": "80e885af2f93152efa9f66f04955edb82cbe1920332b32b729b9c48c4307bff2",
+      "version": "v1"
+    },
+    {
+      "bytes": 328,
+      "format": "wasm",
+      "scenario": 2,
+      "sha256": "3a972948112397acdaad03c81714a3daf147ecce926f0854341e58a350f3d5c5",
+      "version": "v2"
+    },
+    {
+      "bytes": 1256,
+      "format": "aot",
+      "scenario": 3,
+      "sha256": "a9c4c7e440ee37e7b53dbcb6d2e8009dd00e4a6fe278180bb9b9ef485e0a5746",
+      "version": "v1"
+    },
+    {
+      "bytes": 1256,
+      "format": "aot",
+      "scenario": 3,
+      "sha256": "293d78b1af5e0c7e76593d9b8e755692ee311d8427c43d94673ddfd499d5bf53",
+      "version": "v2"
+    }
+  ],
+  "module_manifest_verify": "passed",
+  "native_builds": [
+    {
+      "artifact": "native firmware binary",
+      "bytes": 747232,
+      "result": "success",
+      "sha256": "7b3cc3bb8061c72e4483c16fdac730522739a026ae1232598f23890020d60af6",
+      "version": "v1"
+    },
+    {
+      "artifact": "native firmware binary",
+      "bytes": 747232,
+      "result": "success",
+      "sha256": "fc3005152183dba32535709e62ddab964bbfed012b72bfeafd33815faabae8f4",
+      "version": "v2"
+    }
+  ],
+  "private_elf_published": false,
+  "raw_build_logs_published": false,
+  "runtime": {
+    "aot_version": 5,
+    "app_framework_revision": "e97860611e371d91d2ef25101b02b29719476a48",
+    "component": "wasmhome/wasm-micro-runtime",
+    "component_hash": "7928f0852db4c43b1e2d7ae19ac957d0cddae77e458046612c6100e9e9dbee39",
+    "port_lock_sha256": "7aea69ad144467e077d156732939e2d254d8b910f670a62fda5a5c9194d34c8e",
+    "repository_revision": "25bd7eb63e828e4bd242cc9b38d260b4b31c6605",
+    "version": "2.4.5-wasmhome.3"
+  },
+  "schema": "wasmhome-issue15-build-summary-v1",
+  "source_revision": "402849e8a461e85c51c3bec33de160e2c5ed83b8",
+  "source_tree": "f68bc92fe31bc91751e4c64b24cd78a299c4ddea"
+}

@@ -33,8 +33,11 @@ Copie as unidades `wasmhome-issue15-artifacts.service` e
 `wasmhome-issue15-firewall.service` para `/etc/systemd/system/` e
 `issue15-firewall.nft` para `/etc/wasmhome/issue15/firewall.nft`. A regra nftables
 permite a porta TCP 8443 somente ao host de captura `192.168.0.13`; atualize a
-origem antes de iniciar se o host mudar. Depois de validar os caminhos e
-permissões de certificado, chave e diretórios, carregue as unidades e inicie
+origem antes de iniciar se o host mudar. No Proxmox, mantenha `net0` do CT107 em
+MTU `1480`, igualando a interface do contêiner aos pares veth/firewall do bridge.
+A captura real teve retransmissões com MTU divergente e completou após esse ajuste
+persistente. Depois de validar os caminhos e permissões de certificado, chave e
+diretórios, carregue as unidades e inicie
 `wasmhome-issue15-artifacts.service`. O systemd cria o diretório de log como
 `wasmhome-http`; o processo não tem capabilities e mantém o restante do sistema
 de arquivos somente para leitura.

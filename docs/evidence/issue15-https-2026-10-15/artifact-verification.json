@@ -1,0 +1,57 @@
+{
+  "aot_toolchain_id": "wamr-2.4.5-wasmhome.3",
+  "campaign_id": "issue15-bench-20261015",
+  "schema": "wasmhome-issue15-index-v1",
+  "signing_kid": "5a068ceb66e76b88",
+  "signing_public_key_sha256": "5a068ceb66e76b886b676982ea94ac9fa75a6f8b26a47fe54657459e8570fcd2",
+  "verified": [
+    {
+      "component": "firmware",
+      "payload_bytes": 747232,
+      "payload_sha256": "7b3cc3bb8061c72e4483c16fdac730522739a026ae1232598f23890020d60af6",
+      "scenario": 1,
+      "sequence": 1,
+      "version": "v1"
+    },
+    {
+      "component": "firmware",
+      "payload_bytes": 747232,
+      "payload_sha256": "fc3005152183dba32535709e62ddab964bbfed012b72bfeafd33815faabae8f4",
+      "scenario": 1,
+      "sequence": 2,
+      "version": "v2"
+    },
+    {
+      "component": "gpio-control",
+      "payload_bytes": 328,
+      "payload_sha256": "80e885af2f93152efa9f66f04955edb82cbe1920332b32b729b9c48c4307bff2",
+      "scenario": 2,
+      "sequence": 1,
+      "version": "v1"
+    },
+    {
+      "component": "gpio-control",
+      "payload_bytes": 328,
+      "payload_sha256": "3a972948112397acdaad03c81714a3daf147ecce926f0854341e58a350f3d5c5",
+      "scenario": 2,
+      "sequence": 2,
+      "version": "v2"
+    },
+    {
+      "component": "gpio-control",
+      "payload_bytes": 1256,
+      "payload_sha256": "a9c4c7e440ee37e7b53dbcb6d2e8009dd00e4a6fe278180bb9b9ef485e0a5746",
+      "scenario": 3,
+      "sequence": 1,
+      "version": "v1"
+    },
+    {
+      "component": "gpio-control",
+      "payload_bytes": 1256,
+      "payload_sha256": "293d78b1af5e0c7e76593d9b8e755692ee311d8427c43d94673ddfd499d5bf53",
+      "scenario": 3,
+      "sequence": 2,
+      "version": "v2"
+    }
+  ]
+}

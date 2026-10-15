@@ -1,0 +1,8 @@
+{
+  "curl_result": "timeout; no TLS/HTTP response",
+  "http_status": null,
+  "nft_drop_counter_bytes_after_probe": 240,
+  "nft_drop_counter_packets_after_probe": 4,
+  "probe": "connection initiated from outside the capture-host allowlist",
+  "server_event_created": false
+}

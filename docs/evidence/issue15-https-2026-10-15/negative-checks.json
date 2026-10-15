@@ -1,0 +1,37 @@
+[
+  {
+    "check": "untrusted_system_ca",
+    "curl_exit": 60,
+    "http_status": 0,
+    "tls_verify_result": 20,
+    "expected": "certificate_rejected"
+  },
+  {
+    "check": "wrong_tls_hostname",
+    "curl_exit": 60,
+    "http_status": 0,
+    "tls_verify_result": 1,
+    "expected": "certificate_rejected"
+  },
+  {
+    "check": "wrong_http_host",
+    "curl_exit": 0,
+    "http_status": 421,
+    "tls_verify_result": 0,
+    "expected": 421
+  },
+  {
+    "check": "unknown_path",
+    "curl_exit": 0,
+    "http_status": 404,
+    "tls_verify_result": 0,
+    "expected": 404
+  },
+  {
+    "check": "unsupported_method",
+    "curl_exit": 0,
+    "http_status": 405,
+    "tls_verify_result": 0,
+    "expected": 405
+  }
+]

@@ -1,0 +1,18 @@
+{
+  "signing_public_key_sha256": "5a068ceb66e76b886b676982ea94ac9fa75a6f8b26a47fe54657459e8570fcd2",
+  "tls_ca": {
+    "issuer": "CN=WasmHome Issue15 Bench CA 20261015",
+    "not_after_utc": "Nov 14 06:11:32 2026 GMT",
+    "not_before_utc": "Oct 15 06:11:32 2026 GMT",
+    "sha256_fingerprint": "EA:04:F1:04:13:EE:65:B5:C7:B0:B9:48:49:92:40:07:85:73:57:57:3D:12:C2:3B:79:2A:32:A7:67:99:9D:A9",
+    "subject": "CN=WasmHome Issue15 Bench CA 20261015"
+  },
+  "tls_leaf": {
+    "issuer": "CN=WasmHome Issue15 Bench CA 20261015",
+    "not_after_utc": "Nov 14 06:11:37 2026 GMT",
+    "not_before_utc": "Oct 15 06:11:37 2026 GMT",
+    "sha256_fingerprint": "2B:37:FB:5B:EA:67:2D:50:B2:5C:DB:BC:BA:EB:B4:18:8D:F9:D4:B6:91:68:F2:3E:6A:AC:C2:F7:B0:5B:44:C1",
+    "subject": "CN=wasmhome-bench.test",
+    "subject_alt_name": "DNS:wasmhome-bench.test, IP Address:192.168.0.138"
+  }
+}

@@ -27,7 +27,7 @@ As falhas anteriores permanecem documentadas; o aceite é de viabilidade mínima
 Próxima etapa: #12 → #13/#14. A distribuição Luna xhigh da #12 separa implementação
 do gerenciador, testes de contrato/ciclo de vida e revisão de memória/configuração.
 O coordenador integra, publica e opera a placa com exclusividade.
-Seguir #15 após #4/#7; #16/#17/#18 segundo suas dependências; #19 → piloto #20 →
+A #15 está concluída. #16/#17/#18 seguem suas dependências; #19 → piloto #20 →
 campanha #21; #22 → #23 → análise #24. Tamanho amostral e timeout continuam
 condicionados ao piloto.
 
@@ -151,9 +151,9 @@ O conteúdo original do parágrafo de delimitação em [plano-de-execucao.md](pl
 
 ## E3. OTA nativo e distribuição autenticada
 
-Depois que cada bloqueio próprio for atendido, não é necessário serializar a trilha OTA e a trilha modular. A #15 é dependência comum; a #19 espera as três atualizações observáveis.
+Depois que cada bloqueio próprio for atendido, não é necessário serializar a trilha OTA e a trilha modular. A #15, dependência comum, está concluída; a #19 espera as três atualizações observáveis.
 
-- [ ] **#15, artefatos HTTPS.** Dependências: #4 e #7; requer endpoint estável de #6. Gerar v1/v2 para A/B/C com manifesto comum, assinatura COSE e payload ligado por tamanho e SHA-256. Servir por HTTPS ancorado à CA local, com validação do nome. Demonstrar sequência crescente, rejeição de assinatura/hash/versão inválida e logs de build/servidor/download. Registrar fingerprints públicos; nunca publicar chaves privadas. [Implementação e procedimento de distribuição](issue15-https-distribution.md).
+- [x] **#15, artefatos HTTPS.** Dependências: #4 e #7; requer endpoint estável de #6. Gerar v1/v2 para A/B/C com manifesto comum, assinatura COSE e payload ligado por tamanho e SHA-256. Servir por HTTPS ancorado à CA local, com validação do nome. Demonstrar sequência crescente, rejeição de assinatura/hash/versão inválida e logs de build/servidor/download. Registrar fingerprints públicos; nunca publicar chaves privadas. [Implementação e procedimento](issue15-https-distribution.md) e [captura verificada no host](evidence/issue15-https-2026-10-15/README.md).
 - [ ] **#16, atualização OTA observável.** Dependências: #10, #11 e #15. Atualizar a imagem da aplicação v1→v2 pelo slot OTA, não a imagem integral da flash. Guardar `t_envio` do disparo e `t_aceite` de `update_accepted` (ou sua ausência), mais etapas de download/validação/ativação, reboot, boots, lacunas, perdas e primeira resposta funcional correta de v2. Em tentativa aceita, `update_total` vai de `t_envio` à primeira resposta correta de v2; sem aceite ou ativação, preservar o estado e usar `null` quando o protocolo indicar. Avançar o piso NVS somente após teste de saúde e confirmação da imagem; preservar rollback para a imagem anterior se a confirmação falhar. Guardar tamanho/hash do payload, memória aplicável e JSONL da janela anterior/durante/depois.
 
 ## E4. Troca modular e resiliência implementada
