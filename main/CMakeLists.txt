@@ -8,6 +8,26 @@ endif()
 
 set(SCENARIO_SOURCE "main.c" "platform.c" "sensor.c" "observation_wire.c" "platform_selftest.c" "observer_selftest.c")
 set(SCENARIO_REQUIRES "esp_timer" "esp_wifi" "esp_netif" "esp_event" "nvs_flash" "driver" "esp_system" "onewire_bus")
+set(UPDATE_EMBED_TXTFILES)
+set(UPDATE_EMBED_FILES)
+
+if(CONFIG_WASMHOME_SIGNED_UPDATE)
+    if(NOT CONFIG_WASMHOME_UPDATE_CA_CERT_PATH OR
+       NOT EXISTS "${CONFIG_WASMHOME_UPDATE_CA_CERT_PATH}")
+        message(FATAL_ERROR "WASMHOME_SIGNED_UPDATE requires a local trusted CA PEM file")
+    endif()
+    if(NOT CONFIG_WASMHOME_UPDATE_SIGNING_PUBLIC_KEY_PATH OR
+       NOT EXISTS "${CONFIG_WASMHOME_UPDATE_SIGNING_PUBLIC_KEY_PATH}")
+        message(FATAL_ERROR "WASMHOME_SIGNED_UPDATE requires a local pinned signing public DER file")
+    endif()
+    set(UPDATE_CA_BUNDLE "${CMAKE_CURRENT_BINARY_DIR}/wasmhome-update-ca.pem")
+    set(UPDATE_SIGNING_KEY "${CMAKE_CURRENT_BINARY_DIR}/wasmhome-update-signing-key.der")
+    configure_file("${CONFIG_WASMHOME_UPDATE_CA_CERT_PATH}" "${UPDATE_CA_BUNDLE}" COPYONLY)
+    configure_file("${CONFIG_WASMHOME_UPDATE_SIGNING_PUBLIC_KEY_PATH}" "${UPDATE_SIGNING_KEY}" COPYONLY)
+    list(APPEND UPDATE_EMBED_TXTFILES "${UPDATE_CA_BUNDLE}")
+    list(APPEND UPDATE_EMBED_FILES "${UPDATE_SIGNING_KEY}")
+    list(APPEND SCENARIO_SOURCE "signed_update.c")
+endif()
 
 if(CONFIG_WASMHOME_NATIVE_SERVICES)
     if(NOT EXPERIMENT_SCENARIO STREQUAL "native")
@@ -128,6 +148,9 @@ endif()
 if(CONFIG_WASMHOME_NATIVE_SERVICES)
     list(APPEND SCENARIO_SOURCE "native_services.c")
 endif()
+if(CONFIG_WASMHOME_NATIVE_OTA)
+    list(APPEND SCENARIO_SOURCE "native_ota.c")
+endif()
 
 if(CONFIG_WASMHOME_RUN_BENCHMARK)
     list(APPEND SCENARIO_REQUIRES "pthread")
@@ -143,6 +166,10 @@ idf_component_register(
     SRCS ${SCENARIO_SOURCE}
     INCLUDE_DIRS "." "../workload"
     REQUIRES ${SCENARIO_REQUIRES}
+    PRIV_REQUIRES "app_update" "esp_app_format" "esp_partition"
+        "esp_http_client" "mbedtls" "lwip"
+    EMBED_TXTFILES ${UPDATE_EMBED_TXTFILES}
+    EMBED_FILES ${UPDATE_EMBED_FILES}
 )
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE ${SCENARIO_DEFINE})

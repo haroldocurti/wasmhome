@@ -275,6 +275,43 @@ static void test_update_replay_capacity(void)
     assert(memcmp(saved, state.update_records, sizeof(saved)) == 0);
 }
 
+static void test_update_admission(void)
+{
+    wh_native_services_state_t state;
+    const uint8_t attempt[16] = {0x51};
+    uint8_t reason = 99;
+    assert(wh_native_services_state_init(&state, 1));
+    assert(wh_native_update_admit(&state, attempt, 7, 1, 12, 1, 1, 2,
+                                  7, 11, true, &reason)
+           == WH_NATIVE_UPDATE_NEW_ACCEPTANCE);
+    assert(reason == WH_NATIVE_REASON_NONE && state.update_records[0].accepted);
+    assert(wh_native_update_admit(&state, attempt, 7, 1, 12, 1, 1, 2,
+                                  7, 11, true, &reason)
+           == WH_NATIVE_UPDATE_REPLAY_ACCEPTANCE);
+    assert(reason == WH_NATIVE_REASON_NONE);
+    assert(wh_native_update_mark_start_failed(&state, attempt));
+    assert(wh_native_update_admit(&state, attempt, 7, 1, 12, 1, 1, 2,
+                                  7, 11, true, &reason)
+           == WH_NATIVE_UPDATE_REPLAY_REJECTION);
+    assert(reason == WH_NATIVE_REASON_BUSY && !state.update_records[0].accepted);
+    assert(wh_native_update_admit(&state, attempt, 7, 2, 12, 1, 1, 2,
+                                  7, 11, true, &reason)
+           == WH_NATIVE_UPDATE_ATTEMPT_CONFLICT);
+    assert(reason == WH_NATIVE_REASON_ATTEMPT_CONFLICT);
+
+    const uint8_t stale_attempt[16] = {0x52};
+    assert(wh_native_update_admit(&state, stale_attempt, 7, 2, 11, 1, 1, 2,
+                                  7, 11, true, &reason)
+           == WH_NATIVE_UPDATE_NEW_REJECTION);
+    assert(reason == WH_NATIVE_REASON_SEQUENCE_NOT_NEWER);
+    const uint8_t busy_attempt[16] = {0x53};
+    assert(wh_native_update_admit(&state, busy_attempt, 7, 3, 13, 1, 1, 2,
+                                  7, 11, false, &reason)
+           == WH_NATIVE_UPDATE_NEW_REJECTION);
+    assert(reason == WH_NATIVE_REASON_BUSY);
+    assert(!state.update_records[1].accepted && !state.update_records[2].accepted);
+}
+
 typedef struct {
     wh_native_services_state_t *state;
     pthread_mutex_t *lock;
@@ -336,6 +373,7 @@ int main(int argc, char **argv)
     else if (!strcmp(argv[1], "errors")) test_control_errors_and_codec();
     else if (!strcmp(argv[1], "telemetry")) test_telemetry_body();
     else if (!strcmp(argv[1], "update")) test_update_rejection();
+    else if (!strcmp(argv[1], "update-admission")) test_update_admission();
     else if (!strcmp(argv[1], "update-capacity")) test_update_replay_capacity();
     else if (!strcmp(argv[1], "concurrent")) test_concurrent_duplicate_invariant();
     else return 2;
@@ -392,6 +430,9 @@ class NativeServicesHostTests(unittest.TestCase):
 
     def test_update_requests_are_rejected_without_side_effects_and_deduplicated(self):
         self.run_case("update")
+
+    def test_update_admission_accepts_new_sequence_and_deduplicates_without_replay(self):
+        self.run_case("update-admission")
 
     def test_update_replay_pool_saturates_without_evicting_or_false_conflicts(self):
         self.run_case("update-capacity")

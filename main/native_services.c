@@ -4,6 +4,11 @@
 #include "sdkconfig.h"
 #endif
 
+#if defined(CONFIG_WASMHOME_NATIVE_OTA) && !defined(WASMHOME_NATIVE_SERVICES_HOST)
+#include "native_ota.h"
+#include "signed_update.h"
+#endif
+
 #include <limits.h>
 #include <string.h>
 
@@ -158,6 +163,77 @@ wh_native_update_disposition_t wh_native_update_reject(
     return WH_NATIVE_UPDATE_NEW_REJECTION;
 }
 
+wh_native_update_disposition_t wh_native_update_admit(
+    wh_native_services_state_t *state, const uint8_t attempt_id[16],
+    uint64_t request_boot_id, uint64_t request_sequence,
+    uint64_t target_sequence, uint8_t scenario, uint8_t component,
+    uint16_t target_version, uint64_t current_boot_id,
+    uint64_t accepted_floor, bool updater_available, uint8_t *reason)
+{
+    if (!state || !attempt_id || !reason || !bytes_nonzero(attempt_id, 16) ||
+        !request_boot_id || !request_sequence || !target_sequence || !current_boot_id)
+        return WH_NATIVE_UPDATE_INVALID;
+
+    for (size_t i = 0; i < state->update_record_count; ++i) {
+        wh_native_update_record_t *record = &state->update_records[i];
+        if (memcmp(record->attempt_id, attempt_id, 16) != 0) continue;
+        if (!same_update_request(record, attempt_id, request_boot_id, request_sequence,
+                                 target_sequence, scenario, component, target_version)) {
+            *reason = WH_NATIVE_REASON_ATTEMPT_CONFLICT;
+            return WH_NATIVE_UPDATE_ATTEMPT_CONFLICT;
+        }
+        *reason = record->reason;
+        return record->accepted ? WH_NATIVE_UPDATE_REPLAY_ACCEPTANCE
+                                : WH_NATIVE_UPDATE_REPLAY_REJECTION;
+    }
+
+    if (state->update_record_count >= WH_NATIVE_UPDATE_REPLAY_CAPACITY) {
+        *reason = WH_NATIVE_REASON_BUSY;
+        return WH_NATIVE_UPDATE_CAPACITY_FULL;
+    }
+
+    uint8_t rejection = WH_NATIVE_REASON_NONE;
+    if (request_boot_id != current_boot_id) rejection = WH_NATIVE_REASON_WRONG_BOOT;
+    else if (scenario != WH_NATIVE_SCENARIO_NATIVE) rejection = WH_NATIVE_REASON_SCENARIO_MISMATCH;
+    else if (component != WH_NATIVE_COMPONENT_CONTROL) rejection = WH_NATIVE_REASON_UNSUPPORTED_COMPONENT;
+    else if (target_version != 2) rejection = WH_NATIVE_REASON_UNSUPPORTED_VERSION;
+    else if (target_sequence <= accepted_floor) rejection = WH_NATIVE_REASON_SEQUENCE_NOT_NEWER;
+    else if (!updater_available) rejection = WH_NATIVE_REASON_BUSY;
+
+    wh_native_update_record_t *record = &state->update_records[state->update_record_count++];
+    *record = (wh_native_update_record_t){
+        .valid = true,
+        .accepted = rejection == WH_NATIVE_REASON_NONE,
+        .request_boot_id = request_boot_id,
+        .request_sequence = request_sequence,
+        .target_sequence = target_sequence,
+        .scenario = scenario,
+        .component = component,
+        .target_version = target_version,
+        .reason = rejection,
+    };
+    memcpy(record->attempt_id, attempt_id, 16);
+    *reason = rejection;
+    return record->accepted ? WH_NATIVE_UPDATE_NEW_ACCEPTANCE
+                            : WH_NATIVE_UPDATE_NEW_REJECTION;
+}
+
+bool wh_native_update_mark_start_failed(wh_native_services_state_t *state,
+                                        const uint8_t attempt_id[16])
+{
+    if (!state || !attempt_id) return false;
+    for (size_t i = 0; i < state->update_record_count; ++i) {
+        wh_native_update_record_t *record = &state->update_records[i];
+        if (record->valid && record->accepted &&
+            memcmp(record->attempt_id, attempt_id, 16) == 0) {
+            record->accepted = false;
+            record->reason = WH_NATIVE_REASON_BUSY;
+            return true;
+        }
+    }
+    return false;
+}
+
 bool wh_native_telemetry_body(uint8_t body[16], uint64_t sample_id,
                               int32_t temperature_mC, uint64_t acquired_us,
                               uint8_t sensor_status, uint64_t now_us)
@@ -226,8 +302,8 @@ static bool apply_gpio(void *context, uint8_t requested, uint8_t *observed)
     return wh_gpio_apply(requested, observed) == ESP_OK;
 }
 
-static void send_control_result(const uint8_t *request, uint64_t sample_id,
-                                const wh_native_control_result_t *result)
+static esp_err_t send_control_result(const uint8_t *request, uint64_t sample_id,
+                                     const wh_native_control_result_t *result)
 {
     uint8_t body[12] = {0};
     wh_write_be(body, sample_id, 8);
@@ -237,22 +313,73 @@ static void send_control_result(const uint8_t *request, uint64_t sample_id,
     body[11] = result->status;
     esp_err_t err = wh_observation_send(WH_CONTROL_RESULT, request + 8, body, sizeof(body));
     if (err != ESP_OK) wh_platform_event("native_control_result_send_failed", err);
+    return err;
 }
 
-static void send_update_rejection(const uint8_t *request, uint64_t request_sequence,
-                                  uint64_t target_sequence, uint8_t reason)
+static esp_err_t send_update_response(const uint8_t *request,
+                                      uint64_t request_sequence,
+                                      uint64_t target_sequence, bool accepted,
+                                      uint8_t reason)
 {
     uint8_t body[20] = {0};
     wh_write_be(body, request_sequence, 8);
     wh_write_be(body + 8, target_sequence, 8);
-    body[16] = WH_NATIVE_ACCEPTANCE_REJECTED;
-    body[17] = reason;
+    body[16] = accepted ? WH_NATIVE_ACCEPTANCE_ACCEPTED : WH_NATIVE_ACCEPTANCE_REJECTED;
+    body[17] = accepted ? WH_NATIVE_REASON_NONE : reason;
     esp_err_t err = wh_observation_send(WH_UPDATE_ACCEPTANCE, request + 8,
                                         body, sizeof(body));
-    if (err != ESP_OK) wh_platform_event("native_update_rejection_send_failed", err);
-    else if (reason == WH_NATIVE_REASON_BUSY)
-        wh_platform_event("native_update_rejected_no_ota", ESP_ERR_NOT_SUPPORTED);
+    if (err != ESP_OK)
+        wh_platform_event(accepted ? "native_update_acceptance_send_failed"
+                                  : "native_update_rejection_send_failed", err);
+    return err;
 }
+
+#if defined(CONFIG_WASMHOME_NATIVE_OTA) && !defined(WASMHOME_NATIVE_SERVICES_HOST)
+static void emit_update_acceptance(const uint8_t *request, uint64_t request_boot_id,
+                                   uint8_t scenario, uint8_t component,
+                                   uint16_t target_version, uint64_t target_sequence)
+{
+    wh_signed_update_state_t state = {0};
+    (void)wh_signed_update_get_state(scenario, "firmware",
+        CONFIG_WASMHOME_UPDATE_CAMPAIGN_ID, &state);
+    wh_signed_update_event_t event = {
+        .phase = WH_SIGNED_UPDATE_PHASE_ACCEPTED,
+        .failure = WH_SIGNED_UPDATE_FAILURE_NONE,
+        .attempt_id = request + 8,
+        .origin_boot_id = request_boot_id,
+        .accepted_floor = state.accepted_floor,
+        .ledger_readback_sequence = state.active_sequence,
+        .scenario = scenario,
+        .component_id = component,
+        .target_version = target_version,
+        .sequence = target_sequence,
+        .release_version = "v2",
+        .elapsed_us = (uint64_t)esp_timer_get_time(),
+        .elapsed_scope = "boot",
+    };
+    wh_signed_update_emit_event(&event);
+}
+
+static void emit_update_start_failure(const uint8_t *request,
+                                      uint64_t request_boot_id,
+                                      uint64_t target_sequence)
+{
+    wh_signed_update_event_t event = {
+        .phase = WH_SIGNED_UPDATE_PHASE_UPDATE_FAILED,
+        .failure = WH_SIGNED_UPDATE_FAILURE_PERSISTENCE,
+        .attempt_id = request + 8,
+        .origin_boot_id = request_boot_id,
+        .scenario = WH_NATIVE_SCENARIO_NATIVE,
+        .component_id = WH_NATIVE_COMPONENT_CONTROL,
+        .target_version = 2,
+        .sequence = target_sequence,
+        .release_version = "v2",
+        .elapsed_us = (uint64_t)esp_timer_get_time(),
+        .elapsed_scope = "boot",
+    };
+    wh_signed_update_emit_event(&event);
+}
+#endif
 
 static void receive_request(const uint8_t *data, size_t length)
 {
@@ -264,6 +391,9 @@ static void receive_request(const uint8_t *data, size_t length)
     if (data[5] == WH_CONTROL_REQUEST) {
         uint64_t sample_id = wh_read_be(data + WH_HEADER_SIZE, 8);
         int32_t input_temperature_mC = signed_be32(data + WH_HEADER_SIZE + 8);
+#if defined(CONFIG_WASMHOME_NATIVE_OTA)
+        const wh_sensor_sample_t sensor = wh_sensor_latest();
+#endif
         wh_native_control_result_t result;
         xSemaphoreTake(service_lock, portMAX_DELAY);
         wh_native_control_disposition_t disposition = wh_native_control_request(
@@ -272,7 +402,23 @@ static void receive_request(const uint8_t *data, size_t length)
         xSemaphoreGive(service_lock);
 
         if (disposition == WH_NATIVE_CONTROL_NEW || disposition == WH_NATIVE_CONTROL_REPLAY) {
-            send_control_result(data, sample_id, &result);
+            esp_err_t send_err = send_control_result(data, sample_id, &result);
+#if defined(CONFIG_WASMHOME_NATIVE_OTA)
+            if (send_err == ESP_OK && disposition == WH_NATIVE_CONTROL_NEW &&
+                sensor.status == WH_SENSOR_VALID && sensor.sample_id != 0 &&
+                sensor.acquired_us >= 0 &&
+                (uint64_t)esp_timer_get_time() >= (uint64_t)sensor.acquired_us &&
+                (uint64_t)esp_timer_get_time() - (uint64_t)sensor.acquired_us <= 2000000 &&
+                input_temperature_mC == 27000 &&
+                result.module_version == 2 && result.requested_gpio == 0 &&
+                result.observed_gpio == 0 && result.status == WH_NATIVE_CONTROL_APPLIED) {
+                esp_err_t health_err = wh_native_ota_queue_health_check();
+                if (health_err != ESP_OK && health_err != ESP_ERR_INVALID_STATE)
+                    wh_platform_event("native_ota_health_queue_failed", health_err);
+            }
+#else
+            (void)send_err;
+#endif
         } else if (disposition == WH_NATIVE_CONTROL_CONFLICT) {
             wh_platform_event("control_id_conflict", ESP_ERR_INVALID_ARG);
         } else if (disposition == WH_NATIVE_CONTROL_STALE) {
@@ -287,27 +433,95 @@ static void receive_request(const uint8_t *data, size_t length)
         uint64_t request_sequence = wh_read_be(data + 24, 8);
         uint64_t request_boot_id = wh_read_be(data + 32, 8);
         uint64_t target_sequence = wh_read_be(data + WH_HEADER_SIZE, 8);
+        uint8_t scenario = data[WH_HEADER_SIZE + 8];
+        uint8_t component = data[WH_HEADER_SIZE + 9];
+        uint16_t target_version = (uint16_t)wh_read_be(data + WH_HEADER_SIZE + 10, 2);
         uint8_t reason = WH_NATIVE_REASON_BUSY;
+#if defined(CONFIG_WASMHOME_NATIVE_OTA)
+        wh_native_ota_request_t ota_request = {0};
+#endif
         xSemaphoreTake(service_lock, portMAX_DELAY);
+#if defined(CONFIG_WASMHOME_NATIVE_OTA)
+        wh_signed_update_state_t update_state = {0};
+        esp_err_t state_err = wh_signed_update_get_state(WH_NATIVE_SCENARIO_NATIVE,
+            "firmware", CONFIG_WASMHOME_UPDATE_CAMPAIGN_ID, &update_state);
+        bool updater_available = state_err == ESP_OK && !update_state.pending;
+        wh_native_update_disposition_t disposition = wh_native_update_admit(
+            &service_state, data + 8, request_boot_id, request_sequence,
+            target_sequence, scenario, component, target_version,
+            wh_platform_boot_id(), update_state.accepted_floor,
+            updater_available, &reason);
+        if (disposition == WH_NATIVE_UPDATE_NEW_ACCEPTANCE) {
+            memcpy(ota_request.attempt_id, data + 8, 16);
+            ota_request.request_boot_id = request_boot_id;
+            ota_request.request_sequence = request_sequence;
+            ota_request.target_sequence = target_sequence;
+            ota_request.scenario = scenario;
+            ota_request.component = component;
+            ota_request.target_version = target_version;
+            esp_err_t reserve_err = wh_native_ota_reserve(&ota_request);
+            if (reserve_err != ESP_OK) {
+                wh_native_update_record_t *record =
+                    &service_state.update_records[service_state.update_record_count - 1];
+                record->accepted = false;
+                record->reason = WH_NATIVE_REASON_BUSY;
+                reason = WH_NATIVE_REASON_BUSY;
+                disposition = WH_NATIVE_UPDATE_NEW_REJECTION;
+            }
+        }
+#else
         wh_native_update_disposition_t disposition = wh_native_update_reject(
             &service_state, data + 8, request_boot_id, request_sequence,
-            target_sequence, data[WH_HEADER_SIZE + 8], data[WH_HEADER_SIZE + 9],
-            (uint16_t)wh_read_be(data + WH_HEADER_SIZE + 10, 2),
+            target_sequence, scenario, component, target_version,
             wh_platform_boot_id(), &reason);
+#endif
         xSemaphoreGive(service_lock);
         if (disposition == WH_NATIVE_UPDATE_INVALID) {
             wh_platform_event("native_update_invalid", ESP_ERR_INVALID_ARG);
             return;
         }
-        if (disposition == WH_NATIVE_UPDATE_CAPACITY_FULL) {
+        if (disposition == WH_NATIVE_UPDATE_CAPACITY_FULL)
             wh_platform_event("native_update_replay_capacity_full", ESP_ERR_NO_MEM);
-            return;
-        }
         if (disposition == WH_NATIVE_UPDATE_ATTEMPT_CONFLICT)
             wh_platform_event("native_update_attempt_conflict", ESP_ERR_INVALID_ARG);
         else if (disposition == WH_NATIVE_UPDATE_REPLAY_REJECTION)
             wh_platform_event("native_update_rejection_replayed", ESP_OK);
-        send_update_rejection(data, request_sequence, target_sequence, reason);
+#if defined(CONFIG_WASMHOME_NATIVE_OTA)
+        const bool accepted = disposition == WH_NATIVE_UPDATE_NEW_ACCEPTANCE ||
+                              disposition == WH_NATIVE_UPDATE_REPLAY_ACCEPTANCE;
+        esp_err_t response_err = send_update_response(data, request_sequence,
+            target_sequence, accepted, reason);
+        if (disposition == WH_NATIVE_UPDATE_NEW_ACCEPTANCE) {
+            if (response_err != ESP_OK) {
+                wh_native_ota_cancel_reserved();
+                xSemaphoreTake(service_lock, portMAX_DELAY);
+                if (service_state.update_record_count) {
+                    wh_native_update_record_t *record =
+                        &service_state.update_records[service_state.update_record_count - 1];
+                    if (memcmp(record->attempt_id, data + 8, 16) == 0) {
+                        record->accepted = false;
+                        record->reason = WH_NATIVE_REASON_BUSY;
+                    }
+                }
+                xSemaphoreGive(service_lock);
+                return;
+            }
+            emit_update_acceptance(data, request_boot_id, scenario, component,
+                                   target_version, target_sequence);
+            esp_err_t start_err = wh_native_ota_start_reserved();
+            if (start_err != ESP_OK) {
+                wh_native_ota_cancel_reserved();
+                xSemaphoreTake(service_lock, portMAX_DELAY);
+                (void)wh_native_update_mark_start_failed(&service_state, data + 8);
+                xSemaphoreGive(service_lock);
+                emit_update_start_failure(data, request_boot_id, target_sequence);
+                wh_platform_event("native_ota_worker_start_failed", start_err);
+            }
+        }
+#else
+        (void)send_update_response(data, request_sequence, target_sequence,
+                                   false, reason);
+#endif
         return;
     }
 
@@ -347,7 +561,13 @@ esp_err_t wh_native_services_start(void)
     service_lock = xSemaphoreCreateMutex();
     if (!service_lock) return ESP_ERR_NO_MEM;
 
-    esp_err_t err = wh_observation_set_handler(receive_request);
+    esp_err_t err;
+#if defined(CONFIG_WASMHOME_NATIVE_OTA)
+    err = wh_native_ota_start();
+    if (err != ESP_OK) return err;
+#endif
+
+    err = wh_observation_set_handler(receive_request);
     if (err != ESP_OK) return err;
     if (xTaskCreate(telemetry_task, "wh_telemetry", 4096, NULL, 5, NULL) != pdPASS) {
         wh_observation_set_handler(NULL);

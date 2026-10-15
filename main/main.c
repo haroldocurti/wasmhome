@@ -42,6 +42,10 @@ extern const uint32_t service_control_v2_aot_len;
 #include "native_services.h"
 #endif
 
+#if defined(CONFIG_WASMHOME_NATIVE_OTA)
+#include "signed_update.h"
+#endif
+
 #if !defined(WASMHOME_SCENARIO_NATIVE)
 #include "bh_platform.h"
 #include "wasm_export.h"
@@ -373,6 +377,9 @@ static bool start_benchmark_thread(void)
 void app_main(void)
 {
     ESP_ERROR_CHECK(wh_platform_start());
+#if defined(CONFIG_WASMHOME_NATIVE_OTA)
+    ESP_ERROR_CHECK(wh_signed_update_reconcile_native_boot());
+#endif
 #if defined(CONFIG_WASMHOME_MODULE_SERVICES)
 #if defined(WASMHOME_SCENARIO_MODULE_INTERP)
     const wh_module_image_t telemetry = {

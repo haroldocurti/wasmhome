@@ -25,6 +25,7 @@ enum {
 enum {
     WH_NATIVE_SCENARIO_NATIVE = 1,
     WH_NATIVE_COMPONENT_CONTROL = 1,
+    WH_NATIVE_ACCEPTANCE_ACCEPTED = 1,
     WH_NATIVE_ACCEPTANCE_REJECTED = 2,
     WH_NATIVE_REASON_NONE = 0,
     WH_NATIVE_REASON_WRONG_BOOT = 1,
@@ -47,6 +48,7 @@ typedef struct {
 
 typedef struct {
     bool valid;
+    bool accepted;
     uint8_t attempt_id[16];
     uint64_t request_boot_id;
     uint64_t request_sequence;
@@ -88,6 +90,8 @@ typedef enum {
     WH_NATIVE_UPDATE_REPLAY_REJECTION = 2,
     WH_NATIVE_UPDATE_ATTEMPT_CONFLICT = 3,
     WH_NATIVE_UPDATE_CAPACITY_FULL = 4,
+    WH_NATIVE_UPDATE_NEW_ACCEPTANCE = 5,
+    WH_NATIVE_UPDATE_REPLAY_ACCEPTANCE = 6,
 } wh_native_update_disposition_t;
 
 typedef bool (*wh_native_gpio_apply_fn)(void *context, uint8_t requested,
@@ -104,6 +108,14 @@ wh_native_update_disposition_t wh_native_update_reject(
     uint64_t request_boot_id, uint64_t request_sequence,
     uint64_t target_sequence, uint8_t scenario, uint8_t component,
     uint16_t target_version, uint64_t current_boot_id, uint8_t *reason);
+wh_native_update_disposition_t wh_native_update_admit(
+    wh_native_services_state_t *state, const uint8_t attempt_id[16],
+    uint64_t request_boot_id, uint64_t request_sequence,
+    uint64_t target_sequence, uint8_t scenario, uint8_t component,
+    uint16_t target_version, uint64_t current_boot_id,
+    uint64_t accepted_floor, bool updater_available, uint8_t *reason);
+bool wh_native_update_mark_start_failed(wh_native_services_state_t *state,
+                                        const uint8_t attempt_id[16]);
 bool wh_native_telemetry_body(uint8_t body[16], uint64_t sample_id,
                               int32_t temperature_mC, uint64_t acquired_us,
                               uint8_t sensor_status, uint64_t now_us);
