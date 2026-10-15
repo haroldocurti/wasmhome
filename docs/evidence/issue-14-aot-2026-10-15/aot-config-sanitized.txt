@@ -1,0 +1,11 @@
+# Sanitized excerpt; private network values are intentionally omitted.
+CONFIG_IDF_TARGET="esp32s3"
+CONFIG_WAMR_ENABLE_AOT=y
+CONFIG_WASMHOME_MODULE_SERVICES=y
+CONFIG_WASMHOME_MODULE_CONTROL_VERSION=1
+CONFIG_WASMHOME_MODULE_MAX_MEMORY_PAGES=2
+CONFIG_WASMHOME_UDP_PORT=3333
+CONFIG_WASMHOME_WIFI_SSID=<configured; redacted>
+CONFIG_WASMHOME_WIFI_PASSWORD=<configured; redacted>
+CONFIG_WASMHOME_OBSERVER_IPV4=<configured; redacted>
+# Build audit: interpreter not compiled; AOT validator and bounds checks active.
