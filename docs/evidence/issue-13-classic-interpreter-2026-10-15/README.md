@@ -1,9 +1,12 @@
 # Issue #13 — telemetria e controle no interpretador clássico
 
-**Estado: prova física de ponta a ponta pendente.** O ESP32-S3 iniciou o
-firmware de interpretador clássico e os dois módulos ficaram prontos, mas o
-observador não recebeu datagramas durante a execução sincronizada. Este registro
-não marca os critérios físicos da #13 como concluídos.
+**Estado: critérios de aceite físicos atendidos em 15/10/2026.** Uma captura
+passiva no host confirmou que a placa enviava telemetria; o firewall local
+descartava os datagramas antes de chegarem ao socket do observador. Com uma
+exceção temporária e restrita para UDP/3333, o observador validou telemetria,
+respostas de controle v1 e o loopback da GPIO durante 30 segundos. A aplicação
+e a NVS anteriores foram restauradas e verificadas, e a placa ficou no
+bootloader ROM.
 
 ## Perfil gravado
 
@@ -26,34 +29,47 @@ não marca os critérios físicos da #13 como concluídos.
 
 ## Execução física em 15/10/2026
 
-As capturas UART correlacionadas cobrem os resets e registram `boot_observed`,
-`platform_initialized`, `module_ready` para os dois módulos,
-`services_active`, `first_telemetry_operation`, `workers_ready`,
-`module_manager_ready`, `wifi_ip_acquired` e `udp_bound`, todos sem erro. Não
-aparecem falhas de abertura ou envio UDP, desconexão Wi-Fi, nem reinício durante
-a janela observada.
+A UART da inicialização registrou `boot_observed`, `platform_initialized`,
+`module_ready` para telemetria e controle, `workers_ready`,
+`module_manager_ready`, `wifi_ip_acquired` e `udp_bound`, sem erro. O cenário
+foi `module-interp`, usando o BIN e os hashes listados acima. O boot ID da UART
+`03320a62c09de399` corresponde ao boot ID decimal
+`230257950203962265` observado nos datagramas.
 
-Foram feitas duas execuções de 30 segundos, ambas correlacionadas com UART ativa
-desde antes do reset. Na primeira, o observador escutou em todas as interfaces
-locais (`0.0.0.0:3333`), com o peer derivado da UART; na segunda, escutou no
-endereço local configurado como destino no firmware. O bind curinga da primeira
-execução é válido para receber datagramas destinados a qualquer interface local;
-portanto, a diferença de bind não explica o resultado. O lease DHCP e o gateway
-registrados na UART coincidiram nas duas sessões.
+As duas janelas anteriores de 30 segundos tiveram zero pacotes no socket do
+observador. A captura passiva seguinte na Ethernet do host (`enp2s0`,
+`192.168.0.13`) encontrou 522 datagramas UDP/3333 de `192.168.0.145` para o
+host; os pacotes tinham 64 bytes, começavam com o cabeçalho `WHOB` v1 de
+telemetria, e o tcpdump não perdeu pacotes. O UFW estava ativo com entrada
+negada por padrão e sem regra para essa porta. Isso explica o resultado: os
+datagramas chegavam à interface, mas o firewall os bloqueava antes do socket.
 
-As duas execuções registraram somente `session_start`, 300 ciclos
-`awaiting_boot` e `session_end`: zero datagramas recebidos, zero telemetrias
-decodificadas e zero controles enviados. O boot, a prontidão dos módulos e o
-bind local do socket estão provados; `udp_bound` não confirma o envio de cada
-datagrama. A UART não registra confirmação individual de `sendto`, então os
-dados disponíveis não distinguem ausência de envio pelo dispositivo de perda
-ou isolamento no caminho Wi-Fi–Ethernet.
+Foi adicionada uma regra temporária que permitia somente UDP/3333 de
+`192.168.0.145` para `192.168.0.13`. Uma escuta curta recebeu 31 datagramas em
+três segundos. Em seguida, a captura passiva e o observador foram executados
+juntos por 30 segundos, com bind em `192.168.0.13:3333`:
 
-Uma captura passiva na interface Ethernet não foi possível: o host negou a
-abertura do socket de captura (`Operation not permitted`). As duas UARTs
-correlacionadas anunciam BSSIDs diferentes sob o mesmo SSID; isso é uma pista de
-mudança de ponto de acesso, mas não prova a causa. Sem captura no AP/roteador ou
-no host, o ponto da perda continua desconhecido.
+- O PCAP registrou 967 pacotes, sem descartes pelo kernel.
+- O observador recebeu e decodificou 304 telemetrias válidas e 299 resultados
+  de controle; enviou 299 controles, todos válidos, sem perdas.
+- As 299 respostas vieram do módulo v1 com status `APPLIED`. A leitura da GPIO
+  de loopback coincidiu com o valor pedido: baixo em 100 respostas e alto em
+  199. O caminho usa `gpio_get_level(CONFIG_WASMHOME_LOOPBACK_GPIO)` depois de
+  aplicar a saída.
+- A maior lacuna entre telemetrias válidas foi 111,67 ms; entre resultados de
+  controle válidos, 153,43 ms. Não houve lacunas de sequência não resolvidas.
+
+Assim, a mesma execução provou telemetria e controle simultâneos nos módulos
+interpretados, as cadências observadas, a versão v1 e o loopback físico. A regra
+temporária do UFW foi removida depois da captura; a política de entrada voltou
+ao estado anterior.
+
+Os artefatos brutos permanecem fora do Git, no diretório local privado
+`~/.local/share/wasmhome-private/issue13-classic-interpreter-20261015/host-capture-01/`.
+SHA-256 do PCAP principal: `14ec59f3a47da007cdd7329cde099108c5a5be731454a323b6788bdf275fcae8`;
+do `observations.jsonl`: `fddd83dcc72f1bc02665e7b38f054d03aff269087aca32389c67454ea49168f5`;
+do `summary.json`: `f3151b07a3eb67d3777caa69e20391a9f59da0ac07ea91c33969c3bcb367f83e`;
+e do `uart.log`: `c38c3df9d6cd4d5d949e5e2ca33721d0fc3d88e3566cd0dbc32f16dc8fd5969b`.
 
 ## Evidência anterior da #12
 
@@ -65,16 +81,19 @@ O JSONL privado dessa captura também registra bind curinga em todas as
 interfaces, que recebeu os datagramas; isso confirma que o bind curinga, por si
 só, funciona neste host. Os registros brutos ficam fora do repositório e não
 foi possível estabelecer uma proveniência contemporânea completa entre aquela
-captura, o endpoint local e a configuração efetiva do BIN. Ela não substitui a
-prova da #13, que ainda precisa ser reproduzível e correlacionada.
+captura, o endpoint local e a configuração efetiva do BIN. Ela segue como
+contexto separado e não substitui a captura física própria da #13 documentada
+acima.
 
 ## Restauração
 
-Ao terminar, o app original de `ota_0` foi regravado e verificado. A NVS foi
-restaurada a partir da leitura feita antes do ensaio, lida de volta e comparada
-byte a byte. A placa ficou no bootloader ROM, sem alteração da NVS original.
+Antes de gravar o BIN de ensaio, `ota_0` e NVS foram lidas da placa e salvas
+como cópias de restauração. O `esptool` regravou ambas no mesmo endereço e
+informou `Hash of data verified` para cada região. A placa permaneceu no
+bootloader ROM. A regra temporária do UFW também foi removida e o status final
+voltou à lista de regras anterior ao ensaio.
 
-## Próxima etapa
+## Instrumentação da PR #31
 
 O firmware em desenvolvimento para a PR #31 acrescenta uma linha cumulativa
 `WASMHOME_MODULE_IO` a cada cinco segundos. Ela registra os estágios de
@@ -107,10 +126,9 @@ Os vetores JSON da linha usam estas posições, começando em zero:
   codificação, resultado bruto da última falha de `sendto`, `errno` dessa falha
   e sua sequência. Os três últimos valores permanecem zero se não houve falha.
 
-Antes de repetir o ensaio é necessário observar passivamente o caminho UDP
-entre a estação Wi-Fi da placa e o host, por captura no AP/roteador ou por uma
-captura local autorizada. A próxima execução deve correlacionar a linha
-diagnóstica, o boot UART e os datagramas observados na mesma janela. A PR #30,
-dependência da #12, foi integrada à `main` no commit
-`298bfaa33584e64763ca97b35407f662cca7938b`; a PR #31 continua baseada em `main`
-e em rascunho até a prova física de ponta a ponta.
+Os critérios físicos da #13 foram comprovados com o BIN já identificado neste
+relatório; a linha nova `WASMHOME_MODULE_IO` não foi necessária para localizar a
+causa, nem foi compilada ou executada nesta campanha. A PR #31 permanece em
+rascunho até que essa alteração de instrumentação seja compilada e revisada. A
+PR #30, dependência da #12, foi integrada à `main` no commit
+`298bfaa33584e64763ca97b35407f662cca7938b`.
