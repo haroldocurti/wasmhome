@@ -97,6 +97,7 @@ struct module_slot {
 typedef struct {
     uint64_t magic;
     size_t bytes;
+    size_t payload_bytes;
     mem_alloc_usage_t usage;
     bool external;
 } allocation_header_data_t;
@@ -104,7 +105,16 @@ typedef struct {
 typedef union {
     allocation_header_data_t data;
     max_align_t alignment;
+    _Alignas(8) uint8_t wasm_heap_alignment;
 } allocation_header_t;
+
+_Static_assert(_Alignof(allocation_header_t) >= 8,
+               "WAMR allocation headers must be 8-byte aligned");
+_Static_assert((_Alignof(allocation_header_t) &
+                (_Alignof(allocation_header_t) - 1)) == 0,
+               "WAMR allocation alignment must be a power of two");
+_Static_assert(sizeof(allocation_header_t) % _Alignof(allocation_header_t) == 0,
+               "WAMR allocation payloads must preserve header alignment");
 
 typedef struct {
     uint8_t type;
@@ -266,9 +276,38 @@ add_overflow_size(size_t a, size_t b, size_t *result)
 }
 
 static bool
+allocation_size_for_payload(size_t payload_bytes, size_t *allocation_bytes)
+{
+    size_t total_bytes;
+    if (add_overflow_size(sizeof(allocation_header_t), payload_bytes,
+                          &total_bytes))
+        return false;
+
+    const size_t alignment = _Alignof(allocation_header_t);
+    const size_t remainder = total_bytes % alignment;
+    if (remainder && add_overflow_size(total_bytes, alignment - remainder,
+                                       &total_bytes))
+        return false;
+
+    *allocation_bytes = total_bytes;
+    return true;
+}
+
+static bool
 usage_valid(mem_alloc_usage_t usage)
 {
     return usage == Alloc_For_Runtime || usage == Alloc_For_LinearMemory;
+}
+
+static uint32_t
+allocator_heap_caps(mem_alloc_usage_t usage)
+{
+    (void)usage;
+#if defined(CONFIG_SPIRAM) && CONFIG_SPIRAM
+    if (usage == Alloc_For_LinearMemory)
+        return MALLOC_CAP_8BIT | MALLOC_CAP_SPIRAM;
+#endif
+    return MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL;
 }
 
 static void
@@ -346,15 +385,17 @@ wamr_malloc(mem_alloc_usage_t usage, unsigned int requested_bytes)
     allocator_count_call();
     size_t total_bytes;
     if (!usage_valid(usage) ||
-        add_overflow_size(sizeof(allocation_header_t), requested_bytes, &total_bytes)) {
+        !allocation_size_for_payload(requested_bytes, &total_bytes)) {
         allocator_record_failure();
         return NULL;
     }
     if (!allocator_reserve(total_bytes))
         return NULL;
 
-    allocation_header_t *header = heap_caps_malloc(
-        total_bytes, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+    /* heap_caps_malloc only guarantees 4-byte alignment on this Xtensa target. */
+    allocation_header_t *header = heap_caps_aligned_alloc(
+        _Alignof(allocation_header_t), total_bytes,
+        allocator_heap_caps(usage));
     if (!header) {
         allocator_release_reservation(total_bytes);
         allocator_record_failure();
@@ -363,6 +404,7 @@ wamr_malloc(mem_alloc_usage_t usage, unsigned int requested_bytes)
     header->data = (allocation_header_data_t){
         .magic = ((uint64_t)allocator_magic << 32) | allocator_magic,
         .bytes = total_bytes,
+        .payload_bytes = requested_bytes,
         .usage = usage,
         .external = false,
     };
@@ -382,14 +424,14 @@ wamr_realloc(mem_alloc_usage_t usage, bool full_size_mmaped, void *pointer,
     if (!pointer) {
         size_t total_bytes;
         if (!usage_valid(usage) ||
-            add_overflow_size(sizeof(allocation_header_t), requested_bytes,
-                              &total_bytes)) {
+            !allocation_size_for_payload(requested_bytes, &total_bytes)) {
             allocator_record_failure();
             return NULL;
         }
         if (!allocator_reserve(total_bytes)) return NULL;
-        allocation_header_t *new_header = heap_caps_malloc(
-            total_bytes, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+        allocation_header_t *new_header = heap_caps_aligned_alloc(
+            _Alignof(allocation_header_t), total_bytes,
+            allocator_heap_caps(usage));
         if (!new_header) {
             allocator_release_reservation(total_bytes);
             allocator_record_failure();
@@ -398,6 +440,7 @@ wamr_realloc(mem_alloc_usage_t usage, bool full_size_mmaped, void *pointer,
         new_header->data = (allocation_header_data_t){
             .magic = ((uint64_t)allocator_magic << 32) | allocator_magic,
             .bytes = total_bytes,
+            .payload_bytes = requested_bytes,
             .usage = usage,
             .external = false,
         };
@@ -432,22 +475,33 @@ wamr_realloc(mem_alloc_usage_t usage, bool full_size_mmaped, void *pointer,
     }
     size_t old_bytes = old_header->data.bytes;
     size_t total_bytes;
-    if (add_overflow_size(sizeof(allocation_header_t), requested_bytes, &total_bytes)) {
+    if (!allocation_size_for_payload(requested_bytes, &total_bytes)) {
         allocator_record_failure();
         return NULL;
     }
     if (!allocator_reserve(total_bytes))
         return NULL;
 
-    allocation_header_t *new_header = heap_caps_realloc(
-        old_header, total_bytes, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+    allocation_header_t *new_header = heap_caps_aligned_alloc(
+        _Alignof(allocation_header_t), total_bytes,
+        allocator_heap_caps(usage));
     if (!new_header) {
         allocator_release_reservation(total_bytes);
         allocator_record_failure();
         return NULL;
     }
-    new_header->data.bytes = total_bytes;
-    new_header->data.usage = usage;
+    const size_t copy_bytes = old_header->data.payload_bytes < requested_bytes
+        ? old_header->data.payload_bytes : requested_bytes;
+    memcpy(new_header + 1, pointer, copy_bytes);
+    new_header->data = (allocation_header_data_t){
+        .magic = ((uint64_t)allocator_magic << 32) | allocator_magic,
+        .bytes = total_bytes,
+        .payload_bytes = requested_bytes,
+        .usage = usage,
+        .external = false,
+    };
+    old_header->data.magic = 0;
+    heap_caps_free(old_header);
     allocator_release_reservation(old_bytes);
     allocator_sub_category(usage, old_bytes);
     allocator_add_category(usage, total_bytes);
@@ -877,10 +931,15 @@ slot_load(module_slot_t *slot, wh_module_role_t role,
         return ESP_FAIL;
     }
     module_memory_event("module_load", memory_role_name(role, candidate), "ok");
-    if (!module_has_no_start(slot->module) || !validate_imports(slot->module, role) ||
-        !validate_exports(slot->module, role)) {
-        ESP_LOGE(TAG, "preflight rejected role=%d package=%d", (int)role,
-                 (int)wasm_runtime_get_module_package_type(slot->module));
+    const bool no_start = module_has_no_start(slot->module);
+    const bool imports_valid = validate_imports(slot->module, role);
+    const bool exports_valid = validate_exports(slot->module, role);
+    if (!no_start || !imports_valid || !exports_valid) {
+        ESP_LOGE(TAG,
+                 "preflight rejected role=%d package=%d no_start=%d imports=%d exports=%d",
+                 (int)role,
+                 (int)wasm_runtime_get_module_package_type(slot->module),
+                 (int)no_start, (int)imports_valid, (int)exports_valid);
         module_memory_event("module_preflight", memory_role_name(role, candidate), "failed");
         slot_release(slot);
         return ESP_ERR_INVALID_ARG;

@@ -99,8 +99,11 @@ The ABI-v1 guest sources are `workload/service_telemetry.c` and
 Wasm and Xtensa AOT images and generates the embedded C files under the ignored
 `artifacts/` directory. The build wrapper runs that generator, verifies the
 toolchain receipts, and gives each scenario its own `sdkconfig` and build
-directory. The generated services prove loading and the manager ABI; physical
-acceptance and workload behavior remain pending.
+directory. The generated services prove loading and the manager ABI. A minimum
+physical proof on ESP32-S3-N16R8 ran telemetry and control together in the
+classic-interpreter profile, including GPIO loopback; physical AOT execution
+belongs to #14. See the [#12 physical evidence](docs/evidence/issue-12-allocator-alignment-2026-10-15/README.md)
+for results, limits, and restoration details.
 
 Set `WASI_SDK_PATH`, `WAMRC`, and `IDF_PATH`, then build either dedicated
 scenario from the ESP-IDF PowerShell environment:

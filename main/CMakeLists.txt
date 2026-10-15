@@ -156,7 +156,12 @@ if(CONFIG_WASMHOME_MODULE_SERVICES)
         "${WAMR_MODULE_COMPONENT_DIR}/core/iwasm/common"
         "${WAMR_MODULE_COMPONENT_DIR}/core/iwasm/interpreter"
         "${WAMR_MODULE_COMPONENT_DIR}/core/iwasm/aot")
-    target_compile_definitions(${COMPONENT_LIB} PRIVATE WASM_MEM_ALLOC_WITH_USAGE=1)
+    # module_manager.c inspects WAMR's private WASMModule metadata to reject
+    # start functions before instantiation. Keep that struct layout aligned
+    # with the pinned runtime, which enables bulk memory in this port.
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE
+        WASM_ENABLE_BULK_MEMORY=1
+        WASM_MEM_ALLOC_WITH_USAGE=1)
 endif()
 
 if(EXPERIMENT_SCENARIO STREQUAL "native")

@@ -24,7 +24,7 @@ STUBS = {
         #define CONFIG_WASMHOME_MODULE_MAX_MEMORY_PAGES 2u
         #define CONFIG_WASMHOME_MODULE_ALLOCATOR_CAP_BYTES 524288u
         #define CONFIG_WASMHOME_MODULE_HOST_THREAD_STACK_BYTES 32768u
-        #define CONFIG_SPIRAM 0
+        #define CONFIG_SPIRAM 1
     ''',
     "esp_err.h": r'''
         #pragma once
@@ -44,7 +44,7 @@ STUBS = {
         #define MALLOC_CAP_SPIRAM 4u
         typedef struct { size_t total_free_bytes, largest_free_block; } multi_heap_info_t;
         void *heap_caps_malloc(size_t size, unsigned caps);
-        void *heap_caps_realloc(void *ptr, size_t size, unsigned caps);
+        void *heap_caps_aligned_alloc(size_t alignment, size_t size, unsigned caps);
         void heap_caps_free(void *ptr);
         size_t heap_caps_get_total_size(unsigned caps);
         void heap_caps_get_info(multi_heap_info_t *info, unsigned caps);
@@ -284,6 +284,7 @@ HARNESS = r'''
 #include <assert.h>
 #include <pthread.h>
 #include <stdatomic.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -459,9 +460,41 @@ void vTaskDelayUntil(TickType_t *previous, TickType_t increment)
 {
     *previous += increment; sleep_ms(increment ? increment : 1);
 }
-void *heap_caps_malloc(size_t n, unsigned caps) { (void)caps; return malloc(n ? n : 1); }
-void *heap_caps_realloc(void *p, size_t n, unsigned caps) { (void)caps; return realloc(p, n ? n : 1); }
-void heap_caps_free(void *p) { free(p); }
+static void *fake_heap_allocate(size_t n, size_t alignment, bool misalign_to_four)
+{
+    if (!n) n = 1;
+    if (n > SIZE_MAX - sizeof(void *) - alignment) return NULL;
+    uint8_t *base = malloc(n + sizeof(void *) + alignment);
+    if (!base) return NULL;
+    uintptr_t address = (uintptr_t)(base + sizeof(void *));
+    if (misalign_to_four) {
+        address += (4u - (address & 7u) + 8u) & 7u;
+    } else {
+        address = (address + alignment - 1u) & ~(uintptr_t)(alignment - 1u);
+    }
+    void *result = (void *)address;
+    memcpy((uint8_t *)result - sizeof(base), &base, sizeof(base));
+    return result;
+}
+static unsigned fake_aligned_alloc_caps;
+void *heap_caps_malloc(size_t n, unsigned caps)
+{
+    (void)caps;
+    return fake_heap_allocate(n, 8, true);
+}
+void *heap_caps_aligned_alloc(size_t alignment, size_t n, unsigned caps)
+{
+    if (!alignment || (alignment & (alignment - 1u)) || n % alignment) return NULL;
+    fake_aligned_alloc_caps = caps;
+    return fake_heap_allocate(n, alignment, false);
+}
+void heap_caps_free(void *p)
+{
+    if (!p) return;
+    void *base;
+    memcpy(&base, (uint8_t *)p - sizeof(base), sizeof(base));
+    free(base);
+}
 size_t heap_caps_get_total_size(unsigned caps) { (void)caps; return 262144; }
 void heap_caps_get_info(multi_heap_info_t *info, unsigned caps) { (void)caps; info->total_free_bytes = 123456; info->largest_free_block = 65432; }
 int64_t esp_timer_get_time(void)
@@ -777,12 +810,21 @@ static void test_callback_contract_replay_swap_and_allocator(void)
     realloc_fn reallocate = (realloc_fn)captured_init_args.mem_alloc_option.allocator.realloc_func;
     free_fn release = (free_fn)captured_init_args.mem_alloc_option.allocator.free_func;
     assert(alloc && reallocate && release);
-    unsigned char *allocation = alloc(Alloc_For_Runtime, 64); assert(allocation); memset(allocation, 0x5a, 64);
+    unsigned char *allocation = alloc(Alloc_For_Runtime, 64); assert(allocation); assert(((uintptr_t)allocation & 7u) == 0); memset(allocation, 0x5a, 64);
     allocation = reallocate(Alloc_For_Runtime, false, allocation, 96); assert(allocation);
+    assert(((uintptr_t)allocation & 7u) == 0);
     for (unsigned i = 0; i < 64; ++i) assert(allocation[i] == 0x5a);
     void *failed_growth = reallocate(Alloc_For_Runtime, false, allocation, 600000); assert(!failed_growth);
     assert(allocation[0] == 0x5a); release(Alloc_For_Runtime, allocation);
     assert(!alloc(Alloc_For_Runtime, 600000));
+    assert(fake_aligned_alloc_caps == (MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL));
+    unsigned char *linear = alloc(Alloc_For_LinearMemory, 32); assert(linear);
+    assert(((uintptr_t)linear & 7u) == 0);
+    assert(fake_aligned_alloc_caps == (MALLOC_CAP_8BIT | MALLOC_CAP_SPIRAM));
+    linear = reallocate(Alloc_For_LinearMemory, false, linear, 64); assert(linear);
+    assert(((uintptr_t)linear & 7u) == 0);
+    assert(fake_aligned_alloc_caps == (MALLOC_CAP_8BIT | MALLOC_CAP_SPIRAM));
+    release(Alloc_For_LinearMemory, linear);
     assert(wh_module_manager_get_info(&info) == ESP_OK);
     assert(info.allocator_live_bytes == info.artifact_live_bytes);
     assert(info.allocator_failures >= 2 && info.allocator_calls >= 5);

@@ -105,6 +105,28 @@ firmware identificados, então não foi aberta; a prova funcional e o procedimen
 de backup/restauração continuam pendentes. Builds e testes de host não equivalem
 ao aceite físico da #12, nem concluem #13/#14.
 
+### Atualização — 15/10/2026
+
+A revisão independente do diff do allocator e do shim não encontrou bloqueio. A
+falha de alinhamento foi corrigida com alocação alinhada a 8 bytes e `realloc`
+aloca/copia/libera, preservando o bloco antigo se a nova alocação falhar. As
+alocações WAMR de runtime permanecem no heap interno; memória linear usa PSRAM
+quando habilitada. `WASM_ENABLE_BULK_MEMORY=1` mantém o layout dos metadados
+privados do WAMR compatível com o pin usado pelo gerenciador.
+
+Os testes de host passaram (ABI v1 e gerenciador). Os firmwares de interpretador
+clássico e AOT compilaram. Na placa, o perfil de interpretador clássico iniciou
+telemetria e controle juntos e completou loopback GPIO. O observador registrou
+84 telemetrias válidas, sem lacunas de sequência, e 78 controles válidos em 79
+tentativas; o primeiro controle expirou. Um lote de controle separado passou
+10/10. A prova física AOT continua reservada à #14. Os detalhes, hashes e limites
+estão em [evidência física #12](evidence/issue-12-allocator-alignment-2026-10-15/README.md).
+
+O `ota_0` original foi restaurado com verificação de hash. A NVS foi restaurada
+e a leitura final é byte a byte igual ao backup. A placa ficou no bootloader ROM
+após essa última gravação para preservar exatamente a NVS; o firmware original
+foi inicializado e capturado antes da restauração final da NVS.
+
 
 Preparado em 13/10/2026 por solicitação do usuário. Modelo de todos os agentes:
 **Luna (`gpt-6-luna`), esforço `xhigh`**. Base da preparação:
