@@ -17,6 +17,9 @@ typedef struct {
 
 /* Starts a worker that waits until the UDP layer has sent ACCEPTED. */
 esp_err_t wh_native_ota_start(void);
+/* Reconcile a pending native trial on a dedicated boot task and report its
+   measured remaining stack in bytes. Services must not start before this ends. */
+esp_err_t wh_native_ota_reconcile_boot(uint32_t *stack_high_water_bytes);
 /* Reserve one request without starting any download or flash erase. */
 esp_err_t wh_native_ota_reserve(const wh_native_ota_request_t *request);
 esp_err_t wh_native_ota_start_reserved(void);

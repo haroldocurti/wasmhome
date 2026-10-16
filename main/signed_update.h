@@ -182,4 +182,3 @@ esp_err_t wh_signed_update_get_state(uint8_t scenario, const char *component,
    it clears the abandoned pending record and records the rollback. */
 esp_err_t wh_signed_update_reconcile_native_boot(void);
 esp_err_t wh_signed_update_mark_native_healthy(void);
-

@@ -18,6 +18,7 @@
 #include <string.h>
 
 #define NATIVE_OTA_WORKER_STACK_BYTES 32768
+#define NATIVE_OTA_BOOT_RECONCILE_STACK_BYTES 8192
 #define NATIVE_OTA_NOTIFY_START 1u
 #define NATIVE_OTA_NOTIFY_CANCEL 2u
 #define NATIVE_OTA_NOTIFY_HEALTH_CHECK 3u
@@ -37,6 +38,45 @@ static bool ota_reserved;
 static bool ota_busy;
 static bool ota_health_complete;
 static wh_native_ota_request_t reserved_request;
+
+typedef struct {
+    SemaphoreHandle_t completion;
+    esp_err_t result;
+    uint32_t stack_high_water_bytes;
+} native_ota_boot_reconcile_t;
+
+static void native_ota_boot_reconcile_task(void *argument)
+{
+    native_ota_boot_reconcile_t *request = argument;
+    request->result = wh_signed_update_reconcile_native_boot();
+    request->stack_high_water_bytes =
+        (uint32_t)(uxTaskGetStackHighWaterMark(NULL) * sizeof(StackType_t));
+    xSemaphoreGive(request->completion);
+    vTaskDelete(NULL);
+}
+
+esp_err_t wh_native_ota_reconcile_boot(uint32_t *stack_high_water_bytes)
+{
+    if (!stack_high_water_bytes) return ESP_ERR_INVALID_ARG;
+    *stack_high_water_bytes = 0;
+    native_ota_boot_reconcile_t request = {0};
+    request.completion = xSemaphoreCreateBinary();
+    if (!request.completion) return ESP_ERR_NO_MEM;
+    BaseType_t created = xTaskCreate(native_ota_boot_reconcile_task,
+        "ota_boot_reconcile", NATIVE_OTA_BOOT_RECONCILE_STACK_BYTES,
+        &request, 5, NULL);
+    if (created != pdPASS) {
+        vSemaphoreDelete(request.completion);
+        return ESP_ERR_NO_MEM;
+    }
+    if (xSemaphoreTake(request.completion, portMAX_DELAY) != pdTRUE) {
+        vSemaphoreDelete(request.completion);
+        return ESP_FAIL;
+    }
+    *stack_high_water_bytes = request.stack_high_water_bytes;
+    vSemaphoreDelete(request.completion);
+    return request.result;
+}
 
 static bool bytes_equal(const uint8_t *a, const uint8_t *b, size_t size)
 {

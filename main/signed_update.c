@@ -22,6 +22,7 @@
 #include "sdkconfig.h"
 
 #include <inttypes.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -362,9 +363,14 @@ static esp_err_t ledger_load(update_ledger_t *ledger)
 static esp_err_t ledger_store(update_ledger_t *ledger)
 {
     if (!ledger) return ESP_ERR_INVALID_ARG;
+    update_ledger_t *check = heap_caps_malloc(sizeof(*check), MALLOC_CAP_8BIT);
+    if (!check) return ESP_ERR_NO_MEM;
     nvs_handle_t handle;
     esp_err_t err = nvs_open("wh_update", NVS_READWRITE, &handle);
-    if (err != ESP_OK) return err;
+    if (err != ESP_OK) {
+        heap_caps_free(check);
+        return err;
+    }
     ledger->magic = UPDATE_LEDGER_MAGIC;
     ledger->version = UPDATE_LEDGER_VERSION;
     ledger->reserved = 0;
@@ -379,16 +385,17 @@ static esp_err_t ledger_store(update_ledger_t *ledger)
     nvs_handle_t verify_handle;
     esp_err_t verify_err = nvs_open("wh_update", NVS_READONLY, &verify_handle);
     if (verify_err == ESP_OK) {
-        update_ledger_t check;
-        size_t size = sizeof(check);
-        verify_err = nvs_get_blob(verify_handle, "ledger", &check, &size);
-        if (verify_err == ESP_OK && size == sizeof(check) &&
-            memcmp(&check, ledger, sizeof(check)) == 0) {
+        size_t size = sizeof(*check);
+        verify_err = nvs_get_blob(verify_handle, "ledger", check, &size);
+        if (verify_err == ESP_OK && size == sizeof(*check) &&
+            memcmp(check, ledger, sizeof(*check)) == 0) {
             nvs_close(verify_handle);
+            heap_caps_free(check);
             return ESP_OK;
         }
         nvs_close(verify_handle);
     }
+    heap_caps_free(check);
     if (commit_err != ESP_OK) return commit_err;
     return verify_err == ESP_OK ? ESP_ERR_INVALID_CRC : verify_err;
 }
@@ -648,23 +655,27 @@ esp_err_t wh_signed_update_get_state(uint8_t scenario, const char *component,
     SemaphoreHandle_t lock = get_ledger_lock();
     if (!lock) return ESP_ERR_NO_MEM;
     xSemaphoreTake(lock, portMAX_DELAY);
-    update_ledger_t ledger;
-    esp_err_t err = ledger_load(&ledger);
+    update_ledger_t *ledger = heap_caps_malloc(sizeof(*ledger), MALLOC_CAP_8BIT);
+    if (!ledger) {
+        xSemaphoreGive(lock);
+        return ESP_ERR_NO_MEM;
+    }
+    esp_err_t err = ledger_load(ledger);
     if (err == ESP_OK) {
         state_out->scenario = scenario;
         strncpy(state_out->component, component, sizeof(state_out->component) - 1);
         state_out->active_slot = WH_SIGNED_UPDATE_NO_ACTIVE_SLOT;
-        int index = policy_index(&ledger, scenario, campaign_hash, component_hash, false);
+        int index = policy_index(ledger, scenario, campaign_hash, component_hash, false);
         if (index >= 0) {
-            state_out->accepted_floor = ledger.records[index].accepted_floor;
-            state_out->active_slot = ledger.records[index].active_slot;
-            state_out->active_sequence = ledger.records[index].active_sequence;
-            state_out->active_payload_size = ledger.records[index].active_payload_size;
-            state_out->active_target_version = ledger.records[index].active_target_version;
+            state_out->accepted_floor = ledger->records[index].accepted_floor;
+            state_out->active_slot = ledger->records[index].active_slot;
+            state_out->active_sequence = ledger->records[index].active_sequence;
+            state_out->active_payload_size = ledger->records[index].active_payload_size;
+            state_out->active_target_version = ledger->records[index].active_target_version;
             memcpy(state_out->active_attempt_id,
-                   ledger.records[index].active_attempt_id, 16);
+                   ledger->records[index].active_attempt_id, 16);
             state_out->active_origin_boot_id =
-                ledger.records[index].active_origin_boot_id;
+                ledger->records[index].active_origin_boot_id;
             if (state_out->active_target_version == 1)
                 strncpy(state_out->active_release_version, "v1",
                         sizeof(state_out->active_release_version) - 1);
@@ -672,28 +683,29 @@ esp_err_t wh_signed_update_get_state(uint8_t scenario, const char *component,
                 strncpy(state_out->active_release_version, "v2",
                         sizeof(state_out->active_release_version) - 1);
             memcpy(state_out->active_payload_sha256,
-                   ledger.records[index].active_payload_sha256, 32);
+                   ledger->records[index].active_payload_sha256, 32);
             memcpy(state_out->active_manifest_sha256,
-                   ledger.records[index].active_manifest_sha256, 32);
+                   ledger->records[index].active_manifest_sha256, 32);
         }
-        if (ledger.pending && ledger.pending_scenario == scenario &&
-            bytes_equal(ledger.pending_campaign_sha256, campaign_hash, 32) &&
-            bytes_equal(ledger.pending_component_sha256, component_hash, 32)) {
+        if (ledger->pending && ledger->pending_scenario == scenario &&
+            bytes_equal(ledger->pending_campaign_sha256, campaign_hash, 32) &&
+            bytes_equal(ledger->pending_component_sha256, component_hash, 32)) {
             state_out->pending = true;
-            state_out->pending_phase = ledger.pending_phase;
-            state_out->pending_sequence = ledger.pending_sequence;
-            state_out->pending_slot = ledger.pending_slot;
-            state_out->pending_target_version = ledger.pending_target_version;
-            state_out->pending_payload_size = ledger.pending_payload_size;
-            memcpy(state_out->pending_attempt_id, ledger.pending_attempt_id, 16);
-            state_out->origin_boot_id = ledger.origin_boot_id;
-            strncpy(state_out->pending_release_version, ledger.pending_release_version,
+            state_out->pending_phase = ledger->pending_phase;
+            state_out->pending_sequence = ledger->pending_sequence;
+            state_out->pending_slot = ledger->pending_slot;
+            state_out->pending_target_version = ledger->pending_target_version;
+            state_out->pending_payload_size = ledger->pending_payload_size;
+            memcpy(state_out->pending_attempt_id, ledger->pending_attempt_id, 16);
+            state_out->origin_boot_id = ledger->origin_boot_id;
+            strncpy(state_out->pending_release_version, ledger->pending_release_version,
                     sizeof(state_out->pending_release_version) - 1);
-            memcpy(state_out->pending_payload_sha256, ledger.pending_payload_sha256, 32);
-            memcpy(state_out->pending_manifest_sha256, ledger.pending_manifest_sha256, 32);
+            memcpy(state_out->pending_payload_sha256, ledger->pending_payload_sha256, 32);
+            memcpy(state_out->pending_manifest_sha256, ledger->pending_manifest_sha256, 32);
         }
     }
     xSemaphoreGive(lock);
+    heap_caps_free(ledger);
     return err;
 }
 
