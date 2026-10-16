@@ -20,6 +20,7 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <pthread.h>
+#include <stdarg.h>
 #include <stdatomic.h>
 #include <stdio.h>
 #include <string.h>
@@ -41,6 +42,9 @@
 #define WH_ERROR_BUFFER_SIZE 192u
 #define WH_CONTROL_EXECUTION_LIMIT_US 200000u
 #define WH_TELEMETRY_EXECUTION_LIMIT_US 50000u
+#define WH_MODULE_DEFERRED_LOG_CAPACITY 32u
+#define WH_MODULE_DEFERRED_LOG_LINE_BYTES 2048u
+#define WH_MODULE_DEFERRED_LOG_POST_COMMIT_RESERVE 20u
 
 enum {
     WH_CONTROL_APPLIED = 0,
@@ -163,6 +167,16 @@ static const char *TAG = "wh_module_manager";
 static portMUX_TYPE manager_creation_mux = portMUX_INITIALIZER_UNLOCKED;
 static portMUX_TYPE allocator_mux = portMUX_INITIALIZER_UNLOCKED;
 static portMUX_TYPE reservation_mux = portMUX_INITIALIZER_UNLOCKED;
+static portMUX_TYPE deferred_log_mux = portMUX_INITIALIZER_UNLOCKED;
+static char *deferred_log_storage;
+static size_t deferred_log_lengths[WH_MODULE_DEFERRED_LOG_CAPACITY];
+static size_t deferred_log_read;
+static size_t deferred_log_write;
+static size_t deferred_log_count;
+static uint32_t deferred_log_dropped;
+static bool deferred_log_active;
+static size_t deferred_log_reserved;
+static TaskHandle_t deferred_log_owner;
 static uint64_t allocator_cap_bytes;
 static uint64_t allocator_live_bytes;
 static uint64_t allocator_peak_bytes;
@@ -583,6 +597,193 @@ memory_role_name(wh_module_role_t role, bool candidate)
     return "manager";
 }
 
+static esp_err_t
+deferred_logs_allocate(void)
+{
+    if (deferred_log_storage) return ESP_OK;
+#if defined(CONFIG_SPIRAM) && CONFIG_SPIRAM
+    deferred_log_storage = heap_caps_malloc(
+        WH_MODULE_DEFERRED_LOG_CAPACITY * WH_MODULE_DEFERRED_LOG_LINE_BYTES,
+        MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+#else
+    deferred_log_storage = heap_caps_malloc(
+        WH_MODULE_DEFERRED_LOG_CAPACITY * WH_MODULE_DEFERRED_LOG_LINE_BYTES,
+        MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+#endif
+    return deferred_log_storage ? ESP_OK : ESP_ERR_NO_MEM;
+}
+
+static esp_err_t
+deferred_logs_begin(void)
+{
+    if (!deferred_log_storage) return ESP_ERR_NO_MEM;
+    portENTER_CRITICAL(&deferred_log_mux);
+    const bool available = !deferred_log_active && deferred_log_count == 0 &&
+                           deferred_log_dropped == 0;
+    if (available) {
+        deferred_log_read = 0;
+        deferred_log_write = 0;
+        deferred_log_active = true;
+        deferred_log_reserved = 0;
+        deferred_log_owner = xTaskGetCurrentTaskHandle();
+    }
+    portEXIT_CRITICAL(&deferred_log_mux);
+    return available ? ESP_OK : ESP_ERR_INVALID_STATE;
+}
+
+static bool
+deferred_logs_failed(void)
+{
+    portENTER_CRITICAL(&deferred_log_mux);
+    const bool failed = deferred_log_dropped != 0;
+    portEXIT_CRITICAL(&deferred_log_mux);
+    return failed;
+}
+
+static void
+deferred_logs_mark_failed(void)
+{
+    portENTER_CRITICAL(&deferred_log_mux);
+    if (deferred_log_dropped != UINT32_MAX) deferred_log_dropped++;
+    portEXIT_CRITICAL(&deferred_log_mux);
+}
+
+void
+wh_module_manager_mark_deferred_log_failure(void)
+{
+    deferred_logs_mark_failed();
+}
+
+static bool
+deferred_logs_reserve_remaining(size_t required)
+{
+    portENTER_CRITICAL(&deferred_log_mux);
+    const bool reserved = deferred_log_active && deferred_log_dropped == 0 &&
+        deferred_log_count <= WH_MODULE_DEFERRED_LOG_CAPACITY &&
+        required <= WH_MODULE_DEFERRED_LOG_CAPACITY - deferred_log_count;
+    /* api_lock serializes every WAMR entrypoint and the update worker waits for
+       this control-worker job. Thus this owner is the only producer until the
+       lock is released; reserve protects the remaining success-path records. */
+    if (reserved) deferred_log_reserved = required;
+    portEXIT_CRITICAL(&deferred_log_mux);
+    return reserved;
+}
+
+esp_err_t
+wh_module_manager_emit_or_defer_log_line(const char *line, size_t line_size)
+{
+    if (!line || line_size == 0) return ESP_ERR_INVALID_ARG;
+    esp_err_t result = ESP_OK;
+    bool write_direct = false;
+    portENTER_CRITICAL(&deferred_log_mux);
+    if (!deferred_log_active) {
+        write_direct = true;
+    } else if (!deferred_log_storage || line_size > WH_MODULE_DEFERRED_LOG_LINE_BYTES) {
+        if (deferred_log_dropped != UINT32_MAX) deferred_log_dropped++;
+        result = ESP_ERR_NO_MEM;
+    } else {
+        const bool owner = xTaskGetCurrentTaskHandle() == deferred_log_owner;
+        const bool use_reserved = owner && deferred_log_reserved != 0;
+        if (!use_reserved && deferred_log_count + deferred_log_reserved >=
+                                 WH_MODULE_DEFERRED_LOG_CAPACITY) {
+            if (deferred_log_dropped != UINT32_MAX) deferred_log_dropped++;
+            result = ESP_ERR_NO_MEM;
+            portEXIT_CRITICAL(&deferred_log_mux);
+            return result;
+        }
+        if (use_reserved) deferred_log_reserved--;
+        char *destination = deferred_log_storage +
+            deferred_log_write * WH_MODULE_DEFERRED_LOG_LINE_BYTES;
+        memcpy(destination, line, line_size);
+        deferred_log_lengths[deferred_log_write] = line_size;
+        deferred_log_write = (deferred_log_write + 1) % WH_MODULE_DEFERRED_LOG_CAPACITY;
+        deferred_log_count++;
+    }
+    portEXIT_CRITICAL(&deferred_log_mux);
+    if (write_direct) (void)fwrite(line, 1, line_size, stdout);
+    return result;
+}
+
+static esp_err_t
+deferred_logs_flush(void)
+{
+    char line[WH_MODULE_DEFERRED_LOG_LINE_BYTES];
+    bool overflow = false;
+    for (;;) {
+        size_t line_size = 0;
+        uint32_t dropped = 0;
+        bool emit_overflow = false;
+        portENTER_CRITICAL(&deferred_log_mux);
+        if (deferred_log_count != 0) {
+            line_size = deferred_log_lengths[deferred_log_read];
+            const char *source = deferred_log_storage +
+                deferred_log_read * WH_MODULE_DEFERRED_LOG_LINE_BYTES;
+            memcpy(line, source, line_size);
+            deferred_log_read = (deferred_log_read + 1) % WH_MODULE_DEFERRED_LOG_CAPACITY;
+            deferred_log_count--;
+        } else if (deferred_log_dropped != 0) {
+            dropped = deferred_log_dropped;
+            deferred_log_dropped = 0;
+            emit_overflow = true;
+        } else {
+            deferred_log_active = false;
+            deferred_log_reserved = 0;
+            deferred_log_owner = NULL;
+        }
+        const bool done = !deferred_log_active;
+        portEXIT_CRITICAL(&deferred_log_mux);
+        if (line_size != 0) {
+            (void)fwrite(line, 1, line_size, stdout);
+            continue;
+        }
+        if (emit_overflow) {
+            char marker[128];
+            const int written = snprintf(marker, sizeof(marker),
+                "WASMHOME_MODULE_LOG,{\"schema\":\"wasmhome-module-log-v1\","
+                "\"event\":\"deferred_log_overflow\",\"dropped_records\":%" PRIu32 "}\n",
+                dropped);
+            if (written > 0 && (size_t)written < sizeof(marker))
+                (void)fwrite(marker, 1, (size_t)written, stdout);
+            overflow = true;
+            continue;
+        }
+        if (done) break;
+    }
+    return overflow ? ESP_ERR_NO_MEM : ESP_OK;
+}
+
+static esp_err_t
+module_log_printf(const char *format, ...)
+{
+    char line[WH_MODULE_DEFERRED_LOG_LINE_BYTES];
+    va_list arguments;
+    va_start(arguments, format);
+    const int written = vsnprintf(line, sizeof(line), format, arguments);
+    va_end(arguments);
+    if (written < 0 || (size_t)written >= sizeof(line)) {
+        deferred_logs_mark_failed();
+        (void)wh_module_manager_emit_or_defer_log_line(
+            "WASMHOME_MODULE_LOG,{\"schema\":\"wasmhome-module-log-v1\","
+            "\"event\":\"record_truncated\"}\n",
+            sizeof("WASMHOME_MODULE_LOG,{\"schema\":\"wasmhome-module-log-v1\","
+                   "\"event\":\"record_truncated\"}\n") - 1);
+        return ESP_ERR_INVALID_SIZE;
+    }
+    return wh_module_manager_emit_or_defer_log_line(line, (size_t)written);
+}
+
+static void
+module_update_timing_event(const char *phase, uint64_t started_us,
+                           uint64_t ended_us)
+{
+    (void)module_log_printf(
+        "WASMHOME_MODULE_TIMING,{\"schema\":\"wasmhome-module-timing-v1\","
+        "\"phase\":\"%s\",\"start_us\":%" PRIu64 ","
+        "\"end_us\":%" PRIu64 ",\"duration_us\":%" PRIu64 ","
+        "\"elapsed_scope\":\"boot\"}\n",
+        phase, started_us, ended_us, ended_us >= started_us ? ended_us - started_us : 0);
+}
+
 /* Emit snapshots at lifecycle boundaries so board evidence can distinguish
  * baseline, runtime, each slot, candidate overlap, and release. Heap values
  * come from ESP-IDF; WAMR counters are separate to avoid summing both views. */
@@ -601,6 +802,9 @@ module_memory_event(const char *phase, const char *role, const char *status)
         queue_payload_bytes += WH_CONTROL_QUEUE_CAPACITY * sizeof(tx_item_t);
     if (telemetry_output_queue)
         queue_payload_bytes += WH_TELEMETRY_QUEUE_CAPACITY * sizeof(tx_item_t);
+    if (deferred_log_storage)
+        queue_payload_bytes += WH_MODULE_DEFERRED_LOG_CAPACITY *
+                               WH_MODULE_DEFERRED_LOG_LINE_BYTES;
     const module_slot_t *watchdog_slots[] = {
         &telemetry_slot, &control_slots[0], &control_slots[1],
     };
@@ -621,7 +825,7 @@ module_memory_event(const char *phase, const char *role, const char *status)
     multi_heap_info_t psram = {0};
     heap_caps_get_info(&psram, MALLOC_CAP_SPIRAM);
     const size_t psram_total = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
-    printf("WASMHOME_MODULE_MEMORY,{\"schema\":\"wasmhome-module-memory-v1\",\"phase\":\"%s\",\"role\":\"%s\",\"status\":\"%s\",\"units\":\"bytes\","
+    (void)module_log_printf("WASMHOME_MODULE_MEMORY,{\"schema\":\"wasmhome-module-memory-v1\",\"phase\":\"%s\",\"role\":\"%s\",\"status\":\"%s\",\"units\":\"bytes\","
            "\"internal_heap\":{\"status\":\"measured\",\"total\":%zu,\"free\":%zu,\"largest\":%zu},"
            "\"psram_heap\":{\"status\":\"measured\",\"total\":%zu,\"free\":%zu,\"largest\":%zu},"
            "\"wamr_allocator\":{\"live\":%" PRIu64 ",\"peak\":%" PRIu64 ",\"calls\":%" PRIu64 ",\"failures\":%" PRIu64 ",\"runtime\":%" PRIu64 ",\"linear_memory\":%" PRIu64 ",\"artifacts\":%" PRIu64 "},"
@@ -642,7 +846,7 @@ module_memory_event(const char *phase, const char *role, const char *status)
            (unsigned)CONFIG_WASMHOME_MODULE_WASM_STACK_BYTES,
            (unsigned)CONFIG_WASMHOME_MODULE_APP_HEAP_BYTES);
 #else
-    printf("WASMHOME_MODULE_MEMORY,{\"schema\":\"wasmhome-module-memory-v1\",\"phase\":\"%s\",\"role\":\"%s\",\"status\":\"%s\",\"units\":\"bytes\","
+    (void)module_log_printf("WASMHOME_MODULE_MEMORY,{\"schema\":\"wasmhome-module-memory-v1\",\"phase\":\"%s\",\"role\":\"%s\",\"status\":\"%s\",\"units\":\"bytes\","
            "\"internal_heap\":{\"status\":\"measured\",\"total\":%zu,\"free\":%zu,\"largest\":%zu},"
            "\"psram_heap\":{\"status\":\"not_applicable\",\"total\":null,\"free\":null,\"largest\":null},"
            "\"wamr_allocator\":{\"live\":%" PRIu64 ",\"peak\":%" PRIu64 ",\"calls\":%" PRIu64 ",\"failures\":%" PRIu64 ",\"runtime\":%" PRIu64 ",\"linear_memory\":%" PRIu64 ",\"artifacts\":%" PRIu64 "},"
@@ -1809,18 +2013,35 @@ prepare_control_on_worker(const wh_module_image_t *image,
         return ESP_ERR_INVALID_STATE;
     if (new_slot->state != WH_MODULE_SLOT_EMPTY) slot_release(new_slot);
 
+    uint64_t phase_started_us = (uint64_t)esp_timer_get_time();
     esp_err_t result = slot_load(new_slot, WH_MODULE_ROLE_CONTROL, image, true,
                                  commit_fn ? event_fn : NULL, event_context);
+    uint64_t phase_ended_us = (uint64_t)esp_timer_get_time();
+    if (commit_fn)
+        module_update_timing_event("candidate_load", phase_started_us,
+                                   phase_ended_us);
     if (result != ESP_OK) return result;
+    if (commit_fn && deferred_logs_failed()) {
+        slot_release(new_slot);
+        return ESP_ERR_NO_MEM;
+    }
     new_slot->state = commit_fn ? WH_MODULE_SLOT_PREPARING : WH_MODULE_SLOT_READY;
     if (commit_fn) {
+        phase_started_us = (uint64_t)esp_timer_get_time();
         result = candidate_control_health_check(new_slot);
+        phase_ended_us = (uint64_t)esp_timer_get_time();
+        module_update_timing_event("candidate_health_check", phase_started_us,
+                                   phase_ended_us);
         if (result != ESP_OK) {
             slot_release(new_slot);
             return result;
         }
         emit_control_manager_event(event_fn, event_context,
                                   "candidate_health_check", new_slot);
+        if (deferred_logs_failed()) {
+            slot_release(new_slot);
+            return ESP_ERR_NO_MEM;
+        }
     }
     if (atomic_load_explicit(&old_slot->in_flight, memory_order_acquire)) {
         slot_release(new_slot);
@@ -1836,11 +2057,20 @@ prepare_control_on_worker(const wh_module_image_t *image,
     xSemaphoreGive(manager_lock);
 
     if (commit_fn) {
+        if (!deferred_logs_reserve_remaining(
+                WH_MODULE_DEFERRED_LOG_POST_COMMIT_RESERVE)) {
+            slot_release(new_slot);
+            return ESP_ERR_NO_MEM;
+        }
         wh_module_slot_info_t telemetry_info, control_info;
         slot_info_copy(&telemetry_info, &telemetry_slot, WH_MODULE_ROLE_TELEMETRY);
         slot_info_copy(&control_info, new_slot, WH_MODULE_ROLE_CONTROL);
         wh_module_selection_outcome_t outcome = WH_MODULE_SELECTION_UNKNOWN;
+        phase_started_us = (uint64_t)esp_timer_get_time();
         result = commit_fn(event_context, &telemetry_info, &control_info, &outcome);
+        phase_ended_us = (uint64_t)esp_timer_get_time();
+        module_update_timing_event("ledger_commit", phase_started_us,
+                                   phase_ended_us);
         if (outcome == WH_MODULE_SELECTION_UNKNOWN ||
             (result == ESP_OK && outcome != WH_MODULE_SELECTION_COMMITTED)) {
             /* The NVS write may have completed even if its readback failed.
@@ -1861,6 +2091,7 @@ prepare_control_on_worker(const wh_module_image_t *image,
     }
 
     module_memory_event("candidate_overlap", "control_candidate", "ready");
+    phase_started_us = (uint64_t)esp_timer_get_time();
     xSemaphoreTake(manager_lock, portMAX_DELAY);
     if (active_control != old_slot || old_slot->state != WH_MODULE_SLOT_ACTIVE) {
         xSemaphoreGive(manager_lock);
@@ -1871,9 +2102,18 @@ prepare_control_on_worker(const wh_module_image_t *image,
     new_slot->state = WH_MODULE_SLOT_ACTIVE;
     active_control = new_slot;
     xSemaphoreGive(manager_lock);
+    phase_ended_us = (uint64_t)esp_timer_get_time();
+    if (commit_fn)
+        module_update_timing_event("control_pointer_swap", phase_started_us,
+                                   phase_ended_us);
     if (commit_fn)
         emit_control_manager_event(event_fn, event_context, "control_activated", new_slot);
+    phase_started_us = (uint64_t)esp_timer_get_time();
     slot_release(old_slot);
+    phase_ended_us = (uint64_t)esp_timer_get_time();
+    if (commit_fn)
+        module_update_timing_event("previous_control_release", phase_started_us,
+                                   phase_ended_us);
     module_memory_event("control_replaced_old_released", "control", "ok");
     if (commit_fn)
         emit_control_manager_event(event_fn, event_context,
@@ -1903,10 +2143,41 @@ control_thread_entry(void *argument)
         if (job.kind == CONTROL_JOB_REQUEST) {
             execute_control_request(&job.request);
         } else if (job.kind == CONTROL_JOB_PREPARE && job.prepare) {
-            job.prepare->result = prepare_control_on_worker(
-                job.prepare->image, job.prepare->commit_fn,
-                job.prepare->event_fn, job.prepare->context);
+            const bool defer_logs = job.prepare->commit_fn && job.prepare->event_fn;
+            bool logs_started = false;
+            if (defer_logs) {
+                esp_err_t result = deferred_logs_begin();
+                if (result == ESP_OK) {
+                    logs_started = true;
+                    const uint64_t lock_started_us = (uint64_t)esp_timer_get_time();
+                    result = prepare_control_on_worker(
+                        job.prepare->image, job.prepare->commit_fn,
+                        job.prepare->event_fn, job.prepare->context);
+                    const uint64_t lock_ended_us = (uint64_t)esp_timer_get_time();
+                    module_update_timing_event("api_lock_held", lock_started_us,
+                                               lock_ended_us);
+                } else {
+                    (void)module_log_printf(
+                        "WASMHOME_MODULE_LOG,{\"schema\":\"wasmhome-module-log-v1\","
+                        "\"event\":\"deferred_log_begin_failed\",\"error\":%d}\n",
+                        result);
+                }
+                job.prepare->result = result;
+            } else {
+                job.prepare->result = prepare_control_on_worker(
+                    job.prepare->image, job.prepare->commit_fn,
+                    job.prepare->event_fn, job.prepare->context);
+            }
+            xSemaphoreGive(api_lock);
+            if (logs_started && deferred_logs_flush() != ESP_OK) {
+                xSemaphoreTake(manager_lock, portMAX_DELAY);
+                manager_degraded = true;
+                accepting_requests = false;
+                xSemaphoreGive(manager_lock);
+            }
             xSemaphoreGive(job.prepare->done);
+            update_stack_high_water(&control_stack_high_water);
+            continue;
         }
         xSemaphoreGive(api_lock);
         update_stack_high_water(&control_stack_high_water);
@@ -1996,6 +2267,17 @@ manager_delete_resources(void)
     if (telemetry_queue_lock) { vSemaphoreDelete(telemetry_queue_lock); telemetry_queue_lock = NULL; }
     if (worker_startup) { vSemaphoreDelete(worker_startup); worker_startup = NULL; }
     if (api_lock) { vSemaphoreDelete(api_lock); api_lock = NULL; }
+    if (deferred_log_storage) {
+        heap_caps_free(deferred_log_storage);
+        deferred_log_storage = NULL;
+    }
+    portENTER_CRITICAL(&deferred_log_mux);
+    deferred_log_read = deferred_log_write = deferred_log_count = 0;
+    deferred_log_dropped = 0;
+    deferred_log_reserved = 0;
+    deferred_log_active = false;
+    deferred_log_owner = NULL;
+    portEXIT_CRITICAL(&deferred_log_mux);
     telemetry_output_reservations = 0;
     control_result_reservations = 0;
 }
@@ -2143,6 +2425,13 @@ wh_module_manager_start(const wh_module_image_t *telemetry,
     manager_degraded = false;
     telemetry_stack_high_water = control_stack_high_water = 0;
     xSemaphoreGive(manager_lock);
+    esp_err_t log_result = deferred_logs_allocate();
+    if (log_result != ESP_OK) {
+        xSemaphoreTake(manager_lock, portMAX_DELAY);
+        manager_starting = false;
+        xSemaphoreGive(manager_lock);
+        return log_result;
+    }
     portENTER_CRITICAL(&allocator_mux);
     allocator_cap_bytes = CONFIG_WASMHOME_MODULE_ALLOCATOR_CAP_BYTES;
     allocator_live_bytes = allocator_peak_bytes = allocator_calls = allocator_failures = 0;

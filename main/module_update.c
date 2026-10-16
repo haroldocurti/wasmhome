@@ -124,7 +124,8 @@ static void emit_attempt_event(update_attempt_t *attempt,
                                const wh_module_slot_info_t *control,
                                uint64_t busy_drops,
                                uint64_t accepted_floor,
-                               uint64_t ledger_readback_sequence)
+                               uint64_t ledger_readback_sequence,
+                               bool defer_line)
 {
     if (!attempt) return;
     const wh_signed_update_event_t event = {
@@ -150,7 +151,23 @@ static void emit_attempt_event(update_attempt_t *attempt,
     };
     wh_signed_update_event_t enriched = event;
     fill_module_snapshot(&enriched, telemetry, control, busy_drops);
-    wh_signed_update_emit_event(&enriched);
+    if (defer_line) {
+        char line[WH_SIGNED_UPDATE_EVENT_LINE_MAX_BYTES];
+        size_t line_size = 0;
+        if (wh_signed_update_format_event(&enriched, line, sizeof(line),
+                                          &line_size) == ESP_OK) {
+            (void)wh_module_manager_emit_or_defer_log_line(line, line_size);
+        } else {
+            wh_module_manager_mark_deferred_log_failure();
+            (void)wh_module_manager_emit_or_defer_log_line(
+                "WASMHOME_MODULE_LOG,{\"schema\":\"wasmhome-module-log-v1\","
+                "\"event\":\"update_event_format_failed\"}\n",
+                sizeof("WASMHOME_MODULE_LOG,{\"schema\":\"wasmhome-module-log-v1\","
+                       "\"event\":\"update_event_format_failed\"}\n") - 1);
+        }
+    } else {
+        wh_signed_update_emit_event(&enriched);
+    }
 }
 
 static bool get_manager_snapshot(wh_module_manager_info_t *info)
@@ -416,7 +433,7 @@ static void manager_event(void *context, const char *phase,
                        WH_SIGNED_UPDATE_FAILURE_NONE,
                        attempt->manifest.payload_sha256,
                        attempt->manifest.manifest_sha256,
-                       telemetry, control, busy_drops, floor, readback);
+                       telemetry, control, busy_drops, floor, readback, true);
 }
 
 static esp_err_t reconcile_interrupted_module_update(
@@ -553,7 +570,7 @@ static void process_update(update_request_t *request)
                        WH_SIGNED_UPDATE_FAILURE_NONE, NULL, NULL,
                        &initial_info.telemetry, &initial_info.control,
                        initial_info.telemetry_runtime_busy_drops,
-                       0, 0);
+                       0, 0, false);
 
     wh_signed_update_state_t before;
     esp_err_t err = wh_signed_update_get_state(WH_MODULE_UPDATE_SCENARIO,
@@ -610,7 +627,7 @@ static void process_update(update_request_t *request)
                        attempt.manifest.manifest_sha256,
                        &staged_info.telemetry, &staged_info.control,
                        staged_info.telemetry_runtime_busy_drops,
-                       before.accepted_floor, 0);
+                       before.accepted_floor, 0, false);
 
     uint8_t *candidate_bytes = allocate_module_buffer(attempt.manifest.payload_size);
     if (!candidate_bytes) {
@@ -691,7 +708,7 @@ failed_without_manifest:
                            attempt.manifest_ready ? attempt.manifest.manifest_sha256 : NULL,
                            &failed_info.telemetry, &failed_info.control,
                            failed_info.telemetry_runtime_busy_drops,
-                           0, 0);
+                           0, 0, false);
     }
 #endif
 }
@@ -825,7 +842,7 @@ void wh_module_update_handle_trigger(const uint8_t *packet, size_t length)
             emit_attempt_event(&failed_attempt, WH_SIGNED_UPDATE_PHASE_UPDATE_FAILED,
                                failed_attempt.failure, NULL, NULL,
                                &failed_info.telemetry, &failed_info.control,
-                               failed_info.telemetry_runtime_busy_drops, 0, 0);
+                               failed_info.telemetry_runtime_busy_drops, 0, 0, false);
         }
 #endif
         return;

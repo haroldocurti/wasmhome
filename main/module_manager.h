@@ -101,6 +101,13 @@ esp_err_t wh_module_manager_activate_control(
     wh_module_control_event_fn event_fn,
     void *context);
 
+/* The control worker can defer bounded UART records during a modular slot
+   transaction. Lines are copied synchronously, preserving snapshots and
+   elapsed times; flush happens after api_lock is released. */
+esp_err_t wh_module_manager_emit_or_defer_log_line(const char *line,
+                                                    size_t line_size);
+void wh_module_manager_mark_deferred_log_failure(void);
+
 /* Stop workers, drain calls, release both slots, then destroy the singleton runtime. */
 esp_err_t wh_module_manager_stop(void);
 

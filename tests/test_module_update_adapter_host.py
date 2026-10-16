@@ -31,6 +31,7 @@ typedef int esp_err_t;
 #define CONFIG_WASMHOME_SIGNED_UPDATE 1
 #define CONFIG_WASMHOME_MODULE_MAX_ARTIFACT_BYTES 65536u
 #define CONFIG_WASMHOME_UPDATE_CAMPAIGN_ID "issues16-18-bench-20261015"
+#define WH_SIGNED_UPDATE_EVENT_LINE_MAX_BYTES 1536u
 #define CONFIG_SPIRAM 0
 #define MALLOC_CAP_SPIRAM 1u
 #define MALLOC_CAP_8BIT 2u
@@ -189,6 +190,11 @@ esp_err_t wh_signed_update_abort(const wh_signed_update_manifest_t *);
 esp_err_t wh_signed_update_get_state(uint8_t, const char *, const char *,
                                      wh_signed_update_state_t *);
 void wh_signed_update_emit_event(const wh_signed_update_event_t *event);
+esp_err_t wh_signed_update_format_event(const wh_signed_update_event_t *event,
+                                        char *line, size_t capacity,
+                                        size_t *line_size);
+esp_err_t wh_module_manager_emit_or_defer_log_line(const char *line, size_t size);
+void wh_module_manager_mark_deferred_log_failure(void);
 
 esp_err_t wh_module_slot_store_init(void);
 esp_err_t wh_module_slot_store_begin(uint8_t, uint32_t, uint32_t);
@@ -334,6 +340,20 @@ int64_t esp_timer_get_time(void) { return 9000; }
 uint64_t wh_platform_boot_id(void) { return 0x1234; }
 void wh_signed_update_emit_event(const wh_signed_update_event_t *event)
 { assert(event); event_calls++; }
+esp_err_t wh_signed_update_format_event(const wh_signed_update_event_t *event,
+                                        char *line, size_t capacity,
+                                        size_t *line_size)
+{
+    assert(event && line && capacity && line_size);
+    const char record[] = "WASMHOME_UPDATE,{\"phase\":\"candidate_loaded\"}\n";
+    if (sizeof(record) > capacity) return ESP_ERR_INVALID_SIZE;
+    memcpy(line, record, sizeof(record) - 1);
+    *line_size = sizeof(record) - 1;
+    return ESP_OK;
+}
+esp_err_t wh_module_manager_emit_or_defer_log_line(const char *line, size_t size)
+{ assert(line && size); return ESP_OK; }
+void wh_module_manager_mark_deferred_log_failure(void) { }
 void *heap_caps_malloc(size_t size, unsigned caps) { (void)caps; return malloc(size); }
 void heap_caps_free(void *p) { free(p); }
 size_t heap_caps_get_total_size(unsigned caps) { (void)caps; return 0; }

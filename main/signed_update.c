@@ -211,9 +211,14 @@ const char *wh_signed_update_failure_name(wh_signed_update_failure_t failure)
     return (unsigned)failure < (sizeof(names) / sizeof(names[0])) ? names[failure] : "unknown";
 }
 
-void wh_signed_update_emit_event(const wh_signed_update_event_t *event)
+static esp_err_t render_signed_update_event(const wh_signed_update_event_t *event,
+                                            char *line, size_t capacity,
+                                            size_t *line_size)
 {
-    if (!event) return;
+    if (line_size) *line_size = 0;
+    if (!event || ((line == NULL) != (line_size == NULL)) ||
+        (line && capacity == 0) || (!line && capacity != 0))
+        return ESP_ERR_INVALID_ARG;
     char attempt[33] = {0};
     char payload_hash[65] = {0};
     char running_hash[65] = {0};
@@ -257,39 +262,72 @@ void wh_signed_update_emit_event(const wh_signed_update_event_t *event)
     (void)psram_free_value;
     (void)psram_largest_value;
 #endif
-    printf("WASMHOME_UPDATE,{\"event\":\"%s\",\"phase\":\"%s\",\"status\":\"%s\","
-           "\"failure\":\"%s\",\"attempt_id\":%s,\"boot_id\":\"%016" PRIx64 "\","
-           "\"origin_boot_id\":\"%016" PRIx64 "\",\"accepted_floor\":%" PRIu64 ","
-           "\"ledger_readback_sequence\":%" PRIu64 ","
-           "\"scenario\":%u,\"component\":%u,\"target_version\":%u,\"release_version\":%s,"
-           "\"sequence\":%" PRIu64 ",\"payload_bytes_expected\":%" PRIu32 ","
-           "\"payload_bytes_received\":%" PRIu32 ","
-           "\"current_task_stack_high_water_bytes\":%" PRIu32 ","
-           "\"payload_sha256\":%s,"
-           "\"running_sha256\":%s,"
-           "\"manifest_sha256\":%s,\"elapsed_us\":%" PRIu64 ","
-           "\"elapsed_scope\":\"%s\",\"heap\":{\"internal_free_bytes\":%zu,"
-           "\"internal_largest_free_block_bytes\":%zu,\"psram_free_bytes\":%s,"
-           "\"psram_largest_free_block_bytes\":%s},\"telemetry_generation\":%" PRIu64 ","
-           "\"telemetry_sha256\":%s,\"telemetry_runtime_busy_drops\":%" PRIu64 ","
-           "\"control_generation\":%" PRIu64 ","
-           "\"control_module_version\":%s,\"control_sha256\":%s,"
-           "\"health_reconciled\":%s}\n",
-           wh_signed_update_phase_name(event->phase), wh_signed_update_phase_name(event->phase),
-           phase_status(event->phase, event->failure), wh_signed_update_failure_name(event->failure),
-           attempt_value, wh_platform_boot_id(), event->origin_boot_id,
-           event->accepted_floor, event->ledger_readback_sequence,
-           event->scenario, event->component_id,
-           event->target_version, release_value, event->sequence,
-           event->payload_bytes_expected, event->payload_bytes_received,
-           event->current_task_stack_high_water_bytes, payload_hash_value,
-           running_hash_value, manifest_hash_value, event->elapsed_us,
-           event->elapsed_scope ? event->elapsed_scope : "attempt", internal_free,
-           internal_largest, psram_free_value, psram_largest_value,
-           event->telemetry_generation, telemetry_hash_value,
-           event->telemetry_runtime_busy_drops, event->control_generation,
-           control_version_value, control_hash_value,
-           event->health_reconciled ? "true" : "false");
+#define WH_SIGNED_UPDATE_EVENT_ARGUMENTS \
+           wh_signed_update_phase_name(event->phase), wh_signed_update_phase_name(event->phase), \
+           phase_status(event->phase, event->failure), wh_signed_update_failure_name(event->failure), \
+           attempt_value, wh_platform_boot_id(), event->origin_boot_id, \
+           event->accepted_floor, event->ledger_readback_sequence, \
+           event->scenario, event->component_id, \
+           event->target_version, release_value, event->sequence, \
+           event->payload_bytes_expected, event->payload_bytes_received, \
+           event->current_task_stack_high_water_bytes, payload_hash_value, \
+           running_hash_value, manifest_hash_value, event->elapsed_us, \
+           event->elapsed_scope ? event->elapsed_scope : "attempt", internal_free, \
+           internal_largest, psram_free_value, psram_largest_value, \
+           event->telemetry_generation, telemetry_hash_value, \
+           event->telemetry_runtime_busy_drops, event->control_generation, \
+           control_version_value, control_hash_value, \
+           event->health_reconciled ? "true" : "false"
+#define WH_SIGNED_UPDATE_EVENT_REST \
+           "\"failure\":\"%s\",\"attempt_id\":%s,\"boot_id\":\"%016" PRIx64 "\"," \
+           "\"origin_boot_id\":\"%016" PRIx64 "\",\"accepted_floor\":%" PRIu64 "," \
+           "\"ledger_readback_sequence\":%" PRIu64 "," \
+           "\"scenario\":%u,\"component\":%u,\"target_version\":%u,\"release_version\":%s," \
+           "\"sequence\":%" PRIu64 ",\"payload_bytes_expected\":%" PRIu32 "," \
+           "\"payload_bytes_received\":%" PRIu32 "," \
+           "\"current_task_stack_high_water_bytes\":%" PRIu32 "," \
+           "\"payload_sha256\":%s," \
+           "\"running_sha256\":%s," \
+           "\"manifest_sha256\":%s,\"elapsed_us\":%" PRIu64 "," \
+           "\"elapsed_scope\":\"%s\",\"heap\":{\"internal_free_bytes\":%zu," \
+           "\"internal_largest_free_block_bytes\":%zu,\"psram_free_bytes\":%s," \
+           "\"psram_largest_free_block_bytes\":%s},\"telemetry_generation\":%" PRIu64 "," \
+           "\"telemetry_sha256\":%s,\"telemetry_runtime_busy_drops\":%" PRIu64 "," \
+           "\"control_generation\":%" PRIu64 "," \
+           "\"control_module_version\":%s,\"control_sha256\":%s," \
+           "\"health_reconciled\":%s}\n"
+    int written;
+    if (line) {
+        written = snprintf(line, capacity,
+           "WASMHOME_UPDATE,{\"event\":\"%s\",\"phase\":\"%s\",\"status\":\"%s\","
+           WH_SIGNED_UPDATE_EVENT_REST,
+           WH_SIGNED_UPDATE_EVENT_ARGUMENTS);
+    } else {
+        printf("WASMHOME_UPDATE,{\"event\":\"%s\",\"phase\":\"%s\",\"status\":\"%s\","
+               WH_SIGNED_UPDATE_EVENT_REST,
+               WH_SIGNED_UPDATE_EVENT_ARGUMENTS);
+        return ESP_OK;
+    }
+#undef WH_SIGNED_UPDATE_EVENT_ARGUMENTS
+#undef WH_SIGNED_UPDATE_EVENT_REST
+    if (written < 0 || (size_t)written >= capacity)
+        return ESP_ERR_INVALID_SIZE;
+    *line_size = (size_t)written;
+    return ESP_OK;
+}
+
+esp_err_t wh_signed_update_format_event(const wh_signed_update_event_t *event,
+                                       char *line, size_t capacity,
+                                       size_t *line_size)
+{
+    if (line_size) *line_size = 0;
+    if (!line || capacity == 0 || !line_size) return ESP_ERR_INVALID_ARG;
+    return render_signed_update_event(event, line, capacity, line_size);
+}
+
+void wh_signed_update_emit_event(const wh_signed_update_event_t *event)
+{
+    (void)render_signed_update_event(event, NULL, 0, NULL);
 }
 
 static uint32_t crc32_bytes(const uint8_t *data, size_t size)

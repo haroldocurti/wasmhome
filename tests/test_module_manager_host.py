@@ -81,6 +81,7 @@ STUBS = {
         typedef int BaseType_t;
         typedef unsigned UBaseType_t;
         typedef uint32_t TickType_t;
+        typedef void *TaskHandle_t;
         typedef pthread_mutex_t portMUX_TYPE;
         #define pdTRUE 1
         #define pdFALSE 0
@@ -117,6 +118,7 @@ STUBS = {
         #pragma once
         #include "freertos/FreeRTOS.h"
         TickType_t xTaskGetTickCount(void);
+        TaskHandle_t xTaskGetCurrentTaskHandle(void);
         UBaseType_t uxTaskGetStackHighWaterMark(void *task);
         void vTaskDelayUntil(TickType_t *previous, TickType_t increment);
     ''',
@@ -567,6 +569,8 @@ void vSemaphoreDelete(SemaphoreHandle_t handle)
 static void sleep_ms(unsigned ms) { struct timespec t = {.tv_sec = ms / 1000, .tv_nsec = (long)(ms % 1000) * 1000000}; nanosleep(&t, NULL); }
 void vTaskDelay(TickType_t ticks) { sleep_ms(ticks ? ticks : 1); }
 TickType_t xTaskGetTickCount(void) { return (TickType_t)(esp_timer_get_time() / 1000); }
+TaskHandle_t xTaskGetCurrentTaskHandle(void)
+{ return (TaskHandle_t)(uintptr_t)pthread_self(); }
 UBaseType_t uxTaskGetStackHighWaterMark(void *task) { (void)task; return 100; }
 void vTaskDelayUntil(TickType_t *previous, TickType_t increment)
 {
