@@ -6,6 +6,23 @@
 
 Este documento fixa as regras da campanha normal e do piloto. Ele não registra uma execução física. A situação da bancada e o inventário de evidências estão em [registro do piloto #20](evidence/issue20-pilot-2026-10-16/README.md).
 
+## Origem da imagem-base
+
+A imagem-base selecionada é o snapshot privado integral de 16/10/2026 com
+SHA-256 `b66c24a3514be56702c1cf7f8d2116e44d5fe0475e3c3c67b65850258eb18ae3`.
+Sua origem, tamanho e relação com snapshots históricos estão registrados na
+[auditoria da imagem-base](evidence/issue20-pilot-2026-10-16/backup-audit.md).
+Os hashes `4fcc…` e `b00…` são de sessões anteriores e não substituem essa
+imagem: o primeiro identifica outro dump integral de 14/10; o segundo identifica
+um backup de apenas 1 MiB da partição de aplicação.
+
+Antes de qualquer escrita, confirmar a identidade da placa, flash de 16 MiB e
+ler a flash atual integralmente. O hash lido deve coincidir com
+`b66c24a3514be56702c1cf7f8d2116e44d5fe0475e3c3c67b65850258eb18ae3`. Se não
+for possível obter essa leitura ou houver qualquer divergência de identidade,
+tamanho ou hash, interromper sem gravar e reconciliar a baseline com evidência
+nova. Não selecionar silenciosamente um snapshot histórico alternativo.
+
 ## Escopo e resultados
 
 - Comparar A (OTA nativo), B (WAMR interpretado) e C (WAMR AOT) no mesmo ESP32-S3, com a mesma rede, servidor HTTPS, observador, carga funcional e contrato de controle.
@@ -52,10 +69,9 @@ este prazo de atualização.
 2. Antes do primeiro slot, identificar a placa e o adaptador pelo inventário do
    sistema, consultar o ID do chip e o tamanho da flash com a ferramenta
    apropriada sem gravar e ler a flash inteira. Confirmar a imagem-base
-   autorizada de 16 MiB, SHA-256
-   `b66c24a3514be56702c1cf7f8d2116e44d5fe0475e3c3c67b65850258eb18ae3`.
-   Se houver divergência, parar e reconciliar o estado antes de gravar. Guardar
-   o recibo de backup.
+   autorizada de 16 MiB definida acima. Se não for possível comprovar que a
+   leitura integral atual coincide com ela, parar e reconciliar o estado antes
+   de gravar. Guardar o recibo de backup.
 3. Só iniciar gravação depois de confirmar que o ID do chip, o tamanho da flash,
    o arquivo de backup autorizado e seu hash correspondem à placa esperada. Se
    qualquer identidade/estado for incerto, parar. Restaurar a imagem-base

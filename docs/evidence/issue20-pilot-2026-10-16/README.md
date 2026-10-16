@@ -47,6 +47,14 @@ abrir a serial. Esse bloqueio físico deixa o piloto em A `0/5`, B `0/5`, C `0/5
 
 ## Trabalho possível concluído
 
+- A origem de `b66c24a3…` foi auditada somente por leitura: o arquivo privado de
+  16 MiB coincide com seu recibo; a leitura pré-HIL e a restauração final da #16
+  repetem o hash, com oito regiões verificadas. `4fcc…` pertence a um dump
+  integral de outra sessão; `b00…` é histórico de um backup de aplicação de
+  1 MiB. A cadeia e os limites estão em [auditoria da imagem-base](backup-audit.md).
+  Isso não identifica a placa atualmente conectada: qualquer escrita continua
+  bloqueada até o preflight vivo confirmar ID, tamanho e leitura integral igual
+  a `b66…`.
 - Revisados `CONTEXT.md`, checklist, plano de execução, plano detalhado,
   protocolo UDP e resultados/calibração das issues #16–#19.
 - Congelados limites, janelas, preparação, classificação de resultados e
