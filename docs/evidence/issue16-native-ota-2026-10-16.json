@@ -1,0 +1,219 @@
+{
+  "schema": "wasmhome-issue16-native-ota-evidence-v1",
+  "date": "2026-10-16",
+  "result": "passed",
+  "source": {
+    "commit": "269afe2ee4291c5877009356201b94d1cb354465",
+    "tree": "d4fc93caa712ca2f00f01d7f22618bf6bb939855",
+    "idf": "ESP-IDF v5.2.6",
+    "python": "3.11"
+  },
+  "build": {
+    "receipt_sha256": "965cf19a8b9297385ab20ca987573d056021dda74d5ee0197255d5eac26ea681",
+    "only_expected_version_config_keys_differ": true,
+    "images": [
+      {
+        "version": "v1",
+        "bytes": 898832,
+        "app_desc": "v1",
+        "sha256": "cbab0994735000ac368b6004e3d32fde1faf611ce8aa0f4ccf35d6ca0c1f23b6"
+      },
+      {
+        "version": "v2",
+        "bytes": 898832,
+        "app_desc": "v2",
+        "sha256": "8df016fe253d58eb0b9073037e38cf6568162a0964c03aa2aa384d9185f44137"
+      }
+    ]
+  },
+  "https_and_signatures": {
+    "campaign": "issues16-18-bench-20261016-observer13",
+    "get_count": 13,
+    "all_status_200": true,
+    "immutable_cache_headers": true,
+    "ca_verified": true,
+    "hostname_verified": true,
+    "signature_verification_count": 6,
+    "public_signing_pin_sha256": "5a068ceb66e76b886b676982ea94ac9fa75a6f8b26a47fe54657459e8570fcd2",
+    "host_receipt_sha256": "0f46b173695e3a51310d0e27df471f6007b972e3e3c0be37be6e2e414363bdc6",
+    "signature_receipt_sha256": "a2d27bc25cfd12694a7b393579f2602b3adc26269fafdefab4a8d66de3cb87d6",
+    "artifacts": [
+      {
+        "scenario": 1,
+        "component": "firmware",
+        "version": "v1",
+        "sequence": 1,
+        "bytes": 898832,
+        "sha256": "cbab0994735000ac368b6004e3d32fde1faf611ce8aa0f4ccf35d6ca0c1f23b6"
+      },
+      {
+        "scenario": 1,
+        "component": "firmware",
+        "version": "v2",
+        "sequence": 2,
+        "bytes": 898832,
+        "sha256": "8df016fe253d58eb0b9073037e38cf6568162a0964c03aa2aa384d9185f44137"
+      },
+      {
+        "scenario": 2,
+        "component": "gpio-control",
+        "version": "v1",
+        "sequence": 1,
+        "bytes": 328,
+        "sha256": "80e885af2f93152efa9f66f04955edb82cbe1920332b32b729b9c48c4307bff2"
+      },
+      {
+        "scenario": 2,
+        "component": "gpio-control",
+        "version": "v2",
+        "sequence": 2,
+        "bytes": 328,
+        "sha256": "3a972948112397acdaad03c81714a3daf147ecce926f0854341e58a350f3d5c5"
+      },
+      {
+        "scenario": 3,
+        "component": "gpio-control",
+        "version": "v1",
+        "sequence": 1,
+        "bytes": 1256,
+        "sha256": "a9c4c7e440ee37e7b53dbcb6d2e8009dd00e4a6fe278180bb9b9ef485e0a5746"
+      },
+      {
+        "scenario": 3,
+        "component": "gpio-control",
+        "version": "v2",
+        "sequence": 2,
+        "bytes": 1256,
+        "sha256": "293d78b1af5e0c7e76593d9b8e755692ee311d8427c43d94673ddfd499d5bf53"
+      }
+    ]
+  },
+  "successful_hil": {
+    "target": "ESP32-S3",
+    "native_v1_to_v2": true,
+    "analyzer_result": "passed",
+    "analyzer_checks_passed": 15,
+    "update_event_count": 26,
+    "payload_bytes": 898832,
+    "payload_sha256": "8df016fe253d58eb0b9073037e38cf6568162a0964c03aa2aa384d9185f44137",
+    "running_image_hash_matches_payload": true,
+    "accepted_floor_before": 0,
+    "accepted_floor_after_readback": 2,
+    "boot_count": 2,
+    "first_v2_27c_gpio_result": "low",
+    "last_v1_27c_gpio_result": "high",
+    "v1_27c_valid_responses_before_acceptance": 188,
+    "v2_27c_valid_responses_after_activation": 746,
+    "phase_durations_us_within_boot_only": {
+      "accepted_to_manifest_download_started": 66900,
+      "manifest_download_started_to_manifest_downloaded": 4838580,
+      "manifest_downloaded_to_signature_verified": 261552,
+      "signature_verified_to_payload_download_started": 156676,
+      "payload_download_started_to_payload_verified": 6762880,
+      "payload_verified_to_staged": 419045,
+      "staged_to_activating": 84805,
+      "activating_to_reboot_requested": 212372,
+      "boot_pending_to_health_check_passed": 2193509,
+      "health_check_passed_to_floor_committed": 195764
+    },
+    "host_monotonic_times_ns": {
+      "trigger_to_first_v2": 16303452369,
+      "acceptance_to_first_v2": 16296308228,
+      "last_v1_to_first_v2_gap": 3495783592,
+      "estimated_control_unavailability": 3395783592,
+      "telemetry_max_gap": 3341380146
+    },
+    "service": {
+      "control_period_ns": 100000000,
+      "control_requests": 2965,
+      "valid_controls": 2931,
+      "control_timeouts": 34,
+      "valid_telemetry": 2922,
+      "telemetry_unavailable": 15,
+      "unresolved_sequence_gaps": 0
+    },
+    "phase_heap_snapshots": [
+      {
+        "phase": "accepted",
+        "boot": "old",
+        "internal_free_bytes": 226339,
+        "internal_largest_block_bytes": 124928,
+        "psram_free_bytes": 8384416,
+        "psram_largest_block_bytes": 8257536
+      },
+      {
+        "phase": "payload_verified",
+        "boot": "old",
+        "internal_free_bytes": 225379,
+        "internal_largest_block_bytes": 100352,
+        "psram_free_bytes": 8384416,
+        "psram_largest_block_bytes": 8257536
+      },
+      {
+        "phase": "boot_pending",
+        "boot": "new",
+        "internal_free_bytes": 252383,
+        "internal_largest_block_bytes": 155648,
+        "psram_free_bytes": 8384416,
+        "psram_largest_block_bytes": 8257536
+      },
+      {
+        "phase": "health_check_passed",
+        "boot": "new",
+        "internal_free_bytes": 226335,
+        "internal_largest_block_bytes": 124928,
+        "psram_free_bytes": 8384416,
+        "psram_largest_block_bytes": 8257536
+      },
+      {
+        "phase": "floor_committed",
+        "boot": "new",
+        "internal_free_bytes": 226335,
+        "internal_largest_block_bytes": 124928,
+        "psram_free_bytes": 8384416,
+        "psram_largest_block_bytes": 8257536
+      }
+    ],
+    "minimum_heap_scope": "minimum among recorded phase snapshots, not a global allocation peak",
+    "boot_reconcile_worker_stack_remaining_bytes": [5740, 3964],
+    "physical_rollback_or_power_loss_tested": false,
+    "analyzer_receipt_sha256": "7ef8354c972245571156c5b8c015f7117a5c7b51390c83d2a80f93ef9251dc38",
+    "observer_summary_receipt_sha256": "d4ca56d8526024bb1fc3a61cbc3e5017faddb1ecfed6ce5ed9f6f2630d971bba"
+  },
+  "setup_only_history": [
+    {
+      "trigger_sent": false,
+      "result": "setup_failed",
+      "reason": "native observer was unconfigured and main-task stack exhaustion caused repeated reset during initialization"
+    },
+    {
+      "trigger_sent": false,
+      "result": "configuration_preflight_failed",
+      "reason": "observer port and version profile did not pass preflight"
+    },
+    {
+      "trigger_sent": false,
+      "result": "baseline_preflight_passed",
+      "duration_seconds": 60,
+      "valid_controls": 566,
+      "valid_telemetry": 570,
+      "losses": 0,
+      "unresolved_sequence_gaps": 0
+    }
+  ],
+  "host_tests": {
+    "command": "python3 -m unittest discover -s tests -v (with the pinned PowerShell runtime on PATH)",
+    "tests_run": 156,
+    "skipped": 5,
+    "result": "passed"
+  },
+  "flash_restoration": {
+    "bytes": 16777216,
+    "sha256": "b66c24a3514be56702c1cf7f8d2116e44d5fe0475e3c3c67b65850258eb18ae3",
+    "all_eight_region_comparisons_match": true,
+    "board_left_in_rom": true,
+    "full_restore_receipt_sha256": "7511e3ff8324ea544205d12089914a7282024d8f98e49a8973d567f4922f1a17",
+    "region_receipt_sha256": "0ae9871c1437b5942c18373dd4982d553471634318e700567ff8b692ebe27c9a"
+  },
+  "raw_evidence_published": false
+}
