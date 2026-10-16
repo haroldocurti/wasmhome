@@ -1,7 +1,7 @@
 # Protocolo pré-registrado da campanha — issue #20
 
-**Revisão:** `issue20-v1.0`, 16/10/2026  
-**Estado:** parâmetros congelados antes do piloto; execução física pendente.  
+**Revisão:** `issue20-v1.0`, 16/10/2026
+**Estado:** parâmetros congelados antes do piloto; execução física pendente.
 **Base:** revisão do contrato existente, evidência física das issues #16–#18 e calibração da #19. O piloto avaliará se a bancada e a coleta cumprem este protocolo; não será usado para escolher um limite diferente depois de observar resultados.
 
 Este documento fixa as regras da campanha normal e do piloto. Ele não registra uma execução física. A situação da bancada e o inventário de evidências estão em [registro do piloto #20](evidence/issue20-pilot-2026-10-16/README.md).
