@@ -2169,11 +2169,16 @@ control_thread_entry(void *argument)
                     job.prepare->event_fn, job.prepare->context);
             }
             xSemaphoreGive(api_lock);
-            if (logs_started && deferred_logs_flush() != ESP_OK) {
-                xSemaphoreTake(manager_lock, portMAX_DELAY);
-                manager_degraded = true;
-                accepting_requests = false;
-                xSemaphoreGive(manager_lock);
+            if (logs_started) {
+                const esp_err_t flush_result = deferred_logs_flush();
+                if (flush_result != ESP_OK) {
+                    xSemaphoreTake(manager_lock, portMAX_DELAY);
+                    manager_degraded = true;
+                    accepting_requests = false;
+                    xSemaphoreGive(manager_lock);
+                    if (job.prepare->result == ESP_OK)
+                        job.prepare->result = flush_result;
+                }
             }
             xSemaphoreGive(job.prepare->done);
             update_stack_high_water(&control_stack_high_water);
