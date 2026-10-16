@@ -170,6 +170,8 @@ class ModuleUpdateAnalysisTests(unittest.TestCase):
         report = analyze(*fixture(), expected_scenario=2)
         self.assertEqual(report["result"], "passed")
         self.assertTrue(all(check["passed"] for check in report["checks"].values()))
+        self.assertTrue(report["checks"]["module_log_stream_complete"]["passed"])
+        self.assertEqual(report["checks"]["module_log_stream_complete"]["observed"]["record_count"], 0)
         self.assertEqual(report["payload"]["bytes_received"], 328)
         self.assertTrue(report["checks"]["verified_payload_is_active_module"]["passed"])
         self.assertEqual(report["memory"]["minimum_internal_free_bytes"], 169_000)
@@ -344,6 +346,54 @@ class ModuleUpdateAnalysisTests(unittest.TestCase):
     def test_module_memory_parser_rejects_malformed_json(self):
         with self.assertRaisesRegex(ValueError, "invalid WASMHOME_MODULE_MEMORY JSON"):
             analyze(b"WASMHOME_MODULE_MEMORY,{broken}\n", b"", b"{}", expected_scenario=2)
+
+    def test_module_log_failure_markers_fail_an_otherwise_complete_capture(self):
+        markers = (
+            "deferred_log_overflow",
+            "record_truncated",
+            "update_event_format_failed",
+            "deferred_log_begin_failed",
+        )
+        for marker in markers:
+            with self.subTest(marker=marker):
+                serial, observations, summary = fixture()
+                record = {"schema": "wasmhome-module-log-v1", "event": marker}
+                if marker == "deferred_log_overflow":
+                    record["dropped_records"] = 1
+                serial += b"\nWASMHOME_MODULE_LOG," + json.dumps(record).encode() + b"\n"
+                report = analyze(serial, observations, summary, expected_scenario=2)
+                self.assertEqual(report["result"], "incomplete_or_failed")
+                check = report["checks"]["module_log_stream_complete"]
+                self.assertFalse(check["passed"])
+                self.assertEqual(check["observed"]["failure_records"][0]["event"], marker)
+                self.assertTrue(all(value["passed"] for name, value in report["checks"].items()
+                                    if name != "module_log_stream_complete"))
+
+    def test_malformed_or_unrecognized_module_log_fails_an_otherwise_complete_capture(self):
+        malformed_rows = (
+            b"WASMHOME_MODULE_LOG,{broken}\n",
+            b'WASMHOME_MODULE_LOG,{"event":"record_truncated"}\n',
+            b"WASMHOME_MODULE_LOG,[]\n",
+        )
+        for row in malformed_rows:
+            with self.subTest(row=row):
+                serial, observations, summary = fixture()
+                serial += b"\n" + row
+                report = analyze(serial, observations, summary, expected_scenario=2)
+                self.assertEqual(report["result"], "incomplete_or_failed")
+                check = report["checks"]["module_log_stream_complete"]
+                self.assertFalse(check["passed"])
+                self.assertTrue(check["observed"]["malformed_records"])
+                self.assertTrue(all(value["passed"] for name, value in report["checks"].items()
+                                    if name != "module_log_stream_complete"))
+
+        serial, observations, summary = fixture()
+        serial += (b'\nWASMHOME_MODULE_LOG,{"schema":"wasmhome-module-log-v1",'
+                   b'"event":"future_event"}\n')
+        report = analyze(serial, observations, summary, expected_scenario=2)
+        self.assertFalse(report["checks"]["module_log_stream_complete"]["passed"])
+        self.assertTrue(report["checks"]["module_log_stream_complete"]["observed"][
+            "unrecognized_records"])
 
     def test_v1_result_after_first_v2_is_a_version_regression(self):
         serial, observations, summary = fixture()
