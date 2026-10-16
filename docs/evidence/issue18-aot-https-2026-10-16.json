@@ -1,158 +1,225 @@
 {
-  "schema": "wasmhome-issue18-aot-https-evidence-v1",
-  "result": "passed",
-  "scope": "normal-path signed HTTPS AOT control update, same-boot service continuity, functional post-reset persistence smoke, and full flash restoration",
-  "source": {
-    "revision": "e327401407fde799f555261ec7921969fcdf35bf",
-    "profile": "module-aot",
-    "target": "ESP32-S3",
-    "esp_idf": "5.2.6"
+  "activation_lock_phase_durations_us": {
+    "api_lock_held": 83756,
+    "candidate_health_check": 409,
+    "candidate_load": 11107,
+    "control_pointer_swap": 9,
+    "ledger_commit": 66342,
+    "previous_control_release": 1658
   },
   "build": {
+    "all_12_generated_output_digests_rechecked": true,
+    "all_four_signed_control_payloads_byte_equal_frozen_package": true,
+    "bin_bytes": 1036640,
+    "bin_sha256": "7513104cf7afcc709d5b04ae325e7921388e1e48ade5980caa94b80672ebeaa2",
+    "build_review_sha256": "c728cf36ae1bc9da73177b81a5a2f32136aafd55c86cc363b1c3f265f1d18e18",
+    "canonical_service_manifest_sha256": "4ccd1944c65d58b08f6c013717a36ae283c73f6c2c244e868e0b8d1c5d62fedf",
+    "elf_sha256": "abf0484f4f9b3d7732869fb5148c0ad1d30c4eb9111fcd5a6678d671f2975e41",
+    "generated_output_count": 12,
+    "generated_output_sha256": {
+      "service_control_v1_aot": "a9c4c7e440ee37e7b53dbcb6d2e8009dd00e4a6fe278180bb9b9ef485e0a5746",
+      "service_control_v1_aot_embedded.c": "cdd981f67d1fded86202f5cf5d5a10a864997de0906c6320fdcf6ef42e044237",
+      "service_control_v1_wasm": "80e885af2f93152efa9f66f04955edb82cbe1920332b32b729b9c48c4307bff2",
+      "service_control_v1_wasm_embedded.c": "9cdd1869220726f52cad07efe6b0db3b061508505ebccba140ff528a62bcc911",
+      "service_control_v2_aot": "293d78b1af5e0c7e76593d9b8e755692ee311d8427c43d94673ddfd499d5bf53",
+      "service_control_v2_aot_embedded.c": "22b8207d3dc23ea5c12a56a7147a0432c4b07f211674102b10326a2049eda80a",
+      "service_control_v2_wasm": "3a972948112397acdaad03c81714a3daf147ecce926f0854341e58a350f3d5c5",
+      "service_control_v2_wasm_embedded.c": "cd177120c2ea2dbc759da03cffe5089e9f0f6489e702afae5620a7ace60b08be",
+      "service_telemetry_aot": "e8c6e6ff9c7fc01445adc32b181d755252b99758c01af68970b51d6ad445ea63",
+      "service_telemetry_aot_embedded.c": "b0c241362b21470e268dbc03f870af6c7d6a076801bab4cd0156140fe89bac6b",
+      "service_telemetry_wasm": "03dabd22bb69276546bade37bccc318fe7a84e3cb63c9420c6ca7e758b04eb11",
+      "service_telemetry_wasm_embedded.c": "69749018eaae5d28ef56f76cd9b577d5e39ebae245bf1b4319f8bc96a66d4802"
+    },
+    "image_info_sha256": "565af31d2503dba3960078257ea7fc1513dad2a699686a9eda70d727b45f99c7",
+    "image_info_valid": true,
+    "root_build_and_stack_review_sha256": "a234c30bfbc265a747aa93c5beccb6f3c72dfc8cd6461a940dab43d8bf526813",
+    "wamr_allocator_abi_checker": "PASS manager and runtime both compile with WASM_MEM_ALLOC_WITH_USAGE=1"
+  },
+  "campaign": "issues16-18-bench-20261016-observer13",
+  "device_phase_durations_us": {
+    "accepted_to_manifest_download_started_us": 78072,
+    "activating_to_candidate_loaded_us": 92364,
+    "candidate_health_check_to_floor_committed_us": 67406,
+    "candidate_instantiated_to_candidate_health_check_us": 2597,
+    "candidate_loaded_to_candidate_instantiated_us": 6151,
+    "control_activated_to_previous_control_released_us": 2701,
+    "floor_committed_to_control_activated_us": 1274,
+    "manifest_download_started_to_manifest_downloaded_us": 3346516,
+    "manifest_downloaded_to_signature_verified_us": 276048,
+    "payload_download_started_to_payload_verified_us": 948336,
+    "payload_verified_to_staged_us": 160944,
+    "signature_verified_to_payload_download_started_us": 175344,
+    "staged_to_activating_us": 107144
+  },
+  "earlier_aot_attempts": {
+    "01": "rejected before trigger at allocator callback ABI boundary",
+    "02": "rejected by strict analyzer after a reset after observer start split boot IDs and telemetry coverage failed",
+    "03": "pre-read and stack-gate preparation only; no firmware write or trigger"
+  },
+  "evidence_handling": "Raw UART, observer captures, configuration, flash snapshots, packet captures, and credentials remain private. This JSON publishes only sanitized measurements and reviewed cryptographic digests.",
+  "host_suite": {
+    "tests_run": 168,
+    "passed": 167,
+    "skipped": 1,
+    "skip_reason": "Windows-only test on Linux host",
+    "wire_codec_c_library_available": true,
+    "powershell_version": "7.6.6"
+  },
+  "historical_aot04": {
     "bin_bytes": 1036496,
     "bin_sha256": "798d7248e5fb85759b7049dbca923798e9455ffb869b415b8da99418af33b697",
-    "elf_sha256": "2d904f7b6a9e611285a692c12e3abf2e6139740ff6cedc458427204ffba3b193",
-    "image_info_valid": true,
-    "wamr_allocator_abi_checker": "PASS manager+runtime macro=1",
-    "build_receipt_sha256": "361b0a56c974566d863f6064f70257266c4f7701cee4ad8a1ed47298474dc061",
-    "stack_review_sha256": "8de194ec629e8ca9b4ca21f6ce5715524da5c6fca67880deaee6e5c32dd3bedf"
+    "estimated_control_unavailability_ms": 1406.048287,
+    "reason_aot05_is_primary": "A shared bounded telemetry-lock wait was added after issue17 interp01 missed strict telemetry coverage by one sample.",
+    "result": "accepted historical evidence, strict 24/24 checks",
+    "service_gap_ms": 1506.048287,
+    "source_revision": "e327401407fde799f555261ec7921969fcdf35bf",
+    "telemetry_busy_drop_delta": 0,
+    "telemetry_during_update": 65,
+    "telemetry_max_gap_ms": 141.992804,
+    "telemetry_minimum_expected": 65,
+    "valid_v1_27c_high_before_acceptance": 66,
+    "valid_v2_27c_low_after_activation": 211
+  },
+  "main_service_observation": {
+    "control_timeouts": 14,
+    "estimated_control_unavailability_ms": 1405.387202,
+    "last_v1_to_first_v2_gap_ms": 1505.387202,
+    "late_controls": 8,
+    "telemetry_baseline_median_cadence_ms": 100.033978,
+    "telemetry_during_update": 66,
+    "telemetry_max_gap_during_update_ms": 160.223061,
+    "telemetry_minimum_expected_during_update": 65,
+    "telemetry_runtime_busy_drop_delta": 0,
+    "telemetry_two_cadence_limit_ms": 200.067956,
+    "trigger_to_first_v2_response_ms": 6624.129703,
+    "unresolved_sequence_gaps": 0,
+    "valid_control_responses": 885,
+    "valid_telemetry": 903
   },
   "main_update": {
     "analyzer_checks_passed": 24,
     "analyzer_checks_total": 24,
-    "same_boot": true,
-    "scenario": 3,
     "component": 1,
-    "target_sequence": 2,
-    "release_version": "v2",
-    "payload_bytes_expected": 1256,
-    "payload_bytes_received": 1256,
-    "payload_sha256": "293d78b1af5e0c7e76593d9b8e755692ee311d8427c43d94673ddfd499d5bf53",
-    "floor_committed_readback_sequence": 2,
-    "control_before": {
-      "generation": 2,
-      "version": 1,
-      "sha256": "a9c4c7e440ee37e7b53dbcb6d2e8009dd00e4a6fe278180bb9b9ef485e0a5746"
-    },
     "control_after": {
       "generation": 3,
-      "version": 2,
-      "sha256": "293d78b1af5e0c7e76593d9b8e755692ee311d8427c43d94673ddfd499d5bf53"
+      "sha256": "293d78b1af5e0c7e76593d9b8e755692ee311d8427c43d94673ddfd499d5bf53",
+      "version": 2
     },
-    "telemetry_identity_before_and_after": {
-      "generation": 1,
-      "sha256": "e8c6e6ff9c7fc01445adc32b181d755252b99758c01af68970b51d6ad445ea63"
+    "control_before": {
+      "generation": 2,
+      "sha256": "a9c4c7e440ee37e7b53dbcb6d2e8009dd00e4a6fe278180bb9b9ef485e0a5746",
+      "version": 1
     },
     "control_behavior_at_27c": {
       "valid_v1_high_before_acceptance": 66,
       "valid_v2_low_after_activation": 211
     },
-    "update_event_count": 15,
-    "recovery": "no_failure_observed_recovery_not_exercised"
-  },
-  "main_service_observation": {
-    "valid_telemetry": 902,
-    "valid_control_responses": 885,
-    "control_timeouts": 14,
-    "late_controls": 8,
-    "unresolved_sequence_gaps": 0,
-    "trigger_to_first_v2_response_ms": 6628.855646,
-    "acceptance_to_first_v2_response_ms": 6623.503079,
-    "last_v1_to_first_v2_gap_ms": 1506.048287,
-    "estimated_control_unavailability_ms": 1406.048287,
-    "telemetry_during_update": 65,
-    "telemetry_minimum_expected_during_update": 65,
-    "telemetry_baseline_median_cadence_ms": 100.094849,
-    "telemetry_max_gap_during_update_ms": 141.992804,
-    "telemetry_max_gap_limit_ms": 200.189698,
-    "telemetry_runtime_busy_drop_delta": 0
-  },
-  "device_phase_durations_ms": {
-    "accepted_to_manifest_download_started": 78.125,
-    "manifest_download_started_to_downloaded": 3346.026,
-    "manifest_downloaded_to_signature_verified": 275.197,
-    "signature_verified_to_payload_download_started": 167.916,
-    "payload_download_started_to_verified": 953.455,
-    "payload_verified_to_staged": 161.555,
-    "staged_to_activating": 107.98,
-    "activating_to_candidate_loaded": 92.484,
-    "candidate_loaded_to_instantiated": 6.016,
-    "candidate_instantiated_to_health_check": 2.666,
-    "health_check_to_floor_committed": 65.307,
-    "floor_committed_to_control_activated": 1.289,
-    "control_activated_to_previous_control_released": 2.678
-  },
-  "critical_section_timing_ms": {
-    "api_lock_held": 81.642,
-    "candidate_load": 11.09,
-    "candidate_health_check": 0.414,
-    "ledger_commit_and_readback": 64.246,
-    "control_pointer_swap": 0.008,
-    "previous_control_release": 1.645,
-    "interpretation": "MCU phase timing, separate from host-observed service gap; pointer-swap duration is not end-to-end availability, and deferred serial emission still delays subsequent control work."
+    "downloaded_manifest_sha256": "ad778015f38ea297eeb771d83d71f5b091cd4a6d7f878b48e4b1328cf10982ca",
+    "floor_committed_readback_sequence": 2,
+    "no_serial_reopen_or_reset_after_observer_start": true,
+    "observed_update_boot_count": 1,
+    "payload_bytes_expected": 1256,
+    "payload_bytes_received": 1256,
+    "payload_sha256": "293d78b1af5e0c7e76593d9b8e755692ee311d8427c43d94673ddfd499d5bf53",
+    "pre_observer_power_on_records_in_uart": 2,
+    "recovery": "no failure observed; physical recovery not exercised",
+    "release_version": "v2",
+    "same_boot": true,
+    "scenario": 3,
+    "target_sequence": 2,
+    "telemetry_identity_before_activation_and_after_old_release": {
+      "after_old_control_release": [
+        1,
+        "e8c6e6ff9c7fc01445adc32b181d755252b99758c01af68970b51d6ad445ea63"
+      ],
+      "at_activation": [
+        1,
+        "e8c6e6ff9c7fc01445adc32b181d755252b99758c01af68970b51d6ad445ea63"
+      ],
+      "before": [
+        1,
+        "e8c6e6ff9c7fc01445adc32b181d755252b99758c01af68970b51d6ad445ea63"
+      ]
+    },
+    "update_event_count": 15
   },
   "memory": {
-    "minimum_internal_heap_free_bytes": 139695,
-    "minimum_internal_largest_free_block_bytes": 41984,
+    "control_stack_high_water_remaining_bytes_at_first_v2_control_operation": 6624,
+    "heap_values_are_phase_snapshots": true,
+    "minimum_internal_heap_free_bytes": 139719,
+    "minimum_internal_largest_free_block_bytes": 43008,
     "minimum_psram_free_bytes": 8082796,
-    "wamr_allocator_peak_bytes": 259432,
+    "minimum_psram_largest_free_block_bytes": 7995392,
+    "stack_high_water_unit_note": "Legacy fields end in _words; on this ESP-IDF 5.2.6 Xtensa target StackType_t is one byte, so reported values are bytes remaining.",
+    "telemetry_stack_high_water_remaining_bytes_at_first_v2_control_operation": 9696,
     "wamr_allocator_failures": 0,
-    "telemetry_stack_high_water_remaining_bytes": 9696,
-    "control_stack_high_water_remaining_bytes": 6780,
-    "stack_high_water_unit_note": "Legacy field names include words; ESP-IDF 5.2.6 Xtensa uses one-byte StackType_t, so recorded high-water counts are bytes remaining."
+    "wamr_allocator_peak_bytes": 259432
   },
   "persistence_smoke": {
-    "result": "passed",
-    "new_boot_distinct_from_main": true,
-    "duration_seconds": 12,
-    "update_triggered": false,
-    "valid_v2_control_responses": 119,
+    "control_max_gap_ms": 125.424403,
     "control_timeouts": 0,
-    "valid_telemetry": 122,
-    "unresolved_sequence_gaps": 0,
+    "duration_seconds": 20.0,
+    "limitation": "Functional persistence of v2 across reboot. No direct post-reboot ledger/hash readback.",
+    "new_boot_distinct_from_main": true,
     "responses_by_temperature": {
-      "23000_mC_gpio_low": 40,
-      "27000_mC_gpio_low": 39,
-      "32000_mC_gpio_high": 40
+      "23000_mC_gpio_low": 67,
+      "27000_mC_gpio_low": 66,
+      "32000_mC_gpio_high": 66
     },
-    "control_max_gap_ms": 119.869256,
-    "telemetry_max_gap_ms": 201.736737,
-    "limitation": "Functional v2 persistence across a new boot only; no post-reset ledger sequence or payload-hash readback was performed."
+    "result": "passed",
+    "telemetry_max_gap_ms": 117.746446,
+    "unresolved_sequence_gaps": 0,
+    "update_triggered": false,
+    "valid_telemetry": 203,
+    "valid_v2_control_responses": 199
   },
-  "earlier_attempts": {
-    "01": "rejected before trigger because module startup failed at the allocator callback ABI boundary",
-    "02": "rejected by strict same-boot analysis: a reset after observer start split the capture across two boot IDs; telemetry coverage also failed",
-    "03": "pre-read and stack-gate preparation only; no firmware write, reset, or trigger"
+  "private_evidence_sha256": {
+    "build_review": "c728cf36ae1bc9da73177b81a5a2f32136aafd55c86cc363b1c3f265f1d18e18",
+    "main_observations_jsonl": "70540c059bdb904a024e3e97ee4cc756dd76c06df58026df1b6b8bcc72293d0a",
+    "main_observer_summary": "7e4b4bbe532500c75940858fa9c77fc43b27485b4ec06f7a727ce06cb0922009",
+    "main_serial_control": "7582e2178f30f929b8bdfbf61e668fa9508408b9bc3627967df6a7fc12daf415",
+    "main_uart": "ae77f82a88f8d7667be75cc2bfb42161b376af1d7524484072b2b6e7532f7234",
+    "module_update_analysis": "7c80cd31e2aa4542d0406019a2e3b96a26fd052818f139f6cb4c5f782e1bf73d",
+    "integration_host_suite_log": "c4d58db5e4f59e2c9108eb86bdfc50039cf42eb1e8a2c8d9c3e5eae77055be69",
+    "physical_review": "7c9f73f07af10ec896f870d2e3c1e85e2cf356ccb5bc54f4f32cf4dafc8a004d",
+    "restoration_review": "c32e94f18449022ba77bc4f048a25de0a81a8b3817b9254886ccc2b3ea854f2d",
+    "restoration_verification": "05cc4804abb3092318da8671dfc6da350e2fd365bb2f76c66cec812ff4737a72",
+    "root_build_and_stack_review": "a234c30bfbc265a747aa93c5beccb6f3c72dfc8cd6461a940dab43d8bf526813",
+    "smoke_observations_jsonl": "8f247ff6d4d219b4797b3e719dc3863a3121d566a00796cf4fc56d8d95dacaf0",
+    "smoke_observer_summary": "3ddf5904ac7a291c9e068a30d7571099b4efffb1e8fc29d8428daffa4ea3901b",
+    "smoke_review": "92af9b07c3030617b4f2a2d3cc75f081ab43d6152fe3ec1fecd4530a8b2db0e4",
+    "smoke_serial_control": "ed604c157131832c8b5eb4c018b0c624c462ba6fbfe2d9be5f0d3d167b476e46",
+    "smoke_uart": "2225bb39aeb8fff1b079c240b3e206cd6982646f178027363a63dc37e1d62167",
+    "smoke_verification": "68204149756949b41ecbc12692aad485a5d6caad9ca8dc3c9d38abe2351766f0"
   },
   "restoration": {
     "baseline_bytes": 16777216,
-    "readback_bytes": 16777216,
     "baseline_sha256": "b66c24a3514be56702c1cf7f8d2116e44d5fe0475e3c3c67b65850258eb18ae3",
-    "readback_sha256": "b66c24a3514be56702c1cf7f8d2116e44d5fe0475e3c3c67b65850258eb18ae3",
+    "board_left_in_bootloader": true,
     "full_image_match": true,
-    "byte_for_byte_comparison_independently_reviewed": true,
-    "region_comparisons_passed": 8,
-    "region_comparison_review_sha256": "61c619495d32b5689b5ea1885e1ca7c1ef11045c7ef186ea09fa95483dd3bd76",
-    "board_left_in_rom": true
+    "independent_byte_for_byte_review": true,
+    "readback_bytes": 16777216,
+    "readback_sha256": "b66c24a3514be56702c1cf7f8d2116e44d5fe0475e3c3c67b65850258eb18ae3",
+    "region_comparisons_passed": 8
   },
-  "private_evidence_sha256": {
-    "build_receipt": "361b0a56c974566d863f6064f70257266c4f7701cee4ad8a1ed47298474dc061",
-    "stack_build_review": "8de194ec629e8ca9b4ca21f6ce5715524da5c6fca67880deaee6e5c32dd3bedf",
-    "analyzer_report": "7a6c6c8ed778c8d8347b0954a7cca0472e3ec1e547b980c12d37352d391d4ad5",
-    "physical_review": "76b38014a4a6df3899ce389b970de6ab5b47b2d98318b6536154c6ad01821d19",
-    "smoke_review": "c9b7104d10c0ddc44e8b42e7b59686ccae1ecd119d3f8a3a5b261da8c7dfcd6e",
-    "smoke_receipt": "82cc1799cebf277ef499a5332e55cbce488e8fe796546fb042e7fea680f94cb0",
-    "restoration_receipt": "94dcbd786af8c406f1e76cd1acdf8139e5a339b229eb84786f1a371c097e8749",
-    "restoration_review": "8d44c3f9c406980016d0d851160bbac9b13e6b02c16e88de986620ab716457d1",
-    "restoration_region_review": "61c619495d32b5689b5ea1885e1ca7c1ef11045c7ef186ea09fa95483dd3bd76",
-    "uart_main": "e44dadd2606f726461319dec2c36547c094fbb430e255549be3cdf120adb3a20",
-    "serial_control_main": "9ca55e21e106042f6658de342ae243a0781d8f7fc932ec96c3cfadf6b2ad54b0",
-    "observer_jsonl_main": "5bde2fbcf872e51be37dc2994e30e19a49c33a3c92482cbeb89c510b6765d22e",
-    "observer_summary_main": "101a84f644ea9c710ec949a5875ee7d3598b389a7b5be27e0e782b4315efa8c9",
-    "uart_smoke": "f12e2cd61c18aa0815540360fdf2780aeac9b4fa537b8de6bd26b3cecffa7ba9",
-    "serial_control_smoke": "095f8b16df057e21d585a4be1b629b56cd49905ac1b820fc497d86501c49b5f4",
-    "observer_jsonl_smoke": "47a630ca6b0ee13e9a17aedc475a073bb6ebbcd3b74c60d7e7227b7b69f8a301",
-    "observer_summary_smoke": "95d5784fc12c97af83cd29ac40337ea9a33931435d25898c0af0728e7c2a6d68"
+  "result": "passed",
+  "schema": "wasmhome-issue18-aot-https-evidence-v2",
+  "scope": "normal-path signed HTTPS AOT control update, same-boot telemetry continuity, functional v2 persistence smoke, and full flash restoration",
+  "shared_telemetry_wait_context": {
+    "aot05_passes_unchanged_24_check_analyzer": true,
+    "fix_behavior": "telemetry lock wait is bounded to one 100 ms period; WAMR serialization and strict analyzer thresholds are unchanged",
+    "issue17_interp01_busy_drop_delta": 3,
+    "issue17_interp01_expected_minimum": 50,
+    "issue17_interp01_max_gap_ms": 200.608874,
+    "issue17_interp01_observed_telemetry_during_update": 49,
+    "issue17_interp01_two_cadence_limit_ms": 200.128148
   },
-  "evidence_handling": "Raw UART, observer captures, configuration, flash snapshots, and network captures remain in the private evidence store. This file contains only reviewed, sanitized measurements and cryptographic digests."
+  "source": {
+    "configuration": "effective AOT and interpreter profiles matched the previously reviewed configuration",
+    "esp_idf": "5.2.6",
+    "profile": "module-aot",
+    "revision": "1e54b1128cf083fb2c000dfd6d79303a5467fef7",
+    "target": "ESP32-S3",
+    "tree": "37c6cf792a3806303567399c91992feccf88f7f6"
+  }
 }
