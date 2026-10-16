@@ -50,6 +50,9 @@ tentativas do piloto.
   sem itens adicionados/removidos. Há rotação de página NVS. Não foi encontrado
   o ledger antirretorno persistente da aplicação nos dois snapshots; o estado
   eFuse e a causa da atualização da calibração não foram verificados.
+  A hipótese de outra WLAN/ausência de associação é compatível com a falta de
+  resposta no IP histórico, mas não explica por si só a mudança de calibração;
+  consulte a [auditoria de baseline](backup-audit.md).
 - Os artefatos e capturas integrais de #16–#19 ficam em armazenamento privado.
   O repositório contém resumos/hashes sanitizados, não credenciais ou dumps de
   flash. Os pacotes ativos continuam presos aos campaign IDs de #15/#16–#18 e

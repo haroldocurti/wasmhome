@@ -114,3 +114,30 @@ seguro adotar a leitura viva como nova baseline. Ainda faltam a causa/condição
 de gravação dessa calibração, versão do firmware que produziu o estado, evidência
 de boot/telemetria e uma leitura autorizada do estado eFuse relevante. A porta
 de escrita permanece fechada até a reconciliação documentada.
+
+## Hipótese de desconexão da rede
+
+A placa estar em outra WLAN ou sem associação é compatível com o IP histórico
+não responder, mas não comprova essa causa. A triagem NVS não encontrou mudanças
+lógicas nos registros Wi-Fi; a alteração lógica observada é de calibração PHY.
+No ESP32-S3, o guia do ESP-IDF 5.2 descreve a calibração parcial como padrão
+quando a opção de armazenamento de calibração está habilitada; ela usa dados de
+calibração completa guardados na NVS. A calibração RF completa é acionada se a
+NVS estiver ausente, se a partição NVS que guarda os dados de calibração for
+apagada, se o MAC ou a versão da biblioteca PHY mudar, ou se os dados de
+calibração estiverem inválidos
+([guia RF Calibration](https://docs.espressif.com/projects/esp-idf/en/v5.2/esp32s3/api-guides/RF_calibration.html)).
+Assim, associação à rede e alcance de um endereço IP são estado de conectividade;
+a ausência de resposta IP não demonstra que o PHY deixou de inicializar nem qual
+calibração foi usada. Inicialização RF e uso/atualização de calibração PHY são
+distintos da associação à WLAN, e a hipótese de rede não explica por si só a
+alteração do registro. Como a versão e a configuração ativa do firmware ainda
+não foram confirmadas, isso descreve mecanismos possíveis, não prova qual deles
+ocorreu.
+
+A tabela do projeto separa a partição `nvs` (`0x9000`, `0x6000`) da partição
+`phy_init` (`0x11000`, `0x1000`), conforme o modelo de partições com labels,
+tipos, subtipos e offsets descrito no [guia Partition Tables do ESP-IDF 5.2](https://docs.espressif.com/projects/esp-idf/en/v5.2/esp32s3/api-guides/partition-tables.html).
+O registro de calibração RF observado aqui está na NVS; a partição separada
+`phy_init` permaneceu byte a byte igual nos dois snapshots. Essa distinção não
+determina se ou quando o rádio iniciou na captura viva.
