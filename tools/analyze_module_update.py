@@ -16,6 +16,14 @@ import uuid
 
 UPDATE_PREFIX = "WASMHOME_UPDATE,"
 MODULE_MEMORY_PREFIX = "WASMHOME_MODULE_MEMORY,"
+MODULE_LOG_PREFIX = "WASMHOME_MODULE_LOG,"
+MODULE_LOG_SCHEMA = "wasmhome-module-log-v1"
+MODULE_LOG_FAILURE_EVENTS = {
+    "deferred_log_overflow",
+    "record_truncated",
+    "update_event_format_failed",
+    "deferred_log_begin_failed",
+}
 SUCCESS_PHASES = (
     "accepted",
     "manifest_download_started",
@@ -135,6 +143,29 @@ def parse_module_memory_events(raw: bytes) -> list[dict]:
             raise ValueError(f"invalid WASMHOME_MODULE_MEMORY JSON on line {line_number}: {error}") from error
         if not isinstance(event, dict):
             raise ValueError(f"WASMHOME_MODULE_MEMORY line {line_number} is not a JSON object")
+        event["_source_line"] = line_number
+        events.append(event)
+    return events
+
+
+def parse_module_log_events(raw: bytes) -> list[dict]:
+    """Collect module-log records, retaining malformed rows as explicit failures."""
+    events = []
+    for line_number, line in enumerate(raw.decode("utf-8", errors="replace").splitlines(), 1):
+        marker = line.find(MODULE_LOG_PREFIX)
+        if marker < 0:
+            continue
+        encoded = line[marker + len(MODULE_LOG_PREFIX):].strip()
+        try:
+            event = json.loads(encoded)
+        except json.JSONDecodeError as error:
+            events.append({"_source_line": line_number,
+                           "_parse_error": f"invalid JSON: {error}"})
+            continue
+        if not isinstance(event, dict):
+            events.append({"_source_line": line_number,
+                           "_parse_error": "record is not a JSON object"})
+            continue
         event["_source_line"] = line_number
         events.append(event)
     return events
@@ -347,13 +378,54 @@ def _median(values: list[int]) -> int | None:
     return (ordered[middle - 1] + ordered[middle]) // 2
 
 
-def _checks_for_capture(update_events: list[dict], module_memory_events: list[dict], observations: list[dict],
+def _checks_for_capture(update_events: list[dict], module_memory_events: list[dict],
+                        module_log_events: list[dict], observations: list[dict],
                         observer_summary: dict, expected_scenario: int,
                         expected_sequence: int) -> dict:
     checks: dict[str, dict] = {}
 
     def put(name, passed, observed):
         checks[name] = {"passed": bool(passed), "observed": observed}
+
+    malformed_module_logs = []
+    failed_module_logs = []
+    unexpected_module_logs = []
+    for event in module_log_events:
+        source_line = event.get("_source_line")
+        if event.get("_parse_error"):
+            malformed_module_logs.append({"source_line": source_line,
+                                          "error": event["_parse_error"]})
+            continue
+        name = event.get("event")
+        if event.get("schema") != MODULE_LOG_SCHEMA or not isinstance(name, str) or not name:
+            malformed_module_logs.append({"source_line": source_line,
+                                          "schema": event.get("schema"),
+                                          "event": name})
+            continue
+        status = event.get("status")
+        failure = event.get("failure")
+        dropped = event.get("dropped_records")
+        looks_failed = (
+            name in MODULE_LOG_FAILURE_EVENTS
+            or re.search(r"(?:fail|error|overflow|truncat|drop)", name, re.IGNORECASE) is not None
+            or status in ("error", "failed", "rejected")
+            or (failure is not None and failure not in ("none", "", False))
+            or (dropped is not None and (type(dropped) is not int or dropped > 0))
+        )
+        if looks_failed:
+            failed_module_logs.append({"event": name, "status": status,
+                                       "failure": failure, "dropped_records": dropped,
+                                       "source_line": source_line})
+        else:
+            # This schema currently has no informational records. Unknown valid
+            # events fail closed until the analyzer explicitly understands them.
+            unexpected_module_logs.append({"event": name, "source_line": source_line})
+    put("module_log_stream_complete",
+        not malformed_module_logs and not failed_module_logs and not unexpected_module_logs,
+        {"record_count": len(module_log_events),
+         "malformed_records": malformed_module_logs,
+         "failure_records": failed_module_logs,
+         "unrecognized_records": unexpected_module_logs})
 
     expected_attempt = observer_summary.get("attempt_id")
     try:
@@ -797,6 +869,7 @@ def analyze(update_raw: bytes, observations_raw: bytes, summary_raw: bytes,
             expected_scenario: int, expected_sequence: int = 2) -> dict:
     update_events = parse_update_events(update_raw)
     module_memory_events = parse_module_memory_events(update_raw)
+    module_log_events = parse_module_log_events(update_raw)
     observations = parse_observations(observations_raw)
     try:
         observer_summary = json.loads(summary_raw)
@@ -806,7 +879,7 @@ def analyze(update_raw: bytes, observations_raw: bytes, summary_raw: bytes,
         raise ValueError("observer summary must be a JSON object")
 
     checks, matching, phases, service_metrics = _checks_for_capture(
-        update_events, module_memory_events, observations, observer_summary,
+        update_events, module_memory_events, module_log_events, observations, observer_summary,
         expected_scenario, expected_sequence)
     phase_times = {phase: _number(event.get("elapsed_us"))
                    for phase, event in phases.items() if event is not None}
