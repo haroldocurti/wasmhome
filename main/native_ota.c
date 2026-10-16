@@ -257,9 +257,10 @@ static void perform_update(const wh_native_ota_request_t *request)
         wh_platform_event("native_ota_activation_failed", err);
         if (boot_selection_attempted) {
             fflush(stdout);
-            /* Force the reconciler to inspect the actual boot selection. If
-               the new slot was selected, it enters trial verification; if it
-               was not, the old image safely clears the abandoned pending row. */
+            /* Force the reconciler to inspect the actual boot selection. A
+               selected new slot enters trial verification; an old slot clears
+               pending only when metadata proves it was not selected or rolled
+               back, and otherwise keeps the update state for later recovery. */
             esp_restart();
         }
         return;
