@@ -1,0 +1,127 @@
+{
+  "schema": "wasmhome-issue17-interp-evidence-v1",
+  "issue": 17,
+  "result": "passed",
+  "profile": "classic-interpreter",
+  "firmware_source_commit": "1e54b1128cf083fb2c000dfd6d79303a5467fef7",
+  "firmware_image": {
+    "bytes": 984496,
+    "sha256": "7412f02b1e2c9766602fe63bac0535da268575b44efe2158d794337e9a983c49"
+  },
+  "signed_control_module": {
+    "release_version": "v2",
+    "bytes_received": 328,
+    "bytes_expected": 328,
+    "sha256": "3a972948112397acdaad03c81714a3daf147ecce926f0854341e58a350f3d5c5",
+    "manifest_sha256": "8b33df6b440f0f41515bc5ba4ba38c88ed3cadc6f003f96acca9b15404055a82",
+    "signature_verified_manifest_sha256": "8b33df6b440f0f41515bc5ba4ba38c88ed3cadc6f003f96acca9b15404055a82"
+  },
+  "main_capture": {
+    "scenario": 2,
+    "component": 1,
+    "target_sequence": 2,
+    "duration_seconds": 90,
+    "trigger_after_seconds": 20,
+    "pre_observer_poweron_boots_in_full_uart": 2,
+    "observed_update_boots": 1,
+    "reset_or_serial_reopen_after_observer_started": false,
+    "analyzer_checks_passed": 24,
+    "analyzer_checks_total": 24,
+    "independent_root_replay_sha256": "4b18050bad47309bd43e002140a4e83352eb1cca55f3d9e25cdeee3aeaac5769",
+    "local_analysis_sha256": "4b18050bad47309bd43e002140a4e83352eb1cca55f3d9e25cdeee3aeaac5769",
+    "control": {
+      "control_generation_before": 2,
+      "control_generation_after": 3,
+      "aggregate_v1_valid_before_acceptance": 199,
+      "aggregate_v2_valid_after_activation": 629,
+      "v1_results_after_v2_activation": 0,
+      "direct_27c_v1_gpio_high": 66,
+      "direct_27c_v2_gpio_low": 209,
+      "trigger_to_first_v2_ms": 7123.206406,
+      "last_v1_to_first_v2_gap_ms": 1510.080355,
+      "estimated_unavailability_ms": 1410.080355,
+      "valid_results": 885,
+      "timeouts": 14,
+      "late_results": 8
+    },
+    "telemetry": {
+      "generation": 1,
+      "sha256": "03dabd22bb69276546bade37bccc318fe7a84e3cb63c9420c6ca7e758b04eb11",
+      "valid_samples_total": 903,
+      "valid_samples_during_update": 71,
+      "minimum_samples_during_update": 70,
+      "update_duration_ms": 7117.390684,
+      "baseline_median_cadence_ms": 100.036433,
+      "max_gap_during_update_ms": 162.572531,
+      "allowed_gap_during_update_ms": 200.072866,
+      "max_gap_full_observation_ms": 222.297031,
+      "runtime_busy_drops_delta": 0,
+      "unresolved_sequence_gaps": 0
+    },
+    "memory": {
+      "minimum_internal_free_bytes": 151383,
+      "minimum_internal_largest_block_bytes": 53248,
+      "minimum_psram_free_bytes": 8097276,
+      "wamr_allocator_failures": 0,
+      "candidate_lifecycle": [
+        "module_load",
+        "module_instantiate",
+        "candidate_overlap",
+        "control_replaced_old_released"
+      ]
+    },
+    "floor_readback_sequence": 2
+  },
+  "separate_persistence_smoke": {
+    "result": "passed",
+    "duration_seconds": 20,
+    "triggered_update": false,
+    "new_boot": true,
+    "valid_v2_controls": 199,
+    "valid_telemetry": 203,
+    "control_timeouts": 0,
+    "late_control_results": 0,
+    "unresolved_sequence_gaps": 0,
+    "temperatures": {
+      "23C_gpio_low": 67,
+      "27C_gpio_low": 66,
+      "32C_gpio_high": 66
+    },
+    "limitation": "Functional persistence after reset only; no direct post-reset ledger or payload-hash readback."
+  },
+  "restoration": {
+    "result": "passed",
+    "bytes": 16777216,
+    "baseline_sha256": "b66c24a3514be56702c1cf7f8d2116e44d5fe0475e3c3c67b65850258eb18ae3",
+    "readback_sha256": "b66c24a3514be56702c1cf7f8d2116e44d5fe0475e3c3c67b65850258eb18ae3",
+    "byte_for_byte_equal": true,
+    "root_verified_regions_equal": 8,
+    "device_left_in_rom_bootloader": true,
+    "hardware_lease_released": true,
+    "root_review_sha256": "4265d16c92903f0894a71e2646068fe0ca0e6324749d08b571dbc487932ec811"
+  },
+  "limitations": [
+    "The global telemetry maximum gap (222.297031 ms) is distinct from the maximum gap during update (162.572531 ms).",
+    "Zero unresolved sequence gaps does not mean zero temporal gaps.",
+    "The smoke did not directly read back the post-reset ledger or payload hash.",
+    "The runtime snapshot did not expose active control artifact size separately from the fully transferred 328-byte payload."
+  ],
+  "private_artifact_sha256": {
+    "main_uart_log": "b9773a66aca5c999e245ddb4b36cb7e746d16e7826eb19227a9af79a9a1a24a8",
+    "main_serial_control": "93a2ecbf062ac5808b78d8c050115faeb560f126c354d90bb570eeaa43dfd095",
+    "main_observations": "b1ab151ae8ab7fe924d2eb88ceebf443d2bc1c25423a4720e00ccc771f093992",
+    "main_observer_summary": "5b45c5ed1ae675659a56fa4535697773dc918b3722237300f1c822dc4b3bef0d",
+    "main_analysis": "4b18050bad47309bd43e002140a4e83352eb1cca55f3d9e25cdeee3aeaac5769",
+    "root_main_replay": "4b18050bad47309bd43e002140a4e83352eb1cca55f3d9e25cdeee3aeaac5769",
+    "root_physical_review": "81ee6ab269db1831d7fff388ea51bcd3543fcc4eb517fa3688876eb1a80756f6",
+    "smoke_serial_control": "3225d6d86176bf358ab49f3db223864618011aac15a1b443187c401509b61a6a",
+    "smoke_uart_log": "f4cfb902276c0d5dbb009f799265acd7157b46ff9c81387311abb169fae0cf72",
+    "smoke_observations": "438fa96964a3dbb6f6f5a14f57d0341dc08201d9bffc9b7cc1302438eef2a32a",
+    "smoke_observer_summary": "0687f3cf54404a8bdfcf807797ac089b56733aa93175afaf7a5e42d0d48256e5",
+    "root_smoke_review": "2ec922b9cbf2f8fdf1e37480ba5fd7cf72e2d4271afcaa36a54e2c5598f09e2b",
+    "restore_write_log": "e8bfbff02f4ffab1ede0f533e45174b0fd4d11e72abf6a4e9ac49ea4aaf7ae8f",
+    "restore_readback_log": "b355b1247411dd89721a2c3552a82a0ccac56a9fa595dd0f5ec750bb35033ee2",
+    "full_flash_readback": "b66c24a3514be56702c1cf7f8d2116e44d5fe0475e3c3c67b65850258eb18ae3",
+    "root_restoration_review": "4265d16c92903f0894a71e2646068fe0ca0e6324749d08b571dbc487932ec811"
+  }
+}
