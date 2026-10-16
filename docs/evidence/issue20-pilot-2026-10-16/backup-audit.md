@@ -80,3 +80,37 @@ Como a condição de igualdade da imagem-base falhou, nenhuma gravação, restau
 ou tentativa de piloto pode começar até a divergência ser reconciliada e a
 baseline aplicável ser aprovada. Os arquivos de dump continuam privados e
 ignorados pelo Git.
+
+## Inspeção semântica sanitizada da NVS
+
+Uma segunda comparação offline interpretou apenas metadados de página e entrada
+do formato NVS do ESP-IDF 5.2.6. Os dois dumps têm cinco páginas inicializadas
+com CRC de cabeçalho válido e o mesmo conjunto de 36 registros ativos: 31 de
+estado Wi-Fi do ESP-IDF e cinco de estado PHY. Todos os cabeçalhos de registro
+válidos passaram no CRC e os espaços restantes foram explicados pelas extensões
+de dados dos registros de comprimento variável. Não foram emitidos valores,
+hashes de valores, nomes de rede ou conteúdo bruto.
+
+No diff lógico, há uma alteração em um registro de calibração PHY; os registros
+Wi-Fi não mudaram e não há registros ativos adicionados ou removidos. A sequência
+da página ativa passou de 19 na baseline para 20 na leitura viva, consistente
+com rotação/compactação de páginas NVS. Isso explica o formato do delta físico,
+mas não prova a causa da rotação nem que toda diferença bruta decorra somente
+dela e da mudança de calibração.
+
+O registro de baseline e o diff atual não mostram o ledger de atualização
+persistente da aplicação. O firmware neste repositório cria esse ledger em NVS
+([`main/signed_update.c`](../../../main/signed_update.c)); portanto, os 7.920
+bytes não têm evidência de serem o contador/piso de rollback da aplicação. O
+`boot_id` é criado com `esp_fill_random()` em RAM a cada início
+([`main/platform.c`](../../../main/platform.c)) e não é persistido na NVS.
+Nenhum registro lógico alterado foi identificado como contador de boot ou
+estado antirretorno. Esta é uma atribuição negativa limitada ao conteúdo NVS
+decodificado: o estado `secure_version` em eFuse não está contido no dump de
+flash e não foi lido.
+
+Assim, a comparação restringe a mudança lógica à calibração PHY, mas não torna
+seguro adotar a leitura viva como nova baseline. Ainda faltam a causa/condição
+de gravação dessa calibração, versão do firmware que produziu o estado, evidência
+de boot/telemetria e uma leitura autorizada do estado eFuse relevante. A porta
+de escrita permanece fechada até a reconciliação documentada.

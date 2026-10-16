@@ -44,8 +44,12 @@ tentativas do piloto.
   `0xb000`: 3.944; `0xe000`: 952. Não houve diferenças em bootloader, tabela
   de partições, setores NVS `0x9000`, `0xc000` e `0xd000`, `otadata`, PHY-init,
   slots OTA nem áreas sem região nomeada no recibo. O hash integral não
-  coincide com a imagem-base aprovada `b66…`; a origem das diferenças atuais
-  da NVS não foi determinada.
+  coincide com a imagem-base aprovada `b66…`; a causa da diferença ainda não
+  está determinada. A inspeção semântica offline isolou uma mudança lógica em
+  um registro de calibração PHY; os 31 registros Wi-Fi permaneceram iguais,
+  sem itens adicionados/removidos. Há rotação de página NVS. Não foi encontrado
+  o ledger antirretorno persistente da aplicação nos dois snapshots; o estado
+  eFuse e a causa da atualização da calibração não foram verificados.
 - Os artefatos e capturas integrais de #16–#19 ficam em armazenamento privado.
   O repositório contém resumos/hashes sanitizados, não credenciais ou dumps de
   flash. Os pacotes ativos continuam presos aos campaign IDs de #15/#16–#18 e
@@ -67,8 +71,11 @@ antes do primeiro slot e permanece em A `0/5`, B `0/5`, C `0/5`.
   1 MiB. A cadeia e os limites estão em [auditoria da imagem-base](backup-audit.md).
 - O preflight vivo identificou uma ESP32-S3 QFN56 rev. 0.2 com flash de 16 MiB
   e produziu uma leitura integral; a comparação com `b66…` divergiu em 7.920
-  bytes de NVS. Qualquer escrita permanece bloqueada até essa divergência ser
-  explicada e a baseline aplicável ser reconciliada com evidência.
+  bytes de NVS. A triagem de metadados atribuiu a divergência lógica a um único
+  registro de calibração PHY, sem alteração dos registros Wi-Fi, boot ID
+  persistente ou ledger antirretorno da aplicação nos snapshots. Ainda faltam
+  a causa da mudança, versão/boot ativos e estado eFuse; a escrita permanece
+  bloqueada até a baseline aplicável ser reconciliada com evidência.
 - Revisados `CONTEXT.md`, checklist, plano de execução, plano detalhado,
   protocolo UDP e resultados/calibração das issues #16–#19.
 - Congelados limites, janelas, preparação, classificação de resultados e

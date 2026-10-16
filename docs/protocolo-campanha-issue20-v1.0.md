@@ -189,10 +189,13 @@ Esta revisão congela o protocolo antes do piloto para impedir escolha de limite
 após conhecer resultados. Em 16/10/2026, o preflight identificou uma ESP32-S3
 QFN56 rev. 0.2 com flash de 16 MiB e obteve leitura integral, mas o hash vivo
 (`d29c…`) divergiu da imagem-base aprovada (`b66…`) em 7.920 bytes da NVS.
-Nenhuma gravação ou tentativa de piloto ocorreu. A causa da divergência ainda
-precisa ser reconciliada; portanto, a porta de gravação permanece fechada. O
-`boot_id`, firmware ativo, sensor, GPIO5→GPIO6 e janela viva de observação
-continuam pendentes. A agenda registrada é planejamento, não observação. A
-conclusão da issue #20 depende de resolver essa divergência, executar pelo menos
-cinco atualizações completas aceitas por cenário, revisar os dados reais e
-preservar seus recibos.
+A triagem semântica offline isolou uma mudança em um registro de calibração PHY,
+sem mudança lógica nos itens Wi-Fi ou no ledger NVS antirretorno da aplicação;
+os metadados também mostram rotação de página. Isso não estabelece a causa da
+mudança nem observa o estado eFuse relevante. Nenhuma gravação ou tentativa de
+piloto ocorreu; a baseline não pode ser reconciliada com segurança ainda e a
+porta de gravação permanece fechada. O `boot_id`, firmware ativo, sensor,
+GPIO5→GPIO6 e janela viva de observação continuam pendentes. A agenda registrada
+é planejamento, não observação. A conclusão da issue #20 depende de resolver
+essa divergência, executar pelo menos cinco atualizações completas aceitas por
+cenário, revisar os dados reais e preservar seus recibos.
