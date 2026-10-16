@@ -107,6 +107,18 @@ as janelas anteriores e posteriores exigidas pelo piloto. O retorno normal
 da CLI confirma término da captura; consultar o resumo para o resultado do
 serviço e da atualização.
 
+Para OTA nativo com reinicialização, use `tools/analyze_native_update.py` após a
+captura. Ele reconcilia os eventos UART nos dois boots com o aceite e os
+resultados funcionais UDP. Os contratos e limites estão em
+[análise de atualizações assinadas](issue17-module-update-observer.md).
+
+Para trocas modulares assinadas das issues #17/#18, execute depois
+`tools/analyze_module_update.py` com o log serial `WASMHOME_UPDATE`,
+`observations.jsonl` e `summary.json` da mesma tentativa. O relatório correlaciona
+o `attempt_id`, valida o boot, as etapas e a continuidade da geração/hash da
+telemetria, e calcula payload, memória, lacunas e recuperação. O contrato e os
+limites estão em [Observação de atualizações modulares](issue17-module-update-observer.md).
+
 Logs e resumos existentes não são sobrescritos. O observador reserva JSONL e
 resumo com abertura exclusiva antes da rede; os calibradores exigem uma pasta
 nova antes de iniciar sockets ou serial. Uma captura interrompida pode deixar

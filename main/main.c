@@ -42,6 +42,10 @@ extern const uint32_t service_control_v2_aot_len;
 #include "native_services.h"
 #endif
 
+#if defined(CONFIG_WASMHOME_NATIVE_OTA)
+#include "native_ota.h"
+#endif
+
 #if !defined(WASMHOME_SCENARIO_NATIVE)
 #include "bh_platform.h"
 #include "wasm_export.h"
@@ -373,6 +377,13 @@ static bool start_benchmark_thread(void)
 void app_main(void)
 {
     ESP_ERROR_CHECK(wh_platform_start());
+#if defined(CONFIG_WASMHOME_NATIVE_OTA)
+    uint32_t reconcile_stack_remaining = 0;
+    esp_err_t reconcile_err = wh_native_ota_reconcile_boot(&reconcile_stack_remaining);
+    ESP_LOGI("wasmhome", "signed_update_boot_stack_remaining_bytes=%" PRIu32,
+             reconcile_stack_remaining);
+    ESP_ERROR_CHECK(reconcile_err);
+#endif
 #if defined(CONFIG_WASMHOME_MODULE_SERVICES)
 #if defined(WASMHOME_SCENARIO_MODULE_INTERP)
     const wh_module_image_t telemetry = {
