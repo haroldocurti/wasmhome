@@ -33,6 +33,7 @@ PRELUDE = r'''
 #define ESP_ERR_INVALID_SIZE 2
 #define ESP_ERR_NO_MEM 3
 #define ESP_ERR_INVALID_STATE 4
+#define ESP_FAIL -1
 typedef int esp_err_t;
 typedef unsigned portMUX_TYPE;
 typedef void *TaskHandle_t;
@@ -131,6 +132,10 @@ int main(void)
 
     heap_caps_free(deferred_log_storage);
     deferred_log_storage = NULL;
+
+    /* Startup/main-task logging avoids the deferred formatter's large frame. */
+    assert(!deferred_logs_active());
+    assert(module_log_printf("direct fallback %d\n", 42) == ESP_OK);
     return 0;
 }
 '''
@@ -204,9 +209,11 @@ class ModuleDeferredLogsHostTests(unittest.TestCase):
             "static bool\ndeferred_logs_failed(",
             "static void\ndeferred_logs_mark_failed(",
             "static bool\ndeferred_logs_reserve_remaining(",
+            "static bool\ndeferred_logs_active(",
             "esp_err_t\nwh_module_manager_emit_or_defer_log_line(",
             "void\nwh_module_manager_mark_deferred_log_failure(",
             "static esp_err_t\ndeferred_logs_flush(",
+            "static esp_err_t module_log_printf_buffered(",
             "static esp_err_t\nmodule_log_printf(",
         ]
         harness = "\n".join(
@@ -239,6 +246,7 @@ class ModuleDeferredLogsHostTests(unittest.TestCase):
             self.assertEqual(lines[53:84], ["other-producer"] * 31)
             self.assertEqual(lines[84], "reserved-owner")
             self.assertIn('"event":"deferred_log_overflow"', lines[85])
+            self.assertEqual(lines[86], "direct fallback 42")
 
 
 if __name__ == "__main__":

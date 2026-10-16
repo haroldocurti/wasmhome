@@ -752,17 +752,25 @@ deferred_logs_flush(void)
     return overflow ? ESP_ERR_NO_MEM : ESP_OK;
 }
 
-static esp_err_t module_log_printf(const char *format, ...)
-    __attribute__((format(printf, 1, 2)));
+static bool
+deferred_logs_active(void)
+{
+    bool active;
+    portENTER_CRITICAL(&deferred_log_mux);
+    active = deferred_log_active;
+    portEXIT_CRITICAL(&deferred_log_mux);
+    return active;
+}
+
+static esp_err_t module_log_printf_buffered(const char *format,
+                                           va_list arguments)
+    __attribute__((noinline));
 
 static esp_err_t
-module_log_printf(const char *format, ...)
+module_log_printf_buffered(const char *format, va_list arguments)
 {
     char line[WH_MODULE_DEFERRED_LOG_LINE_BYTES];
-    va_list arguments;
-    va_start(arguments, format);
     const int written = vsnprintf(line, sizeof(line), format, arguments);
-    va_end(arguments);
     if (written < 0 || (size_t)written >= sizeof(line)) {
         deferred_logs_mark_failed();
         (void)wh_module_manager_emit_or_defer_log_line(
@@ -773,6 +781,27 @@ module_log_printf(const char *format, ...)
         return ESP_ERR_INVALID_SIZE;
     }
     return wh_module_manager_emit_or_defer_log_line(line, (size_t)written);
+}
+
+static esp_err_t module_log_printf(const char *format, ...)
+    __attribute__((format(printf, 1, 2)));
+
+static esp_err_t
+module_log_printf(const char *format, ...)
+{
+    va_list arguments;
+    va_start(arguments, format);
+    esp_err_t result;
+    if (deferred_logs_active()) {
+        va_list buffered_arguments;
+        va_copy(buffered_arguments, arguments);
+        result = module_log_printf_buffered(format, buffered_arguments);
+        va_end(buffered_arguments);
+    } else {
+        result = vprintf(format, arguments) < 0 ? ESP_FAIL : ESP_OK;
+    }
+    va_end(arguments);
+    return result;
 }
 
 static void
