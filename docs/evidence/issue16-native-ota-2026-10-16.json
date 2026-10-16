@@ -189,7 +189,9 @@
     {
       "trigger_sent": false,
       "result": "configuration_preflight_failed",
-      "reason": "observer port and version profile did not pass preflight"
+      "boot_stable": true,
+      "wifi_credential_present": false,
+      "reason": "private Wi-Fi profile had no credential, so required network access was unavailable"
     },
     {
       "trigger_sent": false,

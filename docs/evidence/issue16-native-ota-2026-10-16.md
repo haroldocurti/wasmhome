@@ -69,7 +69,7 @@ The minimum free internal heap, 225,379 B, and PSRAM, 8,384,416 B, are minima am
 
 ## Setup-only attempts and limits
 
-Earlier setup attempts did not send an update trigger and are not included in the measurements above. The first captured boot had an unconfigured native observer and repeatedly reset during initialization because the main task stack was too small. A later configuration check also caught an incorrect observer port and incomplete version settings before a valid run. Those issues were corrected before the successful run. A subsequent 60-second v1 baseline preflight passed with 570 telemetry samples, 566 control responses, and no loss or sequence gaps; it also sent no update trigger.
+Earlier setup attempts did not send an update trigger and are not included in the measurements above. In attempt 001, the native observer target was empty and the device repeatedly reset during initialization because the main task stack was too small. The next preflight booted stably but had no Wi-Fi credential in its private profile, so it did not establish the network needed for an update. The final 60-second v1 baseline preflight passed with 570 telemetry samples, 566 control responses, and no loss or sequence gaps; it also sent no update trigger.
 
 This run proves the normal v1-to-v2 HTTPS path and post-reboot health confirmation. Physical rollback, power-loss recovery, and injected update failures were not exercised; the host-side activation/ledger tests are separate evidence and do not substitute for those physical fault runs.
 
