@@ -166,9 +166,10 @@ Depois que cada bloqueio próprio for atendido, não é necessário serializar a
   - [x] Integração de código ENV-SIG/ENV-HASH/ENV-OLD no download assinado nativo: caminhos fixos e endpoint HTTPS de fixture opt-in; ENV-OLD alcança o piso NVS em `ledger_prepare` e mapeia a rejeição para `envelope_sequence`. Teste host exercita policy + ledger reais; build e execução no ESP-IDF não feitos.
   - [x] Sink OTA e armazenamento modular apagam o candidato inativo inteiro e verificam o readback; testes host exercitam preservação do slot ativo/piso e propagam erros de erase/readback/abort. Isso não é prova física do ENV-HASH.
   - [x] NAT-ABORT persiste a tentativa e recupera a correlação serial após reboot. O firmware permanece sem build ESP-IDF e sem validação física.
+  - [x] Preflight físico read-only em 2026-10-16 confirmou ESP32-S3 rev0.2, MAC `dc:b4:d9:0b:22:e4`, flash de 16 MiB e dump integral sem writes. O dump coincide com o baseline aprovado fora de 7.920 bytes/138 sequências NVS; `boot_id` e versão do firmware em execução não foram lidos. Detalhes e limites em [registro #22](issue22-resilience-implementation.md).
   - [ ] Ligar o disparo serial ENV à atualização modular nos cenários B/C e comprovar ENV-SIG/HASH/OLD no validador e slots reais desses perfis.
-  - [ ] Gerar fixture Wasm/AOT de traps e integrar contenção/recuperação da instância de controle no `module_manager.c`, preservando telemetria.
-  - [ ] Preparar serviço HTTPS de fixture isolado e fazer prova preliminar após a #20 e confirmação da identidade/estado da placa. As rotas ativas 8443/8444 não têm as fixtures e não devem ser alteradas/reutilizadas.
+  - [ ] Os IDs Wasm passam pelo parser, mas o dispatcher atual os rejeita antes de `fault_accepted`. Gerar fixture Wasm/AOT de traps e integrar contenção/recuperação de controle no `module_manager.c`, preservando telemetria; a limitação de toolchain/runtime está no [registro #22](issue22-resilience-implementation.md).
+  - [ ] Preparar serviço HTTPS de fixture isolado e fazer prova preliminar após a #20. Antes da injeção, confirmar pelo firmware o `boot_id`, a versão ativa e o estado NVS. As rotas ativas 8443/8444 não têm as fixtures e não devem ser alteradas/reutilizadas.
   - [ ] Compilar configuração opt-in com ESP-IDF, executar prova física e confirmar rejeições/traps/reboot e recepção UDP. Nenhum HIL foi feito nesta revisão.
   - [ ] Congelar timeout na #20 (300 ms continua candidato) e medir recuperação observada em até 30 s; não tratar envio UDP local como confirmação do observador.
 

@@ -80,25 +80,59 @@ ESP32-S3.
 | ENV-HASH | Caminho nativo usa OTA sink real; teste host comprova erase/readback integral e proteção do slot ativo. O ledger conserva ativo/piso e tem teste host. | Compile opt-in e comprovação na placa do conteúdo gravado/inválido e estado ativo/piso. |
 | ENV-OLD | Caminho real chega ao `ledger_prepare` com piso NVS; estágio `envelope_sequence` mapeado. Teste host executa a política sem filtro antecipado e a rejeição do ledger, preservando ativo/piso. | Fixture de bancada, compile e rejeição física com ledger previamente semeado. |
 | ENV em B/C | O armazenamento modular e callback de abort estão integrados/testados em host. | Pedido serial e execução ENV-SIG/HASH/OLD não foram ligados aos perfis de módulo; provar cenários B/C ainda pendente. |
-| WASM-ZERO/OOB/DIV0 | Planner e correlator host existem. | Injetor de execução/trap e recuperação de instância não foram implementados no `module_manager.c`; controles/traps e telemetria pós-trap pendentes. |
+| WASM-ZERO/OOB/DIV0 | Planner e correlator host existem; os IDs passam pelo parser sintático fechado. | O dispatcher do firmware rejeita esses casos antes de `fault_accepted`; não há injetor, captura/classificação de exceção, aposentadoria do slot ou recuperação de controle conhecido. Não há prova com WAMR real nem telemetria pós-trap. |
 | NAT-ABORT | Caminho de firmware e correlação após reboot implementados. | Build e prova física de pânico, novo boot e recuperação recebida por UDP. |
 | Timeout funcional | `300 ms` permanece valor candidato, reportado como não congelado. | #20 ainda não congelou empiricamente o timeout. |
 | Recuperação operacional | Harness calcula recuperação a partir das observações UDP. | Confirmar recebimento UDP e recuperação dentro de 30 s no ensaio físico. |
 | Contagem | Planner produz 70 falhas + 2 controles. | Nenhuma tentativa aceita ou célula HIL foi executada; aceite de ensaio não equivale a aceite do artefato. |
 
+## Preflight físico somente leitura (2026-10-16)
+
+O coordenador executou `chip_id`, `flash_id` e uma leitura integral por esptool
+em `/dev/ttyACM0`, sem gravar nem injetar falhas. A identidade foi confirmada
+como ESP32-S3 rev0.2, MAC `dc:b4:d9:0b:22:e4`, com flash de 16 MiB. O dump vivo,
+privado e ignorado pelo Git (SHA-256 com prefixo `d29c187d…`), difere do baseline
+aprovado (`b66c24a3…`) somente em NVS: 7.920 bytes/138 sequências nos setores
+`0xa000` (3.024 bytes), `0xb000` (3.944) e `0xe000` (952). As demais áreas,
+inclusive firmware, `otadata`, PHY e slots OTA, coincidem. O dump bruto não foi
+incluído neste branch.
+
+Essa leitura confirma identidade e conteúdo de flash, mas não registrou
+`boot_id` nem a versão que o firmware em execução reporta. Não houve build
+ESP-IDF, reboot, injeção ou HIL. Portanto ela não comprova rejeição, trap,
+aceitação de artefato nem recuperação funcional.
+
 ## Bloqueios concretos da prova
 
-- A prioridade da #20 e a coordenação da placa impedem acesso serial, flash e
-  injeções nesta revisão. Nenhum equipamento conectado foi identificado e
-  nenhum HIL foi feito; não há `boot_id`, firmware atual ou estado da placa
-  confirmados.
-- O IDF 5.2.6 existe no CT107, mas não foi usado para evitar tocar o ambiente e
-  artefatos compartilhados/serviços ativos. Não há build desta revisão.
+- O preflight read-only da placa foi possível. O canal serial de falhas e os
+  mecanismos da #22 não foram executados; identidade da placa está confirmada,
+  mas falta confirmar `boot_id`, firmware em execução e estado funcional pelo
+  firmware antes de preparar o ensaio.
+- O IDF 5.2.6 está disponível no CT107, mas não foi usado para preservar os
+  serviços e artefatos compartilhados. `idf.py` não está no PATH desta worktree.
+  Não há build desta revisão.
+- O gerador de módulos exige WASI-SDK 27.0/clang 20.1.8 e `wamrc` 2.4.5
+  verificados por recibo. Nesta sessão há clang do sistema 22.1.8 com alvo
+  `wasm32`, mas ele não corresponde ao compilador fixado; `wamrc 2.4.5` foi
+  encontrado apenas no diretório de toolchain preservado, fora do PATH. Não há
+  runtime WAMR host verificado para observar exceções reais. O teste host de
+  `module_manager` usa um shim que não gera trap real. Não foram gerados módulos
+  Wasm/AOT de falha nem alterado o `module_manager.c`: sem esse runtime e os
+  artefatos reproduzíveis, implementar recuperação agora dependeria de uma
+  semântica de trap não verificada.
+- Próximo passo seguro para WASM: preparar a toolchain pinned em staging
+  isolado; gerar fixtures de OOB e divisão por zero para interpretador e AOT;
+  executá-las em WAMR real e registrar `wasm_runtime_get_exception`; então
+  integrar injeção opt-in no slot de controle inativo, emitir aceite antes da
+  chamada, aposentar só o slot injetado, restaurar um controle bom conhecido e
+  provar continuidade de telemetria em teste host real antes do HIL.
 - Antes de HIL, preparar um **serviço HTTPS de fixture isolado**, com os nove
   conjuntos e CA/nome TLS correspondentes. As rotas `8443` e `8444` ativas não
   contêm essas fixtures e permanecem fora do escopo. Fixar as opções de endpoint
   no build opt-in; a serial nunca escolhe endereço nem caminho.
 - Fazer o piloto #20 e congelar o timeout antes de atribuir limite funcional;
   `300 ms` não é ainda critério empírico aprovado.
-- Implementar e testar os traps B/C e suas invariantes antes de chamar a #22 de
-  concluída ou iniciar as 70 injeções aceitas mais dois controles.
+- Os casos Wasm atualmente são rejeitados pelo dispatcher antes de
+  `fault_accepted`; implementar e testar os traps B/C e suas invariantes antes de
+  chamar a #22 de concluída ou iniciar as 70 injeções aceitas mais dois
+  controles.
