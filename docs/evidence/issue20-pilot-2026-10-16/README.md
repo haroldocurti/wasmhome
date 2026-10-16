@@ -30,20 +30,33 @@ tentativas do piloto.
   não recebeu resposta; o neighbor ARP permaneceu `INCOMPLETE`. Esse endereço é
   apenas histórico e não confirma presença ou identidade da placa.
 - Localmente, o adaptador USB serial conhecido aparece em `/dev/ttyACM0` com
-  VID:PID `1a86:55d3`; nenhum processo segurava o device na checagem. Isso
-  identifica o adaptador, não o ESP32, seu `boot_id`, versão ou conteúdo da
-  flash. A porta não foi aberta para preservar o estado atual.
+  VID:PID `1a86:55d3`. Na checagem inicial, nenhum processo segurava o device.
+  Depois, o operador usou esptool 4.12.0 somente com `chip_id` e `flash_id`:
+  confirmou ESP32-S3 QFN56 rev. 0.2, MAC `dc:b4:d9:0b:22:e4` e flash de
+  16 MiB. Esses comandos acionaram hard reset; não houve gravação.
+- O operador leu a flash integralmente, sem gravar, em
+  `build-hardware/issue20-live-preflight-20261016.bin` (arquivo local ignorado,
+  não incluído no repositório): 16.777.216 bytes, SHA-256
+  `d29c187d0c691c5b874d1ad3a1cda8632144a70e8613a9c9148e76f8c3aa8c78`.
+  A comparação local byte a byte, somente para leitura e sem copiar/publicar
+  os dumps, contra a baseline privada `b66…` encontrou 7.920 bytes diferentes
+  em 138 sequências contíguas, todos na NVS. Por setor: `0xa000`: 3.024 bytes;
+  `0xb000`: 3.944; `0xe000`: 952. Não houve diferenças em bootloader, tabela
+  de partições, setores NVS `0x9000`, `0xc000` e `0xd000`, `otadata`, PHY-init,
+  slots OTA nem áreas sem região nomeada no recibo. O hash integral não
+  coincide com a imagem-base aprovada `b66…`; a origem das diferenças atuais
+  da NVS não foi determinada.
 - Os artefatos e capturas integrais de #16–#19 ficam em armazenamento privado.
   O repositório contém resumos/hashes sanitizados, não credenciais ou dumps de
   flash. Os pacotes ativos continuam presos aos campaign IDs de #15/#16–#18 e
   não podem ser atribuídos ao piloto #20.
 
-Não foi aberta a porta serial: a identidade e o estado da placa não podiam ser
-confirmados, e a abertura pode alterar linhas de controle/reiniciar a placa.
-Também não houve flash, reset intencional, disparo UDP ou alteração do servidor.
-O CT107, toolchain e servidores estão acessíveis, mas não há conexão confirmada
-com o ESP32 pela rede e o adaptador local não fornece identidade/estado sem
-abrir a serial. Esse bloqueio físico deixa o piloto em A `0/5`, B `0/5`, C `0/5`.
+O preflight de identidade, tamanho e leitura integral ocorreu, mas falhou na
+igualdade com a imagem-base `b66…`. Não houve flash, disparo UDP nem alteração
+do servidor; os comandos de identificação causaram o hard reset descrito acima.
+O `boot_id`, firmware ativo, sensor, GPIO5→GPIO6 e uma janela viva de
+telemetria/controle ainda não foram confirmados. A campanha continua bloqueada
+antes do primeiro slot e permanece em A `0/5`, B `0/5`, C `0/5`.
 
 ## Trabalho possível concluído
 
@@ -52,9 +65,10 @@ abrir a serial. Esse bloqueio físico deixa o piloto em A `0/5`, B `0/5`, C `0/5
   repetem o hash, com oito regiões verificadas. `4fcc…` pertence a um dump
   integral de outra sessão; `b00…` é histórico de um backup de aplicação de
   1 MiB. A cadeia e os limites estão em [auditoria da imagem-base](backup-audit.md).
-  Isso não identifica a placa atualmente conectada: qualquer escrita continua
-  bloqueada até o preflight vivo confirmar ID, tamanho e leitura integral igual
-  a `b66…`.
+- O preflight vivo identificou uma ESP32-S3 QFN56 rev. 0.2 com flash de 16 MiB
+  e produziu uma leitura integral; a comparação com `b66…` divergiu em 7.920
+  bytes de NVS. Qualquer escrita permanece bloqueada até essa divergência ser
+  explicada e a baseline aplicável ser reconciliada com evidência.
 - Revisados `CONTEXT.md`, checklist, plano de execução, plano detalhado,
   protocolo UDP e resultados/calibração das issues #16–#19.
 - Congelados limites, janelas, preparação, classificação de resultados e
@@ -81,9 +95,11 @@ abrir a serial. Esse bloqueio físico deixa o piloto em A `0/5`, B `0/5`, C `0/5
 
 ## Próximo requisito de evidência
 
-Quando a placa estiver novamente acessível, confirmar sua identidade e estado
-sem pressupor que o IP histórico ainda vale. Só depois do preflight e da
-verificação do backup integral de 16 MiB, executar uma campanha `pilot` com ID
-novo, artefatos assinados que correspondam ao mesmo campaign ID, logs próprios e
-restauração verificada antes de cada slot. Não atribuir à #20 os dados singulares
-de #16–#18 nem as chamadas de microbenchmark da #19.
+Antes de qualquer gravação, explicar/reconciliar as diferenças atuais da NVS e
+aprovar a imagem-base que corresponda ao estado físico; não escolher
+automaticamente `b66…` nem outro snapshot histórico. Em seguida, confirmar
+`boot_id`, firmware ativo, sensor, GPIO5→GPIO6 e uma janela viva válida. Só
+depois executar uma campanha `pilot` com ID novo, artefatos assinados que
+correspondam ao mesmo campaign ID, logs próprios e restauração verificada antes
+de cada slot. Não atribuir à #20 os dados singulares de #16–#18 nem as chamadas
+de microbenchmark da #19.

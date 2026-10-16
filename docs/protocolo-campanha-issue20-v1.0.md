@@ -186,10 +186,13 @@ de flash.
 ## Status de execução
 
 Esta revisão congela o protocolo antes do piloto para impedir escolha de limites
-após conhecer resultados. Em 16/10/2026, o piloto físico ainda não foi executado
-nesta sessão: o CT107 e os servidores foram verificados, mas o endereço
-histórico do ESP32 não responde na LAN e a identidade/estado da placa não foram
-confirmados sem abrir a serial. A agenda registrada é planejamento, não
-observação. A conclusão da issue #20 depende de completar pelo menos cinco
-atualizações aceitas por cenário, revisar os dados reais e preservar seus
-recibos.
+após conhecer resultados. Em 16/10/2026, o preflight identificou uma ESP32-S3
+QFN56 rev. 0.2 com flash de 16 MiB e obteve leitura integral, mas o hash vivo
+(`d29c…`) divergiu da imagem-base aprovada (`b66…`) em 7.920 bytes da NVS.
+Nenhuma gravação ou tentativa de piloto ocorreu. A causa da divergência ainda
+precisa ser reconciliada; portanto, a porta de gravação permanece fechada. O
+`boot_id`, firmware ativo, sensor, GPIO5→GPIO6 e janela viva de observação
+continuam pendentes. A agenda registrada é planejamento, não observação. A
+conclusão da issue #20 depende de resolver essa divergência, executar pelo menos
+cinco atualizações completas aceitas por cenário, revisar os dados reais e
+preservar seus recibos.

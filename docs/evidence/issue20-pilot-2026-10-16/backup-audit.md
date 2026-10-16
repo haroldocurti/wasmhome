@@ -1,7 +1,8 @@
 # Auditoria offline da imagem-base da #20
 
-**Data:** 16/10/2026. **Escopo:** leitura de recibos e hashes locais; sem abrir
-serial, acessar a placa, copiar ou publicar imagem de flash.
+**Data:** 16/10/2026. **Escopo:** auditoria de recibos e hashes privados e
+comparação somente de leitura da captura integral atual. O dump privado não foi
+copiado nem publicado; não houve gravação.
 
 ## Resultado
 
@@ -50,8 +51,32 @@ nenhum dump foi copiado para esta evidência ou incluído no Git.
 
 ## Limite que permanece
 
-Esta auditoria valida a existência e a cadeia histórica do artefato `b66…`; ela
-não identifica a placa atualmente conectada nem demonstra que sua flash atual
-contém esses bytes. O preflight vivo continua obrigatório: confirmar identidade
-e tamanho e comparar uma leitura integral atual ao hash `b66…`. Sem essa
-correspondência, não gravar nem restaurar usando qualquer dos snapshots antigos.
+Em 16/10/2026, o preflight vivo identificou ESP32-S3 QFN56 rev. 0.2, MAC
+`dc:b4:d9:0b:22:e4`, e flash de 16 MiB. Os comandos `chip_id`/`flash_id` do
+esptool 4.12.0 acionaram hard reset, sem gravação. A leitura integral local
+ignorável tem 16.777.216 bytes e SHA-256
+`d29c187d0c691c5b874d1ad3a1cda8632144a70e8613a9c9148e76f8c3aa8c78`.
+
+A comparação byte a byte com o snapshot privado `b66…` confirmou que os tamanhos
+são iguais e que o hash integral vivo não corresponde à imagem-base aprovada.
+Foram diferentes 7.920 bytes em 138 sequências contíguas, todos na NVS:
+
+| Setor | Bytes diferentes |
+| --- | ---: |
+| `0x9000–0x9fff` | 0 |
+| `0xa000–0xafff` | 3.024 |
+| `0xb000–0xbfff` | 3.944 |
+| `0xc000–0xcfff` | 0 |
+| `0xd000–0xdfff` | 0 |
+| `0xe000–0xefff` | 952 |
+| **Total NVS** | **7.920** |
+
+Bootloader, tabela de partições, `otadata`, PHY-init, slots OTA e os intervalos
+fora das regiões nomeadas no recibo não têm bytes diferentes. A comparação não
+determina a causa nem a semântica das alterações NVS; não presume que sejam
+inofensivas ou que correspondam à calibração histórica. O `boot_id`, firmware
+ativo, sensor, GPIO5→GPIO6 e telemetria/controle vivos continuam sem evidência.
+Como a condição de igualdade da imagem-base falhou, nenhuma gravação, restauração
+ou tentativa de piloto pode começar até a divergência ser reconciliada e a
+baseline aplicável ser aprovada. Os arquivos de dump continuam privados e
+ignorados pelo Git.
