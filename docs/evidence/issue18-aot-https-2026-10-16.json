@@ -131,6 +131,8 @@
     "readback_sha256": "b66c24a3514be56702c1cf7f8d2116e44d5fe0475e3c3c67b65850258eb18ae3",
     "full_image_match": true,
     "byte_for_byte_comparison_independently_reviewed": true,
+    "region_comparisons_passed": 8,
+    "region_comparison_review_sha256": "61c619495d32b5689b5ea1885e1ca7c1ef11045c7ef186ea09fa95483dd3bd76",
     "board_left_in_rom": true
   },
   "private_evidence_sha256": {
@@ -142,6 +144,7 @@
     "smoke_receipt": "82cc1799cebf277ef499a5332e55cbce488e8fe796546fb042e7fea680f94cb0",
     "restoration_receipt": "94dcbd786af8c406f1e76cd1acdf8139e5a339b229eb84786f1a371c097e8749",
     "restoration_review": "8d44c3f9c406980016d0d851160bbac9b13e6b02c16e88de986620ab716457d1",
+    "restoration_region_review": "61c619495d32b5689b5ea1885e1ca7c1ef11045c7ef186ea09fa95483dd3bd76",
     "uart_main": "e44dadd2606f726461319dec2c36547c094fbb430e255549be3cdf120adb3a20",
     "serial_control_main": "9ca55e21e106042f6658de342ae243a0781d8f7fc932ec96c3cfadf6b2ad54b0",
     "observer_jsonl_main": "5bde2fbcf872e51be37dc2994e30e19a49c33a3c92482cbeb89c510b6765d22e",
