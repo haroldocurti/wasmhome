@@ -752,6 +752,9 @@ deferred_logs_flush(void)
     return overflow ? ESP_ERR_NO_MEM : ESP_OK;
 }
 
+static esp_err_t module_log_printf(const char *format, ...)
+    __attribute__((format(printf, 1, 2)));
+
 static esp_err_t
 module_log_printf(const char *format, ...)
 {
