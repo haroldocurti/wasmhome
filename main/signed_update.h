@@ -12,6 +12,7 @@
 #define WH_SIGNED_UPDATE_MAX_RELEASE_BYTES 32u
 #define WH_SIGNED_UPDATE_MAX_TOOLCHAIN_BYTES 128u
 #define WH_SIGNED_UPDATE_NO_ACTIVE_SLOT UINT32_MAX
+#define WH_SIGNED_UPDATE_EVENT_LINE_MAX_BYTES 1536u
 
 typedef enum {
     WH_SIGNED_UPDATE_FAILURE_NONE = 0,
@@ -150,6 +151,9 @@ typedef struct {
 
 const char *wh_signed_update_phase_name(wh_signed_update_phase_t phase);
 const char *wh_signed_update_failure_name(wh_signed_update_failure_t failure);
+esp_err_t wh_signed_update_format_event(const wh_signed_update_event_t *event,
+                                        char *line, size_t capacity,
+                                        size_t *line_size);
 void wh_signed_update_emit_event(const wh_signed_update_event_t *event);
 
 /* Release labels map only to the immutable v1/v2 paths in the signed #15

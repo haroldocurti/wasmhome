@@ -135,9 +135,9 @@ elseif(EXPERIMENT_SCENARIO STREQUAL "module-interp" OR EXPERIMENT_SCENARIO STREQ
             "${CMAKE_SOURCE_DIR}/tools/generate_service_modules.py"
             "${CMAKE_SOURCE_DIR}/tools/toolchain_provenance.py")
     endif()
-    list(APPEND SCENARIO_REQUIRES "wasm-micro-runtime" "pthread" "mbedtls")
+    list(APPEND SCENARIO_REQUIRES "wasm-micro-runtime" "pthread" "mbedtls" "esp_partition")
     list(APPEND SCENARIO_SOURCE
-        "module_abi_v1.c" "module_manager.c"
+        "module_abi_v1.c" "module_manager.c" "module_slot_store.c" "module_update.c"
         "../artifacts/service_telemetry_${MODULE_ARTIFACT_SUFFIX}_embedded.c"
         "../artifacts/service_control_v1_${MODULE_ARTIFACT_SUFFIX}_embedded.c"
         "../artifacts/service_control_v2_${MODULE_ARTIFACT_SUFFIX}_embedded.c")
@@ -176,8 +176,39 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE ${SCENARIO_DEFINE})
 
 if(CONFIG_WASMHOME_MODULE_SERVICES)
     idf_component_get_property(WAMR_MODULE_COMPONENT_DIR wasm-micro-runtime COMPONENT_DIR)
+    idf_component_get_property(WAMR_MODULE_COMPONENT_LIB wasm-micro-runtime COMPONENT_LIB)
     if(NOT WAMR_MODULE_COMPONENT_DIR)
         message(FATAL_ERROR "Unable to locate pinned WAMR component for start-function metadata validation")
+    endif()
+    if(NOT WAMR_MODULE_COMPONENT_LIB)
+        message(FATAL_ERROR "Unable to locate pinned WAMR component library for allocator ABI configuration")
+    endif()
+    # The allocator callbacks in module_manager.c take mem_alloc_usage_t, but
+    # WAMR selects that ABI in wasm_memory.c at compile time. A definition on
+    # this component alone leaves the runtime with the incompatible one-arg
+    # allocator signature.
+    target_compile_definitions(${WAMR_MODULE_COMPONENT_LIB} PUBLIC
+        WASM_MEM_ALLOC_WITH_USAGE=1)
+    target_compile_options(${WAMR_MODULE_COMPONENT_LIB} PRIVATE
+        "$<$<COMPILE_LANGUAGE:C>:-include>"
+        "$<$<COMPILE_LANGUAGE:C>:${CMAKE_CURRENT_LIST_DIR}/wamr_allocator_abi_guard.h>")
+    get_target_property(WAMR_MODULE_COMPILE_DEFINITIONS
+        ${WAMR_MODULE_COMPONENT_LIB} COMPILE_DEFINITIONS)
+    if(NOT WAMR_MODULE_COMPILE_DEFINITIONS)
+        message(FATAL_ERROR "WAMR allocator ABI definition was not applied to the runtime target")
+    endif()
+    set(WAMR_ALLOCATOR_ABI_DEFINITION_COUNT 0)
+    foreach(WAMR_MODULE_DEFINITION IN LISTS WAMR_MODULE_COMPILE_DEFINITIONS)
+        if(WAMR_MODULE_DEFINITION MATCHES "^WASM_MEM_ALLOC_WITH_USAGE(=|$)")
+            if(NOT WAMR_MODULE_DEFINITION STREQUAL "WASM_MEM_ALLOC_WITH_USAGE=1")
+                message(FATAL_ERROR "WAMR allocator ABI definition conflicts with the required value: ${WAMR_MODULE_DEFINITION}")
+            endif()
+            math(EXPR WAMR_ALLOCATOR_ABI_DEFINITION_COUNT
+                "${WAMR_ALLOCATOR_ABI_DEFINITION_COUNT} + 1")
+        endif()
+    endforeach()
+    if(NOT WAMR_ALLOCATOR_ABI_DEFINITION_COUNT EQUAL 1)
+        message(FATAL_ERROR "WAMR runtime must have exactly one WASM_MEM_ALLOC_WITH_USAGE=1 definition")
     endif()
     target_include_directories(${COMPONENT_LIB} PRIVATE
         "${WAMR_MODULE_COMPONENT_DIR}/core/iwasm/common"
@@ -187,8 +218,7 @@ if(CONFIG_WASMHOME_MODULE_SERVICES)
     # start functions before instantiation. Keep that struct layout aligned
     # with the pinned runtime, which enables bulk memory in this port.
     target_compile_definitions(${COMPONENT_LIB} PRIVATE
-        WASM_ENABLE_BULK_MEMORY=1
-        WASM_MEM_ALLOC_WITH_USAGE=1)
+        WASM_ENABLE_BULK_MEMORY=1)
 endif()
 
 if(EXPERIMENT_SCENARIO STREQUAL "native")
