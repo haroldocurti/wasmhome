@@ -1,0 +1,907 @@
+{
+  "clock_policy": {
+    "cross_domain_subtraction": "forbidden",
+    "cross_reboot_and_end_to_end": "observer host_monotonic_ns only",
+    "device_stages": "MCU elapsed_us only within a single boot_id; native OTA stages split at reboot"
+  },
+  "evidence_date": "2026-10-16",
+  "functional_equivalence": {
+    "artifact_bytes_equal": false,
+    "artifact_sizes_are_transport_costs_not_workload_equivalence": true,
+    "checked_warmup_calls_per_scenario": 5,
+    "microbenchmark_calls_per_scenario": 30,
+    "microbenchmark_checksum": "0xDBB2F0D4",
+    "oracle": "same control contract at 27 C: v1 drives GPIO high and v2 drives GPIO low",
+    "status": "passed"
+  },
+  "limitations": [
+    "Each update path has one accepted physical update in this calibration record; it is not a campaign or an estimate of between-session variance.",
+    "The public evidence summaries omit raw per-phase fields; supply the matching private UART/observer files to derive them without publishing raw logs.",
+    "The processing E1 microbenchmark is one physical session with repeated calls, not independent update samples.",
+    "Execution timing combines the workload and, for WAMR, guest invocation/runtime overhead; module load and instantiation are separately observed, but pure host-call overhead is not isolated.",
+    "Heap records are point snapshots; they do not establish transient global peaks. Internal heap and PSRAM remain separate.",
+    "Timeouts, late responses, temporal gaps and unresolved sequence gaps are distinct measures. An unresolved gap count of zero does not mean zero temporal gaps."
+  ],
+  "null_policy": {
+    "fields": {
+      "processing_costs.native.runtime_module_instantiate_us": "not_applicable",
+      "processing_costs.native.runtime_module_load_us": "not_applicable"
+    },
+    "meaning": "each null below has a reason; missing/unpublished is distinct from not_applicable"
+  },
+  "post_update_physical_context": {
+    "aot": {
+      "evidence_sha256": {
+        "restoration_verification": "05cc4804abb3092318da8671dfc6da350e2fd365bb2f76c66cec812ff4737a72",
+        "smoke_verification": "68204149756949b41ecbc12692aad485a5d6caad9ca8dc3c9d38abe2351766f0"
+      },
+      "restoration": {
+        "bytes": 16777216,
+        "device_state_after_readback": "bootloader; no app boot requested",
+        "full_image_match": true,
+        "result": "passed",
+        "sha256": "b66c24a3514be56702c1cf7f8d2116e44d5fe0475e3c3c67b65850258eb18ae3"
+      },
+      "smoke": {
+        "control_timeouts": 0,
+        "control_valid": 199,
+        "proof_scope": "functional v2 after a new boot only; no post-boot floor or module-SHA readback claimed",
+        "result": "passed",
+        "telemetry_valid": 203,
+        "unresolved_sequence_gaps": {
+          "6265373494064777943:CONTROL_RESULT": 0,
+          "6265373494064777943:TELEMETRY": 0
+        }
+      }
+    },
+    "interp": {
+      "evidence_sha256": {
+        "restoration_verification": "8bcf1cc568255b42efd517ed4a5988d6a60c975f2c05592304ec4347e27891a7",
+        "smoke_verification": "517b1387de9d624f5ed82538f0008f9b994555e5488eed35733df18fb75fca7f"
+      },
+      "restoration": {
+        "byte_for_byte_equal": true,
+        "bytes": 16777216,
+        "result": "passed",
+        "sha256": "b66c24a3514be56702c1cf7f8d2116e44d5fe0475e3c3c67b65850258eb18ae3"
+      },
+      "smoke": {
+        "control_valid": 199,
+        "new_boot_distinct_from_main": true,
+        "result": "passed",
+        "telemetry_valid": 203,
+        "unresolved_sequence_gaps": {
+          "18231593541305935271:CONTROL_RESULT": 0,
+          "18231593541305935271:TELEMETRY": 0
+        }
+      }
+    }
+  },
+  "private_capture_sha256": {
+    "aot": {
+      "analysis": "7c80cd31e2aa4542d0406019a2e3b96a26fd052818f139f6cb4c5f782e1bf73d",
+      "observations": "70540c059bdb904a024e3e97ee4cc756dd76c06df58026df1b6b8bcc72293d0a",
+      "summary": "7e4b4bbe532500c75940858fa9c77fc43b27485b4ec06f7a727ce06cb0922009",
+      "uart": "ae77f82a88f8d7667be75cc2bfb42161b376af1d7524484072b2b6e7532f7234"
+    },
+    "interp": {
+      "analysis": "4b18050bad47309bd43e002140a4e83352eb1cca55f3d9e25cdeee3aeaac5769",
+      "observations": "b1ab151ae8ab7fe924d2eb88ceebf443d2bc1c25423a4720e00ccc771f093992",
+      "summary": "5b45c5ed1ae675659a56fa4535697773dc918b3722237300f1c822dc4b3bef0d",
+      "uart": "b9773a66aca5c999e245ddb4b36cb7e746d16e7826eb19227a9af79a9a1a24a8"
+    },
+    "native": {
+      "analysis": "7ef8354c972245571156c5b8c015f7117a5c7b51390c83d2a80f93ef9251dc38",
+      "observations": "be94b8e093928b50e0d01a4354ded307b565aa5510f29a740c14e8abc12402a2",
+      "summary": "d4ca56d8526024bb1fc3a61cbc3e5017faddb1ecfed6ce5ed9f6f2630d971bba",
+      "uart": "a1deb873589318d94c9083bc148d9dda9f4986edc64282ac3cda39c0ca4e9821"
+    }
+  },
+  "processing_costs": {
+    "aot": {
+      "checksum": "0xDBB2F0D4",
+      "execute_call_us": {
+        "max": 376,
+        "mean": 250.87,
+        "median": 254.5,
+        "min": 220
+      },
+      "interpretation": "guest workload plus WAMR invocation/runtime; not isolated host-call overhead",
+      "measured_calls": 30,
+      "runtime_module_instantiate_us": 2167,
+      "runtime_module_load_us": 1291,
+      "wamr_runtime_applicable": true,
+      "warmup_calls": 5
+    },
+    "interp": {
+      "checksum": "0xDBB2F0D4",
+      "execute_call_us": {
+        "max": 10268,
+        "mean": 9135.7,
+        "median": 9111.0,
+        "min": 9001
+      },
+      "interpretation": "guest workload plus WAMR invocation/runtime; not isolated host-call overhead",
+      "measured_calls": 30,
+      "runtime_module_instantiate_us": 2161,
+      "runtime_module_load_us": 1075,
+      "wamr_runtime_applicable": true,
+      "warmup_calls": 5
+    },
+    "native": {
+      "checksum": "0xDBB2F0D4",
+      "execute_call_us": {
+        "max": 131,
+        "mean": 124.33,
+        "median": 125.5,
+        "min": 118
+      },
+      "interpretation": "native workload execution baseline",
+      "measured_calls": 30,
+      "runtime_module_instantiate_us": null,
+      "runtime_module_load_us": null,
+      "wamr_runtime_applicable": false,
+      "warmup_calls": 5
+    }
+  },
+  "result": "passed",
+  "scenarios": {
+    "aot": {
+      "functional_oracle": {
+        "temperature_c": 27,
+        "v1_gpio": "high",
+        "v1_responses": 66,
+        "v2_gpio": "low",
+        "v2_responses": 211
+      },
+      "memory": {
+        "internal_free_min_bytes": 139719,
+        "internal_largest_block_min_bytes": 43008,
+        "module_lifecycle_snapshots": [
+          {
+            "internal_heap": {
+              "free": 151147,
+              "largest": 53248,
+              "status": "measured",
+              "total": 369995
+            },
+            "phase": "module_load",
+            "psram_heap": {
+              "free": 8156552,
+              "largest": 8126464,
+              "status": "measured",
+              "total": 8388608
+            },
+            "source_line": 313,
+            "wamr_allocator": {
+              "artifacts": 3688,
+              "calls": 164,
+              "failures": 0,
+              "linear_memory": 147504,
+              "live": 175224,
+              "peak": 176064,
+              "runtime": 24032
+            }
+          },
+          {
+            "internal_heap": {
+              "free": 148711,
+              "largest": 53248,
+              "status": "measured",
+              "total": 369995
+            },
+            "phase": "module_instantiate",
+            "psram_heap": {
+              "free": 8082796,
+              "largest": 7995392,
+              "status": "measured",
+              "total": 8388608
+            },
+            "source_line": 315,
+            "wamr_allocator": {
+              "artifacts": 3688,
+              "calls": 190,
+              "failures": 0,
+              "linear_memory": 221256,
+              "live": 250744,
+              "peak": 250872,
+              "runtime": 25800
+            }
+          },
+          {
+            "internal_heap": {
+              "free": 139719,
+              "largest": 43008,
+              "status": "measured",
+              "total": 369995
+            },
+            "phase": "candidate_overlap",
+            "psram_heap": {
+              "free": 8082796,
+              "largest": 7995392,
+              "status": "measured",
+              "total": 8388608
+            },
+            "source_line": 324,
+            "wamr_allocator": {
+              "artifacts": 3688,
+              "calls": 193,
+              "failures": 0,
+              "linear_memory": 221256,
+              "live": 259400,
+              "peak": 259400,
+              "runtime": 34456
+            }
+          },
+          {
+            "internal_heap": {
+              "free": 153363,
+              "largest": 43008,
+              "status": "measured",
+              "total": 369995
+            },
+            "phase": "control_replaced_old_released",
+            "psram_heap": {
+              "free": 8161080,
+              "largest": 7995392,
+              "status": "measured",
+              "total": 8388608
+            },
+            "source_line": 330,
+            "wamr_allocator": {
+              "artifacts": 2432,
+              "calls": 231,
+              "failures": 0,
+              "linear_memory": 147504,
+              "live": 173056,
+              "peak": 259432,
+              "runtime": 23120
+            }
+          }
+        ],
+        "phase_snapshots": [
+          {
+            "internal_free_bytes": 154147,
+            "internal_largest_free_block_bytes": 54272,
+            "phase": "accepted",
+            "psram_free_bytes": 8162340,
+            "psram_largest_free_block_bytes": 8126464
+          },
+          {
+            "internal_free_bytes": 154147,
+            "internal_largest_free_block_bytes": 54272,
+            "phase": "manifest_download_started",
+            "psram_free_bytes": 8162340,
+            "psram_largest_free_block_bytes": 8126464
+          },
+          {
+            "internal_free_bytes": 153551,
+            "internal_largest_free_block_bytes": 53248,
+            "phase": "manifest_downloaded",
+            "psram_free_bytes": 8162340,
+            "psram_largest_free_block_bytes": 8126464
+          },
+          {
+            "internal_free_bytes": 153591,
+            "internal_largest_free_block_bytes": 53248,
+            "phase": "signature_verified",
+            "psram_free_bytes": 8162340,
+            "psram_largest_free_block_bytes": 8126464
+          },
+          {
+            "internal_free_bytes": 153591,
+            "internal_largest_free_block_bytes": 53248,
+            "phase": "payload_download_started",
+            "psram_free_bytes": 8162340,
+            "psram_largest_free_block_bytes": 8126464
+          },
+          {
+            "internal_free_bytes": 153243,
+            "internal_largest_free_block_bytes": 53248,
+            "phase": "payload_verified",
+            "psram_free_bytes": 8162340,
+            "psram_largest_free_block_bytes": 8126464
+          },
+          {
+            "internal_free_bytes": 153591,
+            "internal_largest_free_block_bytes": 53248,
+            "phase": "staged",
+            "psram_free_bytes": 8162340,
+            "psram_largest_free_block_bytes": 8126464
+          },
+          {
+            "internal_free_bytes": 153591,
+            "internal_largest_free_block_bytes": 53248,
+            "phase": "activating",
+            "psram_free_bytes": 8162340,
+            "psram_largest_free_block_bytes": 8126464
+          },
+          {
+            "internal_free_bytes": 151147,
+            "internal_largest_free_block_bytes": 53248,
+            "phase": "candidate_loaded",
+            "psram_free_bytes": 8156552,
+            "psram_largest_free_block_bytes": 8126464
+          },
+          {
+            "internal_free_bytes": 148711,
+            "internal_largest_free_block_bytes": 53248,
+            "phase": "candidate_instantiated",
+            "psram_free_bytes": 8082796,
+            "psram_largest_free_block_bytes": 7995392
+          },
+          {
+            "internal_free_bytes": 139719,
+            "internal_largest_free_block_bytes": 44032,
+            "phase": "candidate_health_check",
+            "psram_free_bytes": 8082796,
+            "psram_largest_free_block_bytes": 7995392
+          },
+          {
+            "internal_free_bytes": 139719,
+            "internal_largest_free_block_bytes": 43008,
+            "phase": "floor_committed",
+            "psram_free_bytes": 8082796,
+            "psram_largest_free_block_bytes": 7995392
+          },
+          {
+            "internal_free_bytes": 139719,
+            "internal_largest_free_block_bytes": 43008,
+            "phase": "control_activated",
+            "psram_free_bytes": 8082796,
+            "psram_largest_free_block_bytes": 7995392
+          },
+          {
+            "internal_free_bytes": 153363,
+            "internal_largest_free_block_bytes": 43008,
+            "phase": "previous_control_released",
+            "psram_free_bytes": 8161080,
+            "psram_largest_free_block_bytes": 7995392
+          }
+        ],
+        "psram_free_min_bytes": 8082796,
+        "source": "phase snapshots summarized by analyzer",
+        "wamr_allocator_failures": 0,
+        "wamr_allocator_peak_bytes": 259432
+      },
+      "payload": {
+        "artifact_bytes": 1256,
+        "sha256": "293d78b1af5e0c7e76593d9b8e755692ee311d8427c43d94673ddfd499d5bf53",
+        "transport_bytes_received": 1256,
+        "verified_artifact_running": true
+      },
+      "private_capture_sha256": {
+        "analysis": "7c80cd31e2aa4542d0406019a2e3b96a26fd052818f139f6cb4c5f782e1bf73d",
+        "observations": "70540c059bdb904a024e3e97ee4cc756dd76c06df58026df1b6b8bcc72293d0a",
+        "summary": "7e4b4bbe532500c75940858fa9c77fc43b27485b4ec06f7a727ce06cb0922009",
+        "uart": "ae77f82a88f8d7667be75cc2bfb42161b376af1d7524484072b2b6e7532f7234"
+      },
+      "service": {
+        "acceptance_to_first_v2_ns": 6618637635,
+        "control_interval_max_gap_ns": 1505387202,
+        "control_max_gap_ns": 1505387202,
+        "control_requests": 899,
+        "control_requests_null_reason": null,
+        "control_tail_censored_ns": 363074311,
+        "control_timeout_rate": 0.01557285873192436,
+        "control_timeout_sample_ids": [
+          252,
+          253,
+          254,
+          255,
+          256,
+          257,
+          258,
+          259,
+          260,
+          261,
+          262,
+          263,
+          264,
+          265
+        ],
+        "control_timeouts": 14,
+        "control_unavailability_estimate_ns": 1405387202,
+        "late_control_count": 8,
+        "late_control_sample_ids": [
+          252,
+          253,
+          254,
+          255,
+          256,
+          257,
+          258,
+          259
+        ],
+        "late_controls": 8,
+        "observation_window_ns": 90301410867,
+        "telemetry_gap_window": "update interval",
+        "telemetry_max_gap_full_capture_ns": 160223061,
+        "telemetry_max_gap_ns": 160223061.0,
+        "telemetry_observation_window_ns": 90301410867,
+        "telemetry_unavailable": 0,
+        "telemetry_unavailable_events": 0,
+        "telemetry_unavailable_null_reason": null,
+        "transition_v1_to_v2_gap_ns": 1505387202.0,
+        "unresolved_sequence_gaps": 0,
+        "valid_controls": 885,
+        "valid_telemetry": 903
+      },
+      "timing": {
+        "acceptance_to_first_v2_ns": 6618637635,
+        "device_phase_clock": "mcu_monotonic_us_within_one_boot",
+        "device_phases_us": {
+          "accepted_to_manifest_download_started_us": 78072,
+          "activating_to_candidate_loaded_us": 92364,
+          "candidate_health_check_to_floor_committed_us": 67406,
+          "candidate_instantiated_to_candidate_health_check_us": 2597,
+          "candidate_loaded_to_candidate_instantiated_us": 6151,
+          "control_activated_to_previous_control_released_us": 2701,
+          "floor_committed_to_control_activated_us": 1274,
+          "manifest_download_started_to_manifest_downloaded_us": 3346516,
+          "manifest_downloaded_to_signature_verified_us": 276048,
+          "payload_download_started_to_payload_verified_us": 948336,
+          "payload_verified_to_staged_us": 160944,
+          "signature_verified_to_payload_download_started_us": 175344,
+          "staged_to_activating_us": 107144
+        },
+        "host_clock": "observer_monotonic_ns",
+        "trigger_to_first_v2_ns": 6624129703
+      }
+    },
+    "interp": {
+      "functional_oracle": {
+        "temperature_c": 27,
+        "v1_gpio": "high",
+        "v1_responses": 66,
+        "v2_gpio": "low",
+        "v2_responses": 209
+      },
+      "memory": {
+        "internal_free_min_bytes": 151383,
+        "internal_largest_block_min_bytes": 53248,
+        "module_lifecycle_snapshots": [
+          {
+            "internal_heap": {
+              "free": 162295,
+              "largest": 63488,
+              "status": "measured",
+              "total": 376379
+            },
+            "phase": "module_load",
+            "psram_heap": {
+              "free": 8171032,
+              "largest": 8126464,
+              "status": "measured",
+              "total": 8388608
+            },
+            "source_line": 330,
+            "wamr_allocator": {
+              "artifacts": 922,
+              "calls": 151,
+              "failures": 0,
+              "linear_memory": 147504,
+              "live": 172722,
+              "peak": 173450,
+              "runtime": 24296
+            }
+          },
+          {
+            "internal_heap": {
+              "free": 161203,
+              "largest": 63488,
+              "status": "measured",
+              "total": 376379
+            },
+            "phase": "module_instantiate",
+            "psram_heap": {
+              "free": 8097276,
+              "largest": 7995392,
+              "status": "measured",
+              "total": 8388608
+            },
+            "source_line": 332,
+            "wamr_allocator": {
+              "artifacts": 922,
+              "calls": 162,
+              "failures": 0,
+              "linear_memory": 221256,
+              "live": 247426,
+              "peak": 247466,
+              "runtime": 25248
+            }
+          },
+          {
+            "internal_heap": {
+              "free": 151383,
+              "largest": 53248,
+              "status": "measured",
+              "total": 376379
+            },
+            "phase": "candidate_overlap",
+            "psram_heap": {
+              "free": 8097276,
+              "largest": 7995392,
+              "status": "measured",
+              "total": 8388608
+            },
+            "source_line": 341,
+            "wamr_allocator": {
+              "artifacts": 922,
+              "calls": 163,
+              "failures": 0,
+              "linear_memory": 221256,
+              "live": 257242,
+              "peak": 257242,
+              "runtime": 35064
+            }
+          },
+          {
+            "internal_heap": {
+              "free": 163591,
+              "largest": 53248,
+              "status": "measured",
+              "total": 376379
+            },
+            "phase": "control_replaced_old_released",
+            "psram_heap": {
+              "free": 8171032,
+              "largest": 7995392,
+              "status": "measured",
+              "total": 8388608
+            },
+            "source_line": 347,
+            "wamr_allocator": {
+              "artifacts": 594,
+              "calls": 187,
+              "failures": 0,
+              "linear_memory": 147504,
+              "live": 171490,
+              "peak": 257242,
+              "runtime": 23392
+            }
+          }
+        ],
+        "phase_snapshots": [
+          {
+            "internal_free_bytes": 164367,
+            "internal_largest_free_block_bytes": 65536,
+            "phase": "accepted",
+            "psram_free_bytes": 8171364,
+            "psram_largest_free_block_bytes": 8126464
+          },
+          {
+            "internal_free_bytes": 164367,
+            "internal_largest_free_block_bytes": 65536,
+            "phase": "manifest_download_started",
+            "psram_free_bytes": 8171364,
+            "psram_largest_free_block_bytes": 8126464
+          },
+          {
+            "internal_free_bytes": 163779,
+            "internal_largest_free_block_bytes": 63488,
+            "phase": "manifest_downloaded",
+            "psram_free_bytes": 8171364,
+            "psram_largest_free_block_bytes": 8126464
+          },
+          {
+            "internal_free_bytes": 163799,
+            "internal_largest_free_block_bytes": 63488,
+            "phase": "signature_verified",
+            "psram_free_bytes": 8171364,
+            "psram_largest_free_block_bytes": 8126464
+          },
+          {
+            "internal_free_bytes": 163799,
+            "internal_largest_free_block_bytes": 63488,
+            "phase": "payload_download_started",
+            "psram_free_bytes": 8171364,
+            "psram_largest_free_block_bytes": 8126464
+          },
+          {
+            "internal_free_bytes": 163255,
+            "internal_largest_free_block_bytes": 63488,
+            "phase": "payload_verified",
+            "psram_free_bytes": 8171364,
+            "psram_largest_free_block_bytes": 8126464
+          },
+          {
+            "internal_free_bytes": 163799,
+            "internal_largest_free_block_bytes": 63488,
+            "phase": "staged",
+            "psram_free_bytes": 8171364,
+            "psram_largest_free_block_bytes": 8126464
+          },
+          {
+            "internal_free_bytes": 163799,
+            "internal_largest_free_block_bytes": 63488,
+            "phase": "activating",
+            "psram_free_bytes": 8171364,
+            "psram_largest_free_block_bytes": 8126464
+          },
+          {
+            "internal_free_bytes": 162295,
+            "internal_largest_free_block_bytes": 63488,
+            "phase": "candidate_loaded",
+            "psram_free_bytes": 8171032,
+            "psram_largest_free_block_bytes": 8126464
+          },
+          {
+            "internal_free_bytes": 161203,
+            "internal_largest_free_block_bytes": 63488,
+            "phase": "candidate_instantiated",
+            "psram_free_bytes": 8097276,
+            "psram_largest_free_block_bytes": 7995392
+          },
+          {
+            "internal_free_bytes": 151383,
+            "internal_largest_free_block_bytes": 53248,
+            "phase": "candidate_health_check",
+            "psram_free_bytes": 8097276,
+            "psram_largest_free_block_bytes": 7995392
+          },
+          {
+            "internal_free_bytes": 151383,
+            "internal_largest_free_block_bytes": 53248,
+            "phase": "floor_committed",
+            "psram_free_bytes": 8097276,
+            "psram_largest_free_block_bytes": 7995392
+          },
+          {
+            "internal_free_bytes": 151383,
+            "internal_largest_free_block_bytes": 53248,
+            "phase": "control_activated",
+            "psram_free_bytes": 8097276,
+            "psram_largest_free_block_bytes": 7995392
+          },
+          {
+            "internal_free_bytes": 163591,
+            "internal_largest_free_block_bytes": 53248,
+            "phase": "previous_control_released",
+            "psram_free_bytes": 8171032,
+            "psram_largest_free_block_bytes": 7995392
+          }
+        ],
+        "psram_free_min_bytes": 8097276,
+        "source": "phase snapshots summarized by analyzer",
+        "wamr_allocator_failures": 0
+      },
+      "payload": {
+        "artifact_bytes": 328,
+        "sha256": "3a972948112397acdaad03c81714a3daf147ecce926f0854341e58a350f3d5c5",
+        "transport_bytes_received": 328,
+        "verified_artifact_running": true
+      },
+      "private_capture_sha256": {
+        "analysis": "4b18050bad47309bd43e002140a4e83352eb1cca55f3d9e25cdeee3aeaac5769",
+        "observations": "b1ab151ae8ab7fe924d2eb88ceebf443d2bc1c25423a4720e00ccc771f093992",
+        "summary": "5b45c5ed1ae675659a56fa4535697773dc918b3722237300f1c822dc4b3bef0d",
+        "uart": "b9773a66aca5c999e245ddb4b36cb7e746d16e7826eb19227a9af79a9a1a24a8"
+      },
+      "service": {
+        "acceptance_to_first_v2_ns": 7117390684,
+        "control_interval_max_gap_ns": 1510080355,
+        "control_max_gap_ns": 1510080355,
+        "control_requests": 899,
+        "control_requests_null_reason": null,
+        "control_tail_censored_ns": 389324739,
+        "control_timeout_rate": 0.01557285873192436,
+        "control_timeout_sample_ids": [
+          257,
+          258,
+          259,
+          260,
+          261,
+          262,
+          263,
+          264,
+          265,
+          266,
+          267,
+          268,
+          269,
+          270
+        ],
+        "control_timeouts": 14,
+        "control_unavailability_estimate_ns": 1410080355,
+        "late_control_count": 8,
+        "late_control_sample_ids": [
+          257,
+          258,
+          259,
+          260,
+          261,
+          262,
+          263,
+          264
+        ],
+        "late_controls": 8,
+        "observation_window_ns": 90301880856,
+        "telemetry_gap_window": "update interval",
+        "telemetry_max_gap_full_capture_ns": 222297031,
+        "telemetry_max_gap_ns": 162572531.0,
+        "telemetry_observation_window_ns": 90301880856,
+        "telemetry_unavailable": 0,
+        "telemetry_unavailable_events": 0,
+        "telemetry_unavailable_null_reason": null,
+        "transition_v1_to_v2_gap_ns": 1510080355.0,
+        "unresolved_sequence_gaps": 0,
+        "valid_controls": 885,
+        "valid_telemetry": 903
+      },
+      "timing": {
+        "acceptance_to_first_v2_ns": 7117390684,
+        "device_phase_clock": "mcu_monotonic_us_within_one_boot",
+        "device_phases_us": {
+          "accepted_to_manifest_download_started_us": 78091,
+          "activating_to_candidate_loaded_us": 91902,
+          "candidate_health_check_to_floor_committed_us": 64628,
+          "candidate_instantiated_to_candidate_health_check_us": 2445,
+          "candidate_loaded_to_candidate_instantiated_us": 5937,
+          "control_activated_to_previous_control_released_us": 2032,
+          "floor_committed_to_control_activated_us": 1244,
+          "manifest_download_started_to_manifest_downloaded_us": 3845982,
+          "manifest_downloaded_to_signature_verified_us": 277069,
+          "payload_download_started_to_payload_verified_us": 944592,
+          "payload_verified_to_staged_us": 154638,
+          "signature_verified_to_payload_download_started_us": 173460,
+          "staged_to_activating_us": 106988
+        },
+        "host_clock": "observer_monotonic_ns",
+        "trigger_to_first_v2_ns": 7123206406
+      }
+    },
+    "native": {
+      "functional_oracle": {
+        "temperature_c": 27,
+        "v1_gpio": "high",
+        "v1_responses": 188,
+        "v2_gpio": "low",
+        "v2_responses": 746
+      },
+      "memory": {
+        "internal_free_min_bytes": 225379,
+        "phase_snapshots": [
+          {
+            "boot_id": "bdf73267b708cbfc",
+            "internal_free_bytes": 226339,
+            "internal_largest_free_block_bytes": 124928,
+            "phase": "accepted",
+            "psram_free_bytes": 8384416,
+            "psram_largest_free_block_bytes": 8257536
+          },
+          {
+            "boot_id": "bdf73267b708cbfc",
+            "internal_free_bytes": 225379,
+            "internal_largest_free_block_bytes": 100352,
+            "phase": "payload_verified",
+            "psram_free_bytes": 8384416,
+            "psram_largest_free_block_bytes": 8257536
+          },
+          {
+            "boot_id": "b2902279f5ec4dd9",
+            "internal_free_bytes": 252383,
+            "internal_largest_free_block_bytes": 155648,
+            "phase": "boot_pending",
+            "psram_free_bytes": 8384416,
+            "psram_largest_free_block_bytes": 8257536
+          },
+          {
+            "boot_id": "b2902279f5ec4dd9",
+            "internal_free_bytes": 226335,
+            "internal_largest_free_block_bytes": 124928,
+            "phase": "health_check_passed",
+            "psram_free_bytes": 8384416,
+            "psram_largest_free_block_bytes": 8257536
+          },
+          {
+            "boot_id": "b2902279f5ec4dd9",
+            "internal_free_bytes": 226335,
+            "internal_largest_free_block_bytes": 124928,
+            "phase": "floor_committed",
+            "psram_free_bytes": 8384416,
+            "psram_largest_free_block_bytes": 8257536
+          }
+        ],
+        "psram_free_min_bytes": 8384416,
+        "source": "phase_snapshots"
+      },
+      "payload": {
+        "artifact_bytes": 898832,
+        "sha256": "8df016fe253d58eb0b9073037e38cf6568162a0964c03aa2aa384d9185f44137",
+        "transport_bytes_received": 898832,
+        "verified_artifact_running": true
+      },
+      "private_capture_sha256": {
+        "analysis": "7ef8354c972245571156c5b8c015f7117a5c7b51390c83d2a80f93ef9251dc38",
+        "observations": "be94b8e093928b50e0d01a4354ded307b565aa5510f29a740c14e8abc12402a2",
+        "summary": "d4ca56d8526024bb1fc3a61cbc3e5017faddb1ecfed6ce5ed9f6f2630d971bba",
+        "uart": "a1deb873589318d94c9083bc148d9dda9f4986edc64282ac3cda39c0ca4e9821"
+      },
+      "service": {
+        "acceptance_to_first_v2_ns": 16296308228,
+        "control_interval_max_gap_ns": 3495783592,
+        "control_max_gap_ns": 3495783592,
+        "control_requests": 2965,
+        "control_tail_censored_ns": 393963420,
+        "control_timeout_rate": 0.011467116357504217,
+        "control_timeout_sample_ids": [
+          695,
+          696,
+          697,
+          698,
+          699,
+          700,
+          701,
+          702,
+          703,
+          704,
+          705,
+          706,
+          707,
+          708,
+          709,
+          710,
+          711,
+          712,
+          713,
+          714,
+          715,
+          716,
+          717,
+          718,
+          719,
+          720,
+          721,
+          722,
+          723,
+          724,
+          725,
+          726,
+          727,
+          728
+        ],
+        "control_timeouts": 34,
+        "control_unavailability_estimate_ns": 3395783592,
+        "late_control_count": 0,
+        "late_control_sample_ids": [],
+        "late_controls": 0,
+        "observation_window_ns": 300302199141,
+        "telemetry_gap_window": "full observer capture across reboot",
+        "telemetry_max_gap_full_capture_ns": 3341380146,
+        "telemetry_max_gap_ns": 3341380146,
+        "telemetry_unavailable": 15,
+        "telemetry_unavailable_events": 15,
+        "transition_v1_to_v2_gap_ns": 3495783592,
+        "unresolved_sequence_gaps": 0,
+        "valid_controls": 2931,
+        "valid_telemetry": 2922
+      },
+      "timing": {
+        "acceptance_to_first_v2_ns": 16296308228,
+        "device_phase_clock": "mcu_monotonic_us_within_each_boot",
+        "device_phases_us": {
+          "accepted_to_manifest_download_started_us": 66900,
+          "activating_to_reboot_requested_us": 212372,
+          "boot_pending_to_health_check_passed_us": 2193509,
+          "health_check_passed_to_floor_committed_us": 195764,
+          "manifest_download_started_to_manifest_downloaded_us": 4838580,
+          "manifest_downloaded_to_signature_verified_us": 261552,
+          "payload_download_started_to_payload_verified_us": 6762880,
+          "payload_verified_to_staged_us": 419045,
+          "signature_verified_to_payload_download_started_us": 156676,
+          "staged_to_activating_us": 84805
+        },
+        "host_clock": "observer_monotonic_ns",
+        "trigger_to_first_v2_ns": 16303452369
+      }
+    }
+  },
+  "schema": "wasmhome-update-metrics-comparison-v1",
+  "source_evidence_sha256": {
+    "aot": "641f72da5bb511003a2e25e7bb6215070d2a244639b6180a11e146eb0f203f83",
+    "benchmark": "0edaffe8432362c8e3c82b4e8559467d624316d598c696e14a278e21ce484dca",
+    "interp": "4dd44463181236dd8ed2211f2d914dd56e9d21a2db09a5f43a6e717c0788680d",
+    "native": "323ccd9e2595717cb669df0d8c164bf19345f0e553c5d5a4fc9717b1845e37d1"
+  }
+}
