@@ -160,13 +160,14 @@ Depois que cada bloqueio próprio for atendido, não é necessário serializar a
 
 - [ ] **#17, troca observável interpretada.** Dependências: #10, #13 e #15. Baixar e validar o controle interpretado v2 enquanto v1 permanece disponível; testar o novo módulo, persistir slot e piso e trocar em ponto seguro entre requisições. Provar que telemetria não parou e permaneceu na mesma instância e no mesmo `boot_id`. Registrar memória, payload, etapas, lacunas e recuperação.
 - [ ] **#18, troca observável AOT.** Dependências: #10, #14 e #15. Aplicar os critérios da #17 ao controle AOT, comprovando continuidade da telemetria no mesmo boot.
-- [ ] **#22, mecanismos de injeção e recuperação.** Dependências: #5, #12 e #15. Antes da campanha, demonstrar em ensaios preliminares:
-  - [ ] Canal serial de fixture fixa com `fault_request`, `attempt_id` e `case_id`; `fault_accepted` antecede a injeção e significa aceite do ensaio, não do artefato. Não aceitar URLs, caminhos ou chaves arbitrárias pelo canal.
-  - [ ] Correlacionar eventos seriais e disponibilidade UDP por IDs/boots, preservando relógios de cada fonte e JSONL bruto, inclusive após reboot.
-  - [ ] `ENV-OLD` percorre o validador real do envelope e o piso NVS real. Rejeição antecipada de `UPDATE_TRIGGER` é ensaio distinto e não substitui essa célula.
-  - [ ] `ENV-HASH` pode gravar apenas no slot inativo, invalida o payload divergente e preserva slot ativo, versão e piso. Nunca instancia nem ativa o conteúdo divergente.
-  - [ ] Preservar bounds checks em interpretador e AOT; demonstrar traps Wasm isolados na instância de controle e `NAT-ABORT` com pânico/reboot. No trap, não chamar `wasm_runtime_destroy()`; descartar somente a instância e os recursos de controle. A telemetria deve permanecer dentro do timeout funcional.
-  - [ ] Recuperar o último controle válido; validar estado/piso antirretorno e correlação após reboot. Registrar ferramentas, fixtures, hashes, configurações e logs.
+- [ ] **#22, mecanismos de injeção e recuperação.** Dependências: #5, #12 e #15. A implementação parcial e seus limites estão em [registro da #22](issue22-resilience-implementation.md); a issue permanece aberta até passar a prova preliminar completa.
+  - [x] Planner host gera exatamente 70 falhas + dois controles. Harness host valida pedidos fechados, correlaciona JSONL serial/UDP por IDs e boots, lê o marcador bruto de aborto e mantém unconfirmed quando falta aceite. Relógios permanecem separados.
+  - [x] Gerador de fixtures ENV-SIG/HASH/OLD implementado e testado com pacote de teste no host; saídas de produção ainda dependem de um pacote #15 e não foram validadas no dispositivo.
+  - [x] Parser C do pedido serial fechado implementado e compilado/testado no host. O firmware opt-in NAT-ABORT persiste o aceite em NVS e só aborta após resposta de controle UDP com o mesmo attempt_id; a integração ESP-IDF ainda não foi compilada nem executada na placa.
+  - [ ] Integrar ENV-SIG/ENV-HASH/ENV-OLD ao validador e ao sink reais; confirmar rejeição em envelope_sequence, invalidação somente do slot inativo para HASH e invariância do ativo/piso.
+  - [ ] Gerar fixture Wasm/AOT de traps e integrar contenção/recuperação de instância de controle no module_manager.c, mantendo bounds checks e telemetria.
+  - [ ] Fazer a prova física preliminar após a #20 e identidade/estado da placa serem confirmados. A placa/serial não foi acessada nesta revisão.
+  - [ ] Medir timeout funcional congelado pela #20 (300 ms continua candidato) e recuperação UDP observada em até 30 s. O evento serial de conclusão atual registra apenas envios locais bem-sucedidos; o observador deve confirmar recepção e lacunas.
 
 ## E5. Métricas, piloto e congelamento
 

@@ -8,6 +8,9 @@
 #include "native_ota.h"
 #include "signed_update.h"
 #endif
+#if defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE) && !defined(WASMHOME_NATIVE_SERVICES_HOST)
+#include "resilience_test.h"
+#endif
 
 #include <limits.h>
 #include <string.h>
@@ -312,6 +315,14 @@ static esp_err_t send_control_result(const uint8_t *request, uint64_t sample_id,
     body[10] = result->observed_gpio;
     body[11] = result->status;
     esp_err_t err = wh_observation_send(WH_CONTROL_RESULT, request + 8, body, sizeof(body));
+#if defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE) && !defined(WASMHOME_NATIVE_SERVICES_HOST)
+    if (err == ESP_OK) {
+        const bool correct = result->status == WH_NATIVE_CONTROL_APPLIED &&
+            result->requested_gpio <= 1 &&
+            result->requested_gpio == result->observed_gpio;
+        wh_resilience_test_note_control_request(request + 8, correct);
+    }
+#endif
     if (err != ESP_OK) wh_platform_event("native_control_result_send_failed", err);
     return err;
 }
@@ -532,17 +543,29 @@ static void telemetry_task(void *argument)
 {
     (void)argument;
     ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
-    const uint8_t attempt_id[16] = {0};
     TickType_t cycle = xTaskGetTickCount();
     for (;;) {
         wh_sensor_sample_t sample = wh_sensor_latest();
         uint8_t body[16];
         uint64_t now_us = (uint64_t)esp_timer_get_time();
+#if defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE) && !defined(WASMHOME_NATIVE_SERVICES_HOST)
+        uint8_t attempt_id[16];
+        wh_resilience_test_telemetry_attempt(attempt_id);
+#else
+        const uint8_t attempt_id[16] = {0};
+#endif
         if (wh_native_telemetry_body(body, sample.sample_id, sample.temperature_mC,
                                      (uint64_t)sample.acquired_us,
                                      (uint8_t)sample.status, now_us)) {
             esp_err_t err = wh_observation_send(WH_TELEMETRY, attempt_id,
                                                 body, sizeof(body));
+#if defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE) && !defined(WASMHOME_NATIVE_SERVICES_HOST)
+            const bool sample_correct = err == ESP_OK &&
+                sample.status == WH_SENSOR_VALID && sample.sample_id != 0 &&
+                sample.acquired_us >= 0 && now_us >= (uint64_t)sample.acquired_us &&
+                now_us - (uint64_t)sample.acquired_us <= 2000000;
+            wh_resilience_test_note_service_result(true, sample_correct);
+#endif
             if (err != ESP_OK) wh_platform_event("native_telemetry_send_failed", err);
         } else {
             wh_platform_event("native_telemetry_state_invalid", ESP_ERR_INVALID_STATE);

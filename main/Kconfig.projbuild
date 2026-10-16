@@ -79,6 +79,25 @@ config WASMHOME_NATIVE_OTA
         Enables the native UPDATE_TRIGGER path to stage an authenticated ESP-IDF
         application in the inactive OTA slot and request a reboot.
 
+config WASMHOME_RESILIENCE_TEST_MODE
+    bool "Enable serial NAT-ABORT resilience fixture"
+    default n
+    depends on WASMHOME_NATIVE_OTA && WASMHOME_NATIVE_SERVICES && ESP_SYSTEM_PANIC_PRINT_REBOOT
+    help
+        Opt-in bench-only serial fixture for the controlled native abort case.
+        Accepts only a closed JSON request containing event, attempt_id and
+        case_id. The selected panic handler must print diagnostics and reboot.
+        This does not enable the normal campaign firmware.
+
+config WASMHOME_RESILIENCE_FUNCTIONAL_TIMEOUT_MS
+    int "Candidate functional timeout used by resilience fixture"
+    range 100 1000
+    default 300
+    depends on WASMHOME_RESILIENCE_TEST_MODE
+    help
+        Initial candidate only. Freeze or adjust after the #20 pilot before
+        using it as an acceptance threshold for a campaign.
+
 config WASMHOME_UPDATE_CA_CERT_PATH
     string "Local path to the trusted HTTPS CA certificate (PEM)"
     default ""

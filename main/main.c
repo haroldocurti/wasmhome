@@ -46,6 +46,10 @@ extern const uint32_t service_control_v2_aot_len;
 #include "native_ota.h"
 #endif
 
+#if defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE)
+#include "resilience_test.h"
+#endif
+
 #if !defined(WASMHOME_SCENARIO_NATIVE)
 #include "bh_platform.h"
 #include "wasm_export.h"
@@ -414,6 +418,9 @@ void app_main(void)
 #endif
     ESP_ERROR_CHECK(wh_module_manager_start(&telemetry, &control));
     return;
+#endif
+#if defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE)
+    ESP_ERROR_CHECK(wh_resilience_test_start());
 #endif
 #if defined(CONFIG_WASMHOME_NATIVE_SERVICES)
     ESP_ERROR_CHECK(wh_native_services_start());
