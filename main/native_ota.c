@@ -238,14 +238,30 @@ static void perform_update(const wh_native_ota_request_t *request)
                             WH_SIGNED_UPDATE_FAILURE_NONE);
     if (err == ESP_OK) err = wh_signed_update_mark_activating(&manifest,
                                                               sink_context.partition->address);
-    if (err == ESP_OK) err = esp_ota_set_boot_partition(sink_context.partition);
+    bool boot_selection_attempted = false;
+    if (err == ESP_OK) {
+        /* set_boot_partition() may return an error after OTADATA has been
+           erased or partially written. From this point, the pending ledger
+           must remain intact until boot-time reconciliation determines which
+           image the bootloader selected. */
+        boot_selection_attempted = true;
+        err = esp_ota_set_boot_partition(sink_context.partition);
+    }
     if (err != ESP_OK) {
-        (void)wh_signed_update_abort(&manifest);
+        if (!boot_selection_attempted)
+            (void)wh_signed_update_abort(&manifest);
         emit_manifest_event(request, &manifest, WH_SIGNED_UPDATE_PHASE_UPDATE_FAILED,
                             err == ESP_ERR_INVALID_CRC
                                 ? WH_SIGNED_UPDATE_FAILURE_PAYLOAD_HASH
                                 : WH_SIGNED_UPDATE_FAILURE_PERSISTENCE);
         wh_platform_event("native_ota_activation_failed", err);
+        if (boot_selection_attempted) {
+            fflush(stdout);
+            /* Force the reconciler to inspect the actual boot selection. If
+               the new slot was selected, it enters trial verification; if it
+               was not, the old image safely clears the abandoned pending row. */
+            esp_restart();
+        }
         return;
     }
     emit_manifest_event(request, &manifest, WH_SIGNED_UPDATE_PHASE_REBOOT_REQUESTED,
