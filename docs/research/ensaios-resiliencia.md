@@ -168,6 +168,14 @@ O dispositivo só aceitará casos e fixtures previamente configurados na bancada
 sem receber URL, caminho arbitrário ou chave confiável pelo pedido. Esse canal
 é exclusivo do firmware de ensaio e não faz parte da atualização normal.
 
+Estado de implementação em 2026-10-16: o firmware opt-in já contém o parser
+fechado e caminhos nativos de fixtures ENV-SIG/HASH/OLD para o validador e sink
+assinados existentes. O endpoint HTTPS usa configuração separada; é necessário
+preparar um serviço isolado antes do HIL, sem alterar/reutilizar os serviços
+ativos de campanha. O caminho serial ENV para módulos B/C e os traps Wasm ainda
+não foram integrados. Consulte o [registro de implementação da #22](../issue22-resilience-implementation.md)
+para evidência host e bloqueios da prova física.
+
 Para `ENV-OLD`, o injetor obtém a fixture assinada e chama o mesmo validador de
 envelope usado na atualização normal, com o piso NVS real. Não altera o piso,
 não desativa a verificação e não passa pelo filtro de sequência do

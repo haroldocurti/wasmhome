@@ -120,7 +120,7 @@ typedef struct {
        Must make the candidate durable and return only after readback succeeds. */
     esp_err_t (*finish)(void *context, const wh_signed_update_manifest_t *manifest,
                         uint32_t *slot_id);
-    void (*abort)(void *context);
+    esp_err_t (*abort)(void *context);
 } wh_signed_update_sink_t;
 
 typedef struct {
@@ -166,6 +166,16 @@ esp_err_t wh_signed_update_download(uint8_t scenario, const char *release_versio
                                     void *event_context,
                                     wh_signed_update_manifest_t *manifest_out,
                                     wh_signed_update_failure_t *failure_out);
+
+/* Test-only path selection: case_id is a closed enum, never a caller-provided
+   path. ENV-OLD deliberately skips only the trigger-sequence comparison and
+   still reaches ledger_prepare(), which enforces the real NVS floor. */
+esp_err_t wh_signed_update_resilience_download(
+    uint8_t scenario, const char *case_id, const uint8_t attempt_id[16],
+    const wh_signed_update_sink_t *sink,
+    wh_signed_update_event_fn event_fn, void *event_context,
+    wh_signed_update_manifest_t *manifest_out,
+    wh_signed_update_failure_t *failure_out, const char **stage_out);
 
 /* Stage writes pending before payload I/O. Activation adapters record the
    chosen persistent slot before changing the in-memory selection. commit()

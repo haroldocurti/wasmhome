@@ -12,6 +12,9 @@
 #include "native_services.h"
 #include "platform.h"
 #include "sdkconfig.h"
+#if defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE)
+#include "resilience_test.h"
+#endif
 #include "signed_update.h"
 
 #include <stdio.h>
@@ -22,7 +25,11 @@
 #define NATIVE_OTA_NOTIFY_START 1u
 #define NATIVE_OTA_NOTIFY_CANCEL 2u
 #define NATIVE_OTA_NOTIFY_HEALTH_CHECK 3u
+#if defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE)
+#define NATIVE_OTA_NOTIFY_RESILIENCE 4u
+#endif
 #define NATIVE_OTA_HASH_CHUNK_BYTES 1024u
+#define NATIVE_OTA_ERASE_SIZE 4096u
 
 typedef struct {
     const esp_partition_t *partition;
@@ -30,6 +37,7 @@ typedef struct {
     uint32_t expected_size;
     uint32_t written;
     bool begun;
+    bool invalidated;
 } native_ota_sink_context_t;
 
 static SemaphoreHandle_t ota_state_lock;
@@ -38,6 +46,10 @@ static bool ota_reserved;
 static bool ota_busy;
 static bool ota_health_complete;
 static wh_native_ota_request_t reserved_request;
+#if defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE)
+static char resilience_case_id[9];
+static uint8_t resilience_attempt_id[16];
+#endif
 
 typedef struct {
     SemaphoreHandle_t completion;
@@ -167,13 +179,49 @@ static esp_err_t sink_finish(void *opaque,
     return ESP_OK;
 }
 
-static void sink_abort(void *opaque)
+static esp_err_t sink_abort(void *opaque)
 {
     native_ota_sink_context_t *context = opaque;
+    if (!context) return ESP_ERR_INVALID_ARG;
+    esp_err_t err = ESP_OK;
     if (context && context->begun) {
-        (void)esp_ota_abort(context->handle);
+        err = esp_ota_abort(context->handle);
         context->begun = false;
     }
+    context->invalidated = context->written == 0;
+    const esp_partition_t *running = esp_ota_get_running_partition();
+    if (context->written != 0) {
+        if (!context->partition || context->partition == running ||
+            context->partition->size % NATIVE_OTA_ERASE_SIZE != 0)
+            return err == ESP_OK ? ESP_ERR_INVALID_STATE : err;
+        esp_err_t erase_err = esp_partition_erase_range(
+            context->partition, 0, context->partition->size);
+        if (erase_err == ESP_OK) {
+            uint8_t verify[NATIVE_OTA_HASH_CHUNK_BYTES];
+            context->invalidated = true;
+            for (uint32_t offset = 0;
+                 context->invalidated && offset < context->partition->size;) {
+                size_t amount = context->partition->size - offset;
+                if (amount > sizeof(verify)) amount = sizeof(verify);
+                if (esp_partition_read(context->partition, offset, verify, amount) != ESP_OK) {
+                    context->invalidated = false;
+                    break;
+                }
+                for (size_t i = 0; i < amount; ++i) {
+                    if (verify[i] != 0xff) {
+                        context->invalidated = false;
+                        break;
+                    }
+                }
+                offset += (uint32_t)amount;
+            }
+        } else {
+            context->invalidated = false;
+            if (err == ESP_OK) err = erase_err;
+        }
+        if (!context->invalidated && err == ESP_OK) err = ESP_FAIL;
+    }
+    return err;
 }
 
 static void emit_manifest_event(const wh_native_ota_request_t *request,
@@ -248,8 +296,11 @@ static void perform_update(const wh_native_ota_request_t *request)
         err = esp_ota_set_boot_partition(sink_context.partition);
     }
     if (err != ESP_OK) {
-        if (!boot_selection_attempted)
-            (void)wh_signed_update_abort(&manifest);
+        if (!boot_selection_attempted) {
+            const esp_err_t abort_err = wh_signed_update_abort(&manifest);
+            if (abort_err != ESP_OK)
+                wh_platform_event("native_ota_ledger_abort_failed", abort_err);
+        }
         emit_manifest_event(request, &manifest, WH_SIGNED_UPDATE_PHASE_UPDATE_FAILED,
                             err == ESP_ERR_INVALID_CRC
                                 ? WH_SIGNED_UPDATE_FAILURE_PAYLOAD_HASH
@@ -270,6 +321,138 @@ static void perform_update(const wh_native_ota_request_t *request)
     fflush(stdout);
     esp_restart();
 }
+
+#if defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE)
+static bool resilience_bytes_nonzero(const uint8_t *bytes, size_t size)
+{
+    uint8_t value = 0;
+    for (size_t i = 0; i < size; ++i) value |= bytes[i];
+    return value != 0;
+}
+
+static void format_resilience_uuid(const uint8_t attempt_id[16], char text[37])
+{
+    (void)snprintf(text, 37,
+        "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+        attempt_id[0], attempt_id[1], attempt_id[2], attempt_id[3],
+        attempt_id[4], attempt_id[5], attempt_id[6], attempt_id[7],
+        attempt_id[8], attempt_id[9], attempt_id[10], attempt_id[11],
+        attempt_id[12], attempt_id[13], attempt_id[14], attempt_id[15]);
+}
+
+static bool active_state_unchanged(const wh_signed_update_state_t *before,
+                                   const wh_signed_update_state_t *after)
+{
+    return before && after && !after->pending &&
+        before->scenario == after->scenario &&
+        strcmp(before->component, after->component) == 0 &&
+        before->accepted_floor == after->accepted_floor &&
+        before->active_sequence == after->active_sequence &&
+        before->active_slot == after->active_slot &&
+        before->active_payload_size == after->active_payload_size &&
+        before->active_target_version == after->active_target_version &&
+        before->active_origin_boot_id == after->active_origin_boot_id &&
+        strcmp(before->active_release_version, after->active_release_version) == 0 &&
+        memcmp(before->active_payload_sha256, after->active_payload_sha256, 32) == 0 &&
+        memcmp(before->active_manifest_sha256, after->active_manifest_sha256, 32) == 0 &&
+        memcmp(before->active_attempt_id, after->active_attempt_id, 16) == 0;
+}
+
+static void perform_resilience_fixture(const char *case_id,
+                                       const uint8_t attempt_id[16])
+{
+    native_ota_sink_context_t sink_context = {0};
+    const wh_signed_update_sink_t sink = {
+        .context = &sink_context,
+        .begin = sink_begin,
+        .write = sink_write,
+        .finish = sink_finish,
+        .abort = sink_abort,
+    };
+    wh_signed_update_state_t before = {0}, after = {0};
+    const esp_err_t before_err = wh_signed_update_get_state(
+        WH_NATIVE_SCENARIO_NATIVE, "firmware", CONFIG_WASMHOME_UPDATE_CAMPAIGN_ID,
+        &before);
+    wh_signed_update_manifest_t manifest = {0};
+    wh_signed_update_failure_t failure = WH_SIGNED_UPDATE_FAILURE_NONE;
+    const char *stage = "fixture_setup";
+    const esp_err_t err = wh_signed_update_resilience_download(
+        WH_NATIVE_SCENARIO_NATIVE, case_id, attempt_id, &sink, NULL, NULL,
+        &manifest, &failure, &stage);
+
+    const bool is_sig = strcmp(case_id, "ENV-SIG") == 0;
+    const bool is_hash = strcmp(case_id, "ENV-HASH") == 0;
+    const char *expected_reason = is_sig ? "SIGNATURE_INVALID" :
+                                  is_hash ? "HASH_MISMATCH" : "SEQUENCE_NOT_NEWER";
+    const char *expected_stage = is_sig ? "envelope_signature" :
+                                 is_hash ? "payload_hash" : "envelope_sequence";
+    const bool expected_failure = is_sig
+        ? (err != ESP_OK && failure == WH_SIGNED_UPDATE_FAILURE_SIGNATURE &&
+           strcmp(stage, expected_stage) == 0)
+        : is_hash
+            ? (err == ESP_ERR_INVALID_CRC &&
+               failure == WH_SIGNED_UPDATE_FAILURE_PAYLOAD_HASH &&
+               strcmp(stage, expected_stage) == 0 && sink_context.written > 0 &&
+               sink_context.invalidated)
+            : (err == ESP_ERR_INVALID_VERSION &&
+               failure == WH_SIGNED_UPDATE_FAILURE_POLICY &&
+               strcmp(stage, expected_stage) == 0);
+
+    /* A mistakenly accepted fixture is never activated by this path. */
+    if (err == ESP_OK) {
+        esp_err_t abort_err = sink_abort(&sink_context);
+        if (abort_err != ESP_OK)
+            wh_platform_event("resilience_fixture_sink_abort_failed", abort_err);
+        esp_err_t ledger_err = wh_signed_update_abort(&manifest);
+        if (ledger_err != ESP_OK)
+            wh_platform_event("resilience_fixture_ledger_abort_failed", ledger_err);
+    }
+    const esp_err_t after_err = wh_signed_update_get_state(
+        WH_NATIVE_SCENARIO_NATIVE, "firmware", CONFIG_WASMHOME_UPDATE_CAMPAIGN_ID,
+        &after);
+    const bool state_preserved = before_err == ESP_OK && after_err == ESP_OK &&
+        active_state_unchanged(&before, &after);
+    const bool no_payload_for_reject = (is_sig || !is_hash) && sink_context.written == 0;
+    const bool approved = expected_failure && state_preserved &&
+        (is_hash ? sink_context.invalidated : no_payload_for_reject);
+
+    char attempt[37];
+    format_resilience_uuid(attempt_id, attempt);
+    if (approved) {
+        printf("WASMHOME_RESILIENCE,{\"schema\":\"wasmhome-resilience-v1\","
+               "\"event\":\"update_rejected\",\"attempt_id\":\"%s\","
+               "\"case_id\":\"%s\",\"scenario\":\"native\","
+               "\"boot_id\":\"%016" PRIx64 "\",\"monotonic_us\":%" PRId64 ","
+               "\"reason\":\"%s\",\"stage\":\"%s\","
+               "\"sequence\":%" PRIu64 ",\"accepted_floor_before\":%" PRIu64 ","
+               "\"accepted_floor_after\":%" PRIu64 ",\"state_preserved\":true,"
+               "\"payload_bytes_written\":%" PRIu32 ","
+               "\"payload_slot\":\"%s\",\"payload_invalidated\":%s}\n",
+               attempt, case_id, wh_platform_boot_id(), esp_timer_get_time(),
+               expected_reason, expected_stage, manifest.sequence,
+               before.accepted_floor, after.accepted_floor, sink_context.written,
+               is_hash ? "inactive" : "none",
+               is_hash && sink_context.invalidated ? "true" : "false");
+    } else {
+        printf("WASMHOME_RESILIENCE,{\"schema\":\"wasmhome-resilience-v1\","
+               "\"event\":\"fault_execution_failed\",\"attempt_id\":\"%s\","
+               "\"case_id\":\"%s\",\"scenario\":\"native\","
+               "\"boot_id\":\"%016" PRIx64 "\",\"monotonic_us\":%" PRId64 ","
+               "\"reason\":\"%s\",\"stage\":\"%s\","
+               "\"failure\":\"%s\",\"esp_err\":%d,"
+               "\"state_preserved\":%s,\"payload_bytes_written\":%" PRIu32 ","
+               "\"payload_invalidated\":%s}\n",
+               attempt, case_id, wh_platform_boot_id(), esp_timer_get_time(),
+               expected_reason, stage, wh_signed_update_failure_name(failure), err,
+               state_preserved ? "true" : "false", sink_context.written,
+               sink_context.invalidated ? "true" : "false");
+    }
+    fflush(stdout);
+#if defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE)
+    wh_resilience_test_fixture_finished(attempt_id);
+#endif
+}
+#endif
 
 static void ota_worker(void *argument)
 {
@@ -295,6 +478,23 @@ static void ota_worker(void *argument)
             xSemaphoreGive(ota_state_lock);
             continue;
         }
+#if defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE)
+        if (command == NATIVE_OTA_NOTIFY_RESILIENCE) {
+            char case_id[sizeof(resilience_case_id)];
+            uint8_t attempt_id[16];
+            xSemaphoreTake(ota_state_lock, portMAX_DELAY);
+            memcpy(case_id, resilience_case_id, sizeof(case_id));
+            memcpy(attempt_id, resilience_attempt_id, sizeof(attempt_id));
+            memset(resilience_case_id, 0, sizeof(resilience_case_id));
+            memset(resilience_attempt_id, 0, sizeof(resilience_attempt_id));
+            xSemaphoreGive(ota_state_lock);
+            perform_resilience_fixture(case_id, attempt_id);
+            xSemaphoreTake(ota_state_lock, portMAX_DELAY);
+            ota_busy = false;
+            xSemaphoreGive(ota_state_lock);
+            continue;
+        }
+#endif
         if (command != NATIVE_OTA_NOTIFY_START) continue;
         wh_native_ota_request_t request;
         xSemaphoreTake(ota_state_lock, portMAX_DELAY);
@@ -382,4 +582,37 @@ esp_err_t wh_native_ota_queue_health_check(void)
     if (notified != pdPASS) ota_busy = false;
     xSemaphoreGive(ota_state_lock);
     return notified == pdPASS ? ESP_OK : ESP_FAIL;
+}
+
+esp_err_t wh_native_ota_run_resilience_fixture(
+    const char *case_id, const uint8_t attempt_id[16])
+{
+#if !defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE)
+    (void)case_id;
+    (void)attempt_id;
+    return ESP_ERR_INVALID_STATE;
+#else
+    if (!case_id || !attempt_id || !resilience_bytes_nonzero(attempt_id, 16) ||
+        (strcmp(case_id, "ENV-SIG") != 0 &&
+         strcmp(case_id, "ENV-HASH") != 0 &&
+         strcmp(case_id, "ENV-OLD") != 0)) return ESP_ERR_INVALID_ARG;
+    if (!ota_state_lock || !ota_worker_task) return ESP_ERR_INVALID_STATE;
+    xSemaphoreTake(ota_state_lock, portMAX_DELAY);
+    if (ota_busy || ota_reserved) {
+        xSemaphoreGive(ota_state_lock);
+        return ESP_ERR_INVALID_STATE;
+    }
+    (void)snprintf(resilience_case_id, sizeof(resilience_case_id), "%s", case_id);
+    memcpy(resilience_attempt_id, attempt_id, sizeof(resilience_attempt_id));
+    ota_busy = true;
+    BaseType_t notified = xTaskNotify(ota_worker_task,
+        NATIVE_OTA_NOTIFY_RESILIENCE, eSetValueWithOverwrite);
+    if (notified != pdPASS) {
+        ota_busy = false;
+        memset(resilience_case_id, 0, sizeof(resilience_case_id));
+        memset(resilience_attempt_id, 0, sizeof(resilience_attempt_id));
+    }
+    xSemaphoreGive(ota_state_lock);
+    return notified == pdPASS ? ESP_OK : ESP_FAIL;
+#endif
 }

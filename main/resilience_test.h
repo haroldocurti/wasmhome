@@ -11,3 +11,4 @@ void wh_resilience_test_note_service_result(bool telemetry, bool correct);
 void wh_resilience_test_note_control_request(const uint8_t attempt_id[16],
                                             bool correct);
 void wh_resilience_test_telemetry_attempt(uint8_t attempt_id[16]);
+void wh_resilience_test_fixture_finished(const uint8_t attempt_id[16]);

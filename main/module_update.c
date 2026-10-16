@@ -270,10 +270,10 @@ static esp_err_t sink_finish(void *context,
     return err;
 }
 
-static void sink_abort(void *context)
+static esp_err_t sink_abort(void *context)
 {
     (void)context;
-    wh_module_slot_store_abort();
+    return wh_module_slot_store_abort();
 }
 
 static bool state_has_target(const wh_signed_update_state_t *state,
@@ -379,6 +379,8 @@ static esp_err_t commit_candidate(void *context,
                 return commit_status == ESP_OK ? ESP_ERR_INVALID_CRC : commit_status;
             }
             const esp_err_t abort_status = wh_signed_update_abort(&attempt->manifest);
+            if (abort_status != ESP_OK)
+                wh_platform_event("module_update_ledger_abort_failed", abort_status);
             read_status = wh_signed_update_get_state(
                 WH_MODULE_UPDATE_SCENARIO, "gpio-control", campaign_id(), &state);
             if (read_status != ESP_OK || state.pending ||
@@ -683,7 +685,8 @@ failed_pending:
                 attempt.failure = WH_SIGNED_UPDATE_FAILURE_PERSISTENCE;
             } else {
                 const esp_err_t abort_status = wh_signed_update_abort(&attempt.manifest);
-                (void)abort_status; /* The ledger readback below resolves an ambiguous result. */
+                if (abort_status != ESP_OK)
+                    wh_platform_event("module_update_ledger_abort_failed", abort_status);
                 wh_signed_update_state_t after_abort;
                 if (wh_signed_update_get_state(WH_MODULE_UPDATE_SCENARIO,
                         "gpio-control", campaign_id(), &after_abort) != ESP_OK ||

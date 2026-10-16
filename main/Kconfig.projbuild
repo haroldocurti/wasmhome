@@ -80,14 +80,34 @@ config WASMHOME_NATIVE_OTA
         application in the inactive OTA slot and request a reboot.
 
 config WASMHOME_RESILIENCE_TEST_MODE
-    bool "Enable serial NAT-ABORT resilience fixture"
+    bool "Enable serial native resilience fixtures"
     default n
     depends on WASMHOME_NATIVE_OTA && WASMHOME_NATIVE_SERVICES && ESP_SYSTEM_PANIC_PRINT_REBOOT
     help
-        Opt-in bench-only serial fixture for the controlled native abort case.
+        Opt-in bench-only serial fixtures for native OTA rejection and abort.
         Accepts only a closed JSON request containing event, attempt_id and
-        case_id. The selected panic handler must print diagnostics and reboot.
-        This does not enable the normal campaign firmware.
+        case_id. Envelope fixtures use only the isolated fixture endpoint below.
+        The selected panic handler must print diagnostics and reboot. This does
+        not enable the normal campaign firmware.
+
+config WASMHOME_RESILIENCE_FIXTURE_SERVER_IPV4
+    string "Isolated resilience fixture HTTPS server IPv4"
+    default ""
+    depends on WASMHOME_RESILIENCE_TEST_MODE
+    help
+        Required to enable ENV-SIG/HASH/OLD. Keep these files on an isolated
+        endpoint; the campaign artifact servers are not modified or reused.
+
+config WASMHOME_RESILIENCE_FIXTURE_SERVER_PORT
+    int "Isolated resilience fixture HTTPS server port"
+    range 1 65535
+    default 8445
+    depends on WASMHOME_RESILIENCE_TEST_MODE
+
+config WASMHOME_RESILIENCE_FIXTURE_SERVER_NAME
+    string "Isolated resilience fixture HTTPS certificate DNS name"
+    default ""
+    depends on WASMHOME_RESILIENCE_TEST_MODE
 
 config WASMHOME_RESILIENCE_FUNCTIONAL_TIMEOUT_MS
     int "Candidate functional timeout used by resilience fixture"

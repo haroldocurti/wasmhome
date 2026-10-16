@@ -42,6 +42,33 @@ static SemaphoreHandle_t state_lock;
 static resilience_pending_t pending;
 static bool pending_valid;
 
+enum {
+    RESILIENCE_CASE_NAT_ABORT = 1,
+    RESILIENCE_CASE_ENV_SIG = 2,
+    RESILIENCE_CASE_ENV_HASH = 3,
+    RESILIENCE_CASE_ENV_OLD = 4,
+};
+
+static uint8_t case_code_from_name(const char *case_id)
+{
+    if (strcmp(case_id, "NAT-ABORT") == 0) return RESILIENCE_CASE_NAT_ABORT;
+    if (strcmp(case_id, "ENV-SIG") == 0) return RESILIENCE_CASE_ENV_SIG;
+    if (strcmp(case_id, "ENV-HASH") == 0) return RESILIENCE_CASE_ENV_HASH;
+    if (strcmp(case_id, "ENV-OLD") == 0) return RESILIENCE_CASE_ENV_OLD;
+    return 0;
+}
+
+static const char *case_name(uint8_t case_code)
+{
+    switch (case_code) {
+    case RESILIENCE_CASE_NAT_ABORT: return "NAT-ABORT";
+    case RESILIENCE_CASE_ENV_SIG: return "ENV-SIG";
+    case RESILIENCE_CASE_ENV_HASH: return "ENV-HASH";
+    case RESILIENCE_CASE_ENV_OLD: return "ENV-OLD";
+    default: return "UNKNOWN";
+    }
+}
+
 static bool bytes_nonzero(const uint8_t *bytes, size_t size)
 {
     uint8_t any = 0;
@@ -93,7 +120,9 @@ static esp_err_t load_pending(resilience_pending_t *value, bool *found)
     if (err == ESP_ERR_NVS_NOT_FOUND) return ESP_OK;
     if (err != ESP_OK) return err;
     if (size != sizeof(*value) || value->magic != RESILIENCE_PENDING_MAGIC ||
-        value->version != RESILIENCE_PENDING_VERSION || value->case_code != 1 ||
+        value->version != RESILIENCE_PENDING_VERSION ||
+        value->case_code < RESILIENCE_CASE_NAT_ABORT ||
+        value->case_code > RESILIENCE_CASE_ENV_OLD ||
         value->accepted_boot_id == 0 || !bytes_nonzero(value->attempt_id,
                                                         sizeof(value->attempt_id)))
         return ESP_ERR_INVALID_STATE;
@@ -124,12 +153,12 @@ static void emit_event(const char *event, const resilience_pending_t *value,
     char attempt[37];
     format_uuid(value->attempt_id, attempt);
     printf("WASMHOME_RESILIENCE,{\"schema\":\"wasmhome-resilience-v1\","
-           "\"event\":\"%s\",\"attempt_id\":\"%s\",\"case_id\":\"NAT-ABORT\","
+           "\"event\":\"%s\",\"attempt_id\":\"%s\",\"case_id\":\"%s\","
            "\"scenario\":\"native\",\"boot_id\":\"%016" PRIx64 "\","
            "\"monotonic_us\":%" PRId64 ","
            "\"functional_timeout_ms_candidate\":%d,"
            "\"functional_timeout_frozen\":false%s}\n",
-           event, attempt, wh_platform_boot_id(), esp_timer_get_time(),
+           event, attempt, case_name(value->case_code), wh_platform_boot_id(), esp_timer_get_time(),
            CONFIG_WASMHOME_RESILIENCE_FUNCTIONAL_TIMEOUT_MS,
            fields ? fields : "");
     fflush(stdout);
@@ -207,7 +236,8 @@ static void emit_boot_and_recovery(void)
 
 static void handle_fault_request(const wh_resilience_fault_request_t *request)
 {
-    if (strcmp(request->case_id, "NAT-ABORT") != 0) {
+    const uint8_t request_case_code = case_code_from_name(request->case_id);
+    if (!request_case_code) {
         emit_rejected(request, "case_not_supported_by_this_firmware");
         return;
     }
@@ -238,7 +268,7 @@ static void handle_fault_request(const wh_resilience_fault_request_t *request)
     resilience_pending_t next = {0};
     next.magic = RESILIENCE_PENDING_MAGIC;
     next.version = RESILIENCE_PENDING_VERSION;
-    next.case_code = 1;
+    next.case_code = request_case_code;
     next.accepted_boot_id = wh_platform_boot_id();
     memcpy(next.attempt_id, request->attempt_id, sizeof(next.attempt_id));
     err = persist_pending(&next);
@@ -254,6 +284,23 @@ static void handle_fault_request(const wh_resilience_fault_request_t *request)
     }
 
     emit_event("fault_accepted", &pending, NULL);
+    if (request_case_code != RESILIENCE_CASE_NAT_ABORT) {
+        err = wh_native_ota_run_resilience_fixture(request->case_id,
+                                                   request->attempt_id);
+        if (err != ESP_OK) {
+            char attempt[37];
+            format_uuid(request->attempt_id, attempt);
+            printf("WASMHOME_RESILIENCE,{\"schema\":\"wasmhome-resilience-v1\","
+                   "\"event\":\"fault_execution_failed\",\"attempt_id\":\"%s\","
+                   "\"case_id\":\"%s\",\"scenario\":\"native\","
+                   "\"boot_id\":\"%016" PRIx64 "\",\"monotonic_us\":%" PRId64 ","
+                   "\"reason\":\"fixture_worker_unavailable\",\"esp_err\":%d}\n",
+                   attempt, request->case_id, wh_platform_boot_id(),
+                   esp_timer_get_time(), err);
+            fflush(stdout);
+            wh_resilience_test_fixture_finished(request->attempt_id);
+        }
+    }
 }
 
 static void serial_request_task(void *argument)
@@ -381,7 +428,7 @@ void wh_resilience_test_note_control_request(const uint8_t attempt_id[16],
 {
     if (!attempt_id || !state_lock ||
         xSemaphoreTake(state_lock, portMAX_DELAY) != pdTRUE) return;
-    if (pending_valid && pending.case_code == 1 &&
+    if (pending_valid && pending.case_code == RESILIENCE_CASE_NAT_ABORT &&
         pending.accepted_boot_id == wh_platform_boot_id() &&
         pending.recovery_boot_id == 0 &&
         memcmp(attempt_id, pending.attempt_id, sizeof(pending.attempt_id)) == 0) {
@@ -411,4 +458,49 @@ void wh_resilience_test_telemetry_attempt(uint8_t attempt_id[16])
     if (!state_lock || xSemaphoreTake(state_lock, portMAX_DELAY) != pdTRUE) return;
     if (pending_valid) memcpy(attempt_id, pending.attempt_id, 16);
     xSemaphoreGive(state_lock);
+}
+
+void wh_resilience_test_fixture_finished(const uint8_t attempt_id[16])
+{
+    if (!attempt_id || !state_lock ||
+        xSemaphoreTake(state_lock, portMAX_DELAY) != pdTRUE) return;
+    if (!pending_valid || pending.case_code == RESILIENCE_CASE_NAT_ABORT ||
+        memcmp(pending.attempt_id, attempt_id, 16) != 0 ||
+        pending.accepted_boot_id != wh_platform_boot_id()) {
+        xSemaphoreGive(state_lock);
+        return;
+    }
+    resilience_pending_t next = pending;
+    next.recovery_boot_id = wh_platform_boot_id();
+    next.recovery_mask = 0;
+    esp_err_t err = persist_pending(&next);
+    if (err == ESP_OK) pending = next;
+    xSemaphoreGive(state_lock);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "cannot persist post-fixture recovery state: %s",
+                 esp_err_to_name(err));
+        return;
+    }
+    wh_signed_update_state_t update_state = {0};
+    err = wh_signed_update_get_state(WH_NATIVE_SCENARIO_NATIVE, "firmware",
+        CONFIG_WASMHOME_UPDATE_CAMPAIGN_ID, &update_state);
+    char fields[192];
+    char active_version[16];
+    char accepted_sequence[32];
+    (void)snprintf(active_version, sizeof(active_version), "%s",
+                   err == ESP_OK ? "0" : "null");
+    (void)snprintf(accepted_sequence, sizeof(accepted_sequence), "%s",
+                   err == ESP_OK ? "0" : "null");
+    if (err == ESP_OK) {
+        (void)snprintf(active_version, sizeof(active_version), "%u",
+                       update_state.active_target_version);
+        (void)snprintf(accepted_sequence, sizeof(accepted_sequence), "%" PRIu64,
+                       update_state.accepted_floor);
+    }
+    (void)snprintf(fields, sizeof(fields),
+        ",\"active_version\":%s,\"accepted_sequence\":%s,"
+        "\"update_state_status\":\"%s\"",
+        active_version, accepted_sequence,
+        err == ESP_OK ? "available" : "unavailable");
+    emit_event("control_recovery_started", &next, fields);
 }

@@ -161,13 +161,16 @@ Depois que cada bloqueio próprio for atendido, não é necessário serializar a
 - [ ] **#17, troca observável interpretada.** Dependências: #10, #13 e #15. Baixar e validar o controle interpretado v2 enquanto v1 permanece disponível; testar o novo módulo, persistir slot e piso e trocar em ponto seguro entre requisições. Provar que telemetria não parou e permaneceu na mesma instância e no mesmo `boot_id`. Registrar memória, payload, etapas, lacunas e recuperação.
 - [ ] **#18, troca observável AOT.** Dependências: #10, #14 e #15. Aplicar os critérios da #17 ao controle AOT, comprovando continuidade da telemetria no mesmo boot.
 - [ ] **#22, mecanismos de injeção e recuperação.** Dependências: #5, #12 e #15. A implementação parcial e seus limites estão em [registro da #22](issue22-resilience-implementation.md); a issue permanece aberta até passar a prova preliminar completa.
-  - [x] Planner host gera exatamente 70 falhas + dois controles. Harness host valida pedidos fechados, correlaciona JSONL serial/UDP por IDs e boots, lê o marcador bruto de aborto e mantém unconfirmed quando falta aceite. Relógios permanecem separados.
-  - [x] Gerador de fixtures ENV-SIG/HASH/OLD implementado e testado com pacote de teste no host; saídas de produção ainda dependem de um pacote #15 e não foram validadas no dispositivo.
-  - [x] Parser C do pedido serial fechado implementado e compilado/testado no host. O firmware opt-in NAT-ABORT persiste o aceite em NVS e só aborta após resposta de controle UDP com o mesmo attempt_id; a integração ESP-IDF ainda não foi compilada nem executada na placa.
-  - [ ] Integrar ENV-SIG/ENV-HASH/ENV-OLD ao validador e ao sink reais; confirmar rejeição em envelope_sequence, invalidação somente do slot inativo para HASH e invariância do ativo/piso.
-  - [ ] Gerar fixture Wasm/AOT de traps e integrar contenção/recuperação de instância de controle no module_manager.c, mantendo bounds checks e telemetria.
-  - [ ] Fazer a prova física preliminar após a #20 e identidade/estado da placa serem confirmados. A placa/serial não foi acessada nesta revisão.
-  - [ ] Medir timeout funcional congelado pela #20 (300 ms continua candidato) e recuperação UDP observada em até 30 s. O evento serial de conclusão atual registra apenas envios locais bem-sucedidos; o observador deve confirmar recepção e lacunas.
+  - [x] Planner host gera exatamente 70 falhas + dois controles. Harness correlaciona JSONL serial/UDP por IDs e boots, preserva o marcador bruto de aborto e mantém `unconfirmed` quando falta `fault_accepted`; não infere rejeição do silêncio.
+  - [x] Gerador de fixtures ENV-SIG/HASH/OLD e parser C do pedido fechado têm validação host. A linha serial aceita somente `event`, `attempt_id` e `case_id`, sem URL, caminho ou chave.
+  - [x] Integração de código ENV-SIG/ENV-HASH/ENV-OLD no download assinado nativo: caminhos fixos e endpoint HTTPS de fixture opt-in; ENV-OLD alcança o piso NVS em `ledger_prepare` e mapeia a rejeição para `envelope_sequence`. Teste host exercita policy + ledger reais; build e execução no ESP-IDF não feitos.
+  - [x] Sink OTA e armazenamento modular apagam o candidato inativo inteiro e verificam o readback; testes host exercitam preservação do slot ativo/piso e propagam erros de erase/readback/abort. Isso não é prova física do ENV-HASH.
+  - [x] NAT-ABORT persiste a tentativa e recupera a correlação serial após reboot. O firmware permanece sem build ESP-IDF e sem validação física.
+  - [ ] Ligar o disparo serial ENV à atualização modular nos cenários B/C e comprovar ENV-SIG/HASH/OLD no validador e slots reais desses perfis.
+  - [ ] Gerar fixture Wasm/AOT de traps e integrar contenção/recuperação da instância de controle no `module_manager.c`, preservando telemetria.
+  - [ ] Preparar serviço HTTPS de fixture isolado e fazer prova preliminar após a #20 e confirmação da identidade/estado da placa. As rotas ativas 8443/8444 não têm as fixtures e não devem ser alteradas/reutilizadas.
+  - [ ] Compilar configuração opt-in com ESP-IDF, executar prova física e confirmar rejeições/traps/reboot e recepção UDP. Nenhum HIL foi feito nesta revisão.
+  - [ ] Congelar timeout na #20 (300 ms continua candidato) e medir recuperação observada em até 30 s; não tratar envio UDP local como confirmação do observador.
 
 ## E5. Métricas, piloto e congelamento
 

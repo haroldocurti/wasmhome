@@ -160,7 +160,7 @@ typedef struct {
     esp_err_t (*begin)(void *, const wh_signed_update_manifest_t *, uint32_t *);
     esp_err_t (*write)(void *, const uint8_t *, size_t);
     esp_err_t (*finish)(void *, const wh_signed_update_manifest_t *, uint32_t *);
-    void (*abort)(void *);
+    esp_err_t (*abort)(void *);
 } wh_signed_update_sink_t;
 typedef struct {
     bool pending;
@@ -200,9 +200,10 @@ esp_err_t wh_module_slot_store_init(void);
 esp_err_t wh_module_slot_store_begin(uint8_t, uint32_t, uint32_t);
 esp_err_t wh_module_slot_store_write(const uint8_t *, size_t);
 esp_err_t wh_module_slot_store_finish(uint8_t, uint32_t, uint32_t, const uint8_t[32]);
-void wh_module_slot_store_abort(void);
+esp_err_t wh_module_slot_store_abort(void);
 esp_err_t wh_module_slot_store_read(uint8_t, uint32_t, uint32_t, uint8_t *, size_t);
 uint64_t wh_platform_boot_id(void);
+void wh_platform_event(const char *, esp_err_t);
 esp_err_t wh_observation_send(uint8_t, const uint8_t[16], const uint8_t *, size_t);
 
 SemaphoreHandle_t xSemaphoreCreateMutex(void);
@@ -338,6 +339,8 @@ BaseType_t xTaskCreate(TaskFunction_t fn, const char *name, uint32_t stack,
 UBaseType_t uxTaskGetStackHighWaterMark(TaskHandle_t task) { (void)task; return 128; }
 int64_t esp_timer_get_time(void) { return 9000; }
 uint64_t wh_platform_boot_id(void) { return 0x1234; }
+void wh_platform_event(const char *name, esp_err_t error)
+{ assert(name && error != ESP_OK); }
 void wh_signed_update_emit_event(const wh_signed_update_event_t *event)
 { assert(event); event_calls++; }
 esp_err_t wh_signed_update_format_event(const wh_signed_update_event_t *event,
@@ -386,7 +389,7 @@ esp_err_t wh_module_slot_store_init(void) { return ESP_OK; }
 esp_err_t wh_module_slot_store_write(const uint8_t *p,size_t n) { (void)p;(void)n;return ESP_FAIL; }
 esp_err_t wh_module_slot_store_finish(uint8_t a,uint32_t b,uint32_t c,const uint8_t d[32])
 { (void)a;(void)b;(void)c;(void)d;return ESP_FAIL; }
-void wh_module_slot_store_abort(void) { }
+esp_err_t wh_module_slot_store_abort(void) { return ESP_OK; }
 esp_err_t wh_module_slot_store_read(uint8_t a,uint32_t b,uint32_t c,uint8_t *d,size_t e)
 { (void)a;(void)b;(void)c;(void)d;(void)e;return ESP_FAIL; }
 

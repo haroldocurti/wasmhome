@@ -111,6 +111,8 @@ typedef struct {
     uint8_t scenario;
     uint16_t target_version;
     uint64_t expected_sequence;
+    const char *payload_path;
+    const char *fixture_case;
     const uint8_t *attempt_id;
     const char *release_version;
     const wh_signed_update_sink_t *sink;
@@ -121,6 +123,7 @@ typedef struct {
     uint32_t expected_bytes;
     uint32_t received_bytes;
     uint64_t event_elapsed_us_override;
+    esp_err_t cleanup_error;
     uint8_t payload_sha256[32];
     uint8_t manifest_sha256[32];
     bool manifest_known;
@@ -1036,6 +1039,26 @@ static const char *payload_relative_path(uint8_t scenario, const char *release)
     return NULL;
 }
 
+static const char *resilience_payload_relative_path(uint8_t scenario,
+                                                     const char *case_id)
+{
+    if (!case_id) return NULL;
+    if (scenario == 1) {
+        if (strcmp(case_id, "ENV-SIG") == 0) return "resilience/ENV-SIG/scenario-1/firmware.bin";
+        if (strcmp(case_id, "ENV-HASH") == 0) return "resilience/ENV-HASH/scenario-1/firmware.bin";
+        if (strcmp(case_id, "ENV-OLD") == 0) return "resilience/ENV-OLD/scenario-1/firmware.bin";
+    } else if (scenario == 2) {
+        if (strcmp(case_id, "ENV-SIG") == 0) return "resilience/ENV-SIG/scenario-2/control.wasm";
+        if (strcmp(case_id, "ENV-HASH") == 0) return "resilience/ENV-HASH/scenario-2/control.wasm";
+        if (strcmp(case_id, "ENV-OLD") == 0) return "resilience/ENV-OLD/scenario-2/control.wasm";
+    } else if (scenario == 3) {
+        if (strcmp(case_id, "ENV-SIG") == 0) return "resilience/ENV-SIG/scenario-3/control.aot";
+        if (strcmp(case_id, "ENV-HASH") == 0) return "resilience/ENV-HASH/scenario-3/control.aot";
+        if (strcmp(case_id, "ENV-OLD") == 0) return "resilience/ENV-OLD/scenario-3/control.aot";
+    }
+    return NULL;
+}
+
 static const char *component_for_scenario(uint8_t scenario)
 {
     return scenario == 1 ? "firmware" :
@@ -1093,32 +1116,52 @@ static esp_err_t ensure_wall_clock(void)
     return ESP_ERR_TIMEOUT;
 }
 
-static esp_err_t make_url(const char *relative, char *url, size_t capacity)
+static esp_err_t make_url(const char *relative, char *url, size_t capacity,
+                          bool resilience_fixture)
 {
     if (!valid_campaign(CONFIG_WASMHOME_UPDATE_CAMPAIGN_ID) || !relative || !url)
         return ESP_ERR_INVALID_ARG;
+    const char *server_ipv4 = CONFIG_WASMHOME_UPDATE_SERVER_IPV4;
+    unsigned server_port = CONFIG_WASMHOME_UPDATE_SERVER_PORT;
+    if (resilience_fixture) {
+#if defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE)
+        server_ipv4 = CONFIG_WASMHOME_RESILIENCE_FIXTURE_SERVER_IPV4;
+        server_port = CONFIG_WASMHOME_RESILIENCE_FIXTURE_SERVER_PORT;
+        if (!server_ipv4[0] || !CONFIG_WASMHOME_RESILIENCE_FIXTURE_SERVER_NAME[0])
+            return ESP_ERR_INVALID_STATE;
+#else
+        return ESP_ERR_INVALID_STATE;
+#endif
+    }
     esp_ip4_addr_t ip = {0};
-    if (esp_netif_str_to_ip4(CONFIG_WASMHOME_UPDATE_SERVER_IPV4, &ip) != ESP_OK)
+    if (esp_netif_str_to_ip4(server_ipv4, &ip) != ESP_OK)
         return ESP_ERR_INVALID_ARG;
     const int length = snprintf(url, capacity, "https://%s:%u/%s/%s",
-        CONFIG_WASMHOME_UPDATE_SERVER_IPV4, (unsigned)CONFIG_WASMHOME_UPDATE_SERVER_PORT,
+        server_ipv4, server_port,
         CONFIG_WASMHOME_UPDATE_CAMPAIGN_ID, relative);
     return length > 0 && (size_t)length < capacity ? ESP_OK : ESP_ERR_INVALID_SIZE;
 }
 
 static esp_err_t http_get(const char *relative, uint8_t *buffer, size_t capacity,
-                          size_t expected_size, size_t *received_out)
+                          size_t expected_size, bool resilience_fixture,
+                          size_t *received_out)
 {
     if (!buffer || !capacity || !received_out) return ESP_ERR_INVALID_ARG;
     esp_err_t err = ensure_wall_clock();
     if (err != ESP_OK) return err;
     char url[320];
-    err = make_url(relative, url, sizeof(url));
+    err = make_url(relative, url, sizeof(url), resilience_fixture);
     if (err != ESP_OK) return err;
     esp_http_client_config_t config = {
         .url = url,
         .cert_pem = (const char *)_binary_wasmhome_update_ca_pem_start,
-        .common_name = CONFIG_WASMHOME_UPDATE_SERVER_NAME,
+        .common_name = resilience_fixture
+#if defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE)
+            ? CONFIG_WASMHOME_RESILIENCE_FIXTURE_SERVER_NAME
+#else
+            ? ""
+#endif
+            : CONFIG_WASMHOME_UPDATE_SERVER_NAME,
         .timeout_ms = UPDATE_HTTP_TIMEOUT_MS,
         .disable_auto_redirect = true,
         .buffer_size = UPDATE_READ_CHUNK_BYTES,
@@ -1166,7 +1209,8 @@ static bool validate_manifest_policy(const parsed_envelope_t *parsed,
     if (!component || manifest->scenario != scenario ||
         manifest->artifact_kind != scenario || strcmp(manifest->component, component) != 0 ||
         strcmp(manifest->campaign_id, CONFIG_WASMHOME_UPDATE_CAMPAIGN_ID) != 0 ||
-        strcmp(manifest->target, "esp32s3") != 0 || manifest->sequence != expected_sequence ||
+        strcmp(manifest->target, "esp32s3") != 0 ||
+        (expected_sequence != 0 && manifest->sequence != expected_sequence) ||
         manifest->base_api_version != 1 ||
         strcmp(manifest->release_version, release_version) != 0 ||
         !manifest->payload_size || manifest->payload_size > maximum_payload_size(scenario) ||
@@ -1183,8 +1227,8 @@ static esp_err_t read_manifest(update_operation_t *operation,
 {
     uint8_t envelope[WH_SIGNED_UPDATE_MAX_ENVELOPE_BYTES];
     size_t received = 0;
-    const char *payload_path = payload_relative_path(operation->scenario,
-                                                    operation->release_version);
+    const char *payload_path = operation->payload_path ? operation->payload_path :
+        payload_relative_path(operation->scenario, operation->release_version);
     if (!payload_path) return ESP_ERR_INVALID_ARG;
     char manifest_path[160];
     const char *slash = strrchr(payload_path, '/');
@@ -1195,7 +1239,8 @@ static esp_err_t read_manifest(update_operation_t *operation,
     if (snprintf(manifest_path + prefix_size, sizeof(manifest_path) - prefix_size,
                  "/manifest.cose") >= (int)(sizeof(manifest_path) - prefix_size))
         return ESP_ERR_INVALID_SIZE;
-    esp_err_t err = http_get(manifest_path, envelope, sizeof(envelope), SIZE_MAX, &received);
+    esp_err_t err = http_get(manifest_path, envelope, sizeof(envelope), SIZE_MAX,
+        operation->fixture_case != NULL, &received);
     if (err != ESP_OK) {
         if (failure_out) *failure_out = (err >= ESP_ERR_HTTP_BASE && err < ESP_ERR_HTTP_BASE + 256)
             ? WH_SIGNED_UPDATE_FAILURE_HTTP : WH_SIGNED_UPDATE_FAILURE_TRANSPORT;
@@ -1237,30 +1282,50 @@ static void update_failure_cleanup(update_operation_t *operation,
                                    wh_signed_update_failure_t failure,
                                    wh_signed_update_phase_t phase)
 {
-    if (sink_started) operation->sink->abort(operation->sink->context);
-    if (pending && manifest) (void)wh_signed_update_abort(manifest);
+    esp_err_t cleanup_err = ESP_OK;
+    if (sink_started) {
+        cleanup_err = operation->sink->abort(operation->sink->context);
+        if (cleanup_err != ESP_OK)
+            wh_platform_event("signed_update_sink_abort_failed", cleanup_err);
+    }
+    if (pending && manifest) {
+        esp_err_t ledger_err = wh_signed_update_abort(manifest);
+        if (ledger_err != ESP_OK)
+            wh_platform_event("signed_update_ledger_abort_failed", ledger_err);
+        if (cleanup_err == ESP_OK) cleanup_err = ledger_err;
+    }
+    operation->cleanup_error = cleanup_err;
+    if (cleanup_err != ESP_OK)
+        wh_platform_event("signed_update_cleanup_failed", cleanup_err);
     emit_operation_event(operation, phase, failure, NULL);
 }
 
-esp_err_t wh_signed_update_download(uint8_t scenario, const char *release_version,
-                                    uint64_t expected_sequence,
-                                    const uint8_t attempt_id[16],
-                                    const wh_signed_update_sink_t *sink,
-                                    wh_signed_update_event_fn event_fn,
-                                    void *event_context,
-                                    wh_signed_update_manifest_t *manifest_out,
-                                    wh_signed_update_failure_t *failure_out)
+static esp_err_t signed_update_download(uint8_t scenario, const char *release_version,
+                                        uint64_t expected_sequence,
+                                        const char *fixture_case,
+                                        const uint8_t attempt_id[16],
+                                        const wh_signed_update_sink_t *sink,
+                                        wh_signed_update_event_fn event_fn,
+                                        void *event_context,
+                                        wh_signed_update_manifest_t *manifest_out,
+                                        wh_signed_update_failure_t *failure_out)
 {
     if (failure_out) *failure_out = WH_SIGNED_UPDATE_FAILURE_NONE;
     if (!release_version || (strcmp(release_version, "v1") != 0 &&
-        strcmp(release_version, "v2") != 0) || !expected_sequence || !attempt_id ||
+        strcmp(release_version, "v2") != 0) ||
+        (!expected_sequence && !fixture_case) || !attempt_id ||
         !bytes_nonzero(attempt_id, 16) || !sink || !sink->begin || !sink->write ||
         !sink->finish || !sink->abort || !manifest_out || !failure_out ||
-        !maximum_payload_size(scenario)) return ESP_ERR_INVALID_ARG;
+        !maximum_payload_size(scenario) ||
+        (fixture_case && !resilience_payload_relative_path(scenario, fixture_case)))
+        return ESP_ERR_INVALID_ARG;
     update_operation_t operation = {
         .scenario = scenario,
         .target_version = strcmp(release_version, "v1") == 0 ? 1 : 2,
         .expected_sequence = expected_sequence,
+        .payload_path = fixture_case
+            ? resilience_payload_relative_path(scenario, fixture_case) : NULL,
+        .fixture_case = fixture_case,
         .attempt_id = attempt_id,
         .release_version = release_version,
         .sink = sink,
@@ -1277,6 +1342,18 @@ esp_err_t wh_signed_update_download(uint8_t scenario, const char *release_versio
         return err;
     }
     operation.accepted_floor = prior_state.accepted_floor;
+    if (fixture_case && strcmp(fixture_case, "ENV-OLD") != 0) {
+        if (prior_state.accepted_floor == UINT64_MAX) {
+            *failure_out = WH_SIGNED_UPDATE_FAILURE_POLICY;
+            return ESP_ERR_INVALID_VERSION;
+        }
+        /* These fixtures are prepared for the next real ledger sequence. */
+        operation.expected_sequence = prior_state.accepted_floor + 1;
+    } else if (fixture_case) {
+        /* Do not compare with a command sequence: validate the signed envelope,
+           then let ledger_prepare reject it against the persisted floor. */
+        operation.expected_sequence = 0;
+    }
     emit_operation_event(&operation, WH_SIGNED_UPDATE_PHASE_MANIFEST_DOWNLOAD_STARTED,
                          WH_SIGNED_UPDATE_FAILURE_NONE, NULL);
     parsed_envelope_t parsed;
@@ -1290,6 +1367,7 @@ esp_err_t wh_signed_update_download(uint8_t scenario, const char *release_versio
         return err;
     }
     *manifest_out = parsed.manifest;
+    operation.expected_sequence = parsed.manifest.sequence;
     emit_operation_event(&operation, WH_SIGNED_UPDATE_PHASE_SIGNATURE_VERIFIED,
                          WH_SIGNED_UPDATE_FAILURE_NONE, NULL);
     err = ledger_prepare(manifest_out, attempt_id);
@@ -1318,9 +1396,10 @@ esp_err_t wh_signed_update_download(uint8_t scenario, const char *release_versio
     }
     emit_operation_event(&operation, WH_SIGNED_UPDATE_PHASE_PAYLOAD_DOWNLOAD_STARTED,
                          WH_SIGNED_UPDATE_FAILURE_NONE, NULL);
-    const char *payload_path = payload_relative_path(scenario, release_version);
+    const char *payload_path = operation.payload_path ? operation.payload_path :
+        payload_relative_path(scenario, release_version);
     char url[320];
-    err = make_url(payload_path, url, sizeof(url));
+    err = make_url(payload_path, url, sizeof(url), operation.fixture_case != NULL);
     if (err == ESP_OK) err = ensure_wall_clock();
     if (err != ESP_OK) {
         *failure_out = WH_SIGNED_UPDATE_FAILURE_TRANSPORT;
@@ -1331,7 +1410,13 @@ esp_err_t wh_signed_update_download(uint8_t scenario, const char *release_versio
     esp_http_client_config_t config = {
         .url = url,
         .cert_pem = (const char *)_binary_wasmhome_update_ca_pem_start,
-        .common_name = CONFIG_WASMHOME_UPDATE_SERVER_NAME,
+        .common_name = operation.fixture_case
+#if defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE)
+            ? CONFIG_WASMHOME_RESILIENCE_FIXTURE_SERVER_NAME
+#else
+            ? ""
+#endif
+            : CONFIG_WASMHOME_UPDATE_SERVER_NAME,
         .timeout_ms = UPDATE_HTTP_TIMEOUT_MS,
         .disable_auto_redirect = true,
         .buffer_size = UPDATE_READ_CHUNK_BYTES,
@@ -1431,6 +1516,48 @@ esp_err_t wh_signed_update_download(uint8_t scenario, const char *release_versio
     emit_operation_event(&operation, WH_SIGNED_UPDATE_PHASE_STAGED,
                          WH_SIGNED_UPDATE_FAILURE_NONE, operation.payload_sha256);
     return ESP_OK;
+}
+
+esp_err_t wh_signed_update_download(uint8_t scenario, const char *release_version,
+                                    uint64_t expected_sequence,
+                                    const uint8_t attempt_id[16],
+                                    const wh_signed_update_sink_t *sink,
+                                    wh_signed_update_event_fn event_fn,
+                                    void *event_context,
+                                    wh_signed_update_manifest_t *manifest_out,
+                                    wh_signed_update_failure_t *failure_out)
+{
+    return signed_update_download(scenario, release_version, expected_sequence,
+        NULL, attempt_id, sink, event_fn, event_context, manifest_out, failure_out);
+}
+
+esp_err_t wh_signed_update_resilience_download(
+    uint8_t scenario, const char *case_id, const uint8_t attempt_id[16],
+    const wh_signed_update_sink_t *sink,
+    wh_signed_update_event_fn event_fn, void *event_context,
+    wh_signed_update_manifest_t *manifest_out,
+    wh_signed_update_failure_t *failure_out, const char **stage_out)
+{
+    if (stage_out) *stage_out = "envelope_policy";
+    if (!case_id || !stage_out ||
+        !resilience_payload_relative_path(scenario, case_id))
+        return ESP_ERR_INVALID_ARG;
+    const esp_err_t err = signed_update_download(scenario, "v2", 0,
+        case_id, attempt_id, sink, event_fn, event_context, manifest_out, failure_out);
+    if (strcmp(case_id, "ENV-OLD") == 0 && err == ESP_ERR_INVALID_VERSION &&
+        failure_out && *failure_out == WH_SIGNED_UPDATE_FAILURE_POLICY)
+        *stage_out = "envelope_sequence";
+    else if (failure_out && *failure_out == WH_SIGNED_UPDATE_FAILURE_SIGNATURE)
+        *stage_out = "envelope_signature";
+    else if (failure_out && *failure_out == WH_SIGNED_UPDATE_FAILURE_PAYLOAD_HASH)
+        *stage_out = "payload_hash";
+    else if (failure_out && *failure_out == WH_SIGNED_UPDATE_FAILURE_POLICY)
+        *stage_out = "envelope_policy";
+    else if (failure_out && *failure_out == WH_SIGNED_UPDATE_FAILURE_PERSISTENCE)
+        *stage_out = "nvs_ledger";
+    else if (failure_out && *failure_out == WH_SIGNED_UPDATE_FAILURE_TRANSPORT)
+        *stage_out = "fixture_transport";
+    return err;
 }
 
 #if defined(CONFIG_WASMHOME_NATIVE_OTA)

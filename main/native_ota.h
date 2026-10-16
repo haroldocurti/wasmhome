@@ -25,3 +25,6 @@ esp_err_t wh_native_ota_reserve(const wh_native_ota_request_t *request);
 esp_err_t wh_native_ota_start_reserved(void);
 void wh_native_ota_cancel_reserved(void);
 esp_err_t wh_native_ota_queue_health_check(void);
+/* Queue a fixed resilience fixture on the OTA worker without touching UDP v1. */
+esp_err_t wh_native_ota_run_resilience_fixture(
+    const char *case_id, const uint8_t attempt_id[16]);

@@ -130,7 +130,10 @@ define 70 tentativas de falha e dois controles, com traps Wasm e aborto nativo
 sem presumir equivalência. O endereço linear zero é um controle válido.
 O disparo e os eventos do ensaio usam serial, correlacionados à observação UDP;
 rejeição do comando UDP não substitui rejeição do envelope assinado. Implementação
-e validação no dispositivo permanecem pendentes.
+parcial do canal serial e dos caminhos ENV nativos está registrada em
+[issue22-resilience-implementation.md](docs/issue22-resilience-implementation.md);
+testes host cobrem o ledger e a invalidação dos slots, mas build ESP-IDF, traps
+Wasm e validação no dispositivo permanecem pendentes.
 
 ## Canal de diagnóstico
 

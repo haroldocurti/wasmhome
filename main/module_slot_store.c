@@ -18,6 +18,7 @@ typedef struct {
     uint32_t bytes_written;
     bool writing;
     bool erased;
+    bool erase_attempted;
 } slot_writer_t;
 
 static slot_writer_t writer;
@@ -95,6 +96,7 @@ wh_module_slot_store_write(const uint8_t *data, size_t size)
         size > writer.expected_size - writer.bytes_written)
         return ESP_ERR_INVALID_ARG;
     if (!writer.erased) {
+        writer.erase_attempted = true;
         const esp_err_t erase_status = esp_partition_erase_range(
             writer.partition, 0, writer.partition->size);
         if (erase_status != ESP_OK) return erase_status;
@@ -149,13 +151,30 @@ wh_module_slot_store_finish(uint8_t scenario, uint32_t slot_id,
     return ESP_OK;
 }
 
-void
+esp_err_t
 wh_module_slot_store_abort(void)
 {
-    /* The ledger never selects this incomplete slot. The next begin erases it
-       before writing; avoiding another erase here keeps cleanup failure from
-       obscuring the original transfer error. */
+    esp_err_t err = ESP_OK;
+    /* The caller reserves only the inactive candidate. Erase the whole slot
+       after any erase attempt, including a failed first erase, then read back
+       every byte so a failed invalidation cannot be mistaken for success. */
+    if (writer.writing && writer.erase_attempted && writer.partition) {
+        err = esp_partition_erase_range(writer.partition, 0,
+                                        writer.partition->size);
+        uint8_t verify[WH_MODULE_SLOT_READBACK_CHUNK];
+        for (uint32_t offset = 0; err == ESP_OK &&
+             offset < writer.partition->size;) {
+            size_t amount = writer.partition->size - offset;
+            if (amount > sizeof(verify)) amount = sizeof(verify);
+            err = esp_partition_read(writer.partition, offset, verify, amount);
+            for (size_t i = 0; err == ESP_OK && i < amount; ++i)
+                if (verify[i] != 0xff) err = ESP_ERR_INVALID_CRC;
+            offset += (uint32_t)amount;
+        }
+        memset(verify, 0, sizeof(verify));
+    }
     writer = (slot_writer_t){0};
+    return err;
 }
 
 esp_err_t
