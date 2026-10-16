@@ -29,6 +29,17 @@ import uuid
 
 
 SCHEMA_VERSION = 1
+ISSUE20_PROTOCOL_REVISION = "issue20-v1.0"
+ISSUE20_TIMEOUT_MS = 300
+ISSUE20_PERIOD_MS = 100
+ISSUE20_MAX_SAMPLE_AGE_MS = 1000
+ISSUE20_STABLE_WINDOW_MS = 60_000
+ISSUE20_MIN_STABLE_CONTROLS = 30
+ISSUE20_MIN_STABLE_TELEMETRY = 30
+ISSUE20_UPDATE_DEADLINE_MS = 60_000
+ISSUE20_POST_WINDOW_MS = 30_000
+ISSUE20_TRIGGER_AFTER_SECONDS = 60
+ISSUE20_CAPTURE_SECONDS = 150
 SCENARIOS = ("native", "interp", "aot")
 SCENARIO_CODES = {"native": 1, "interp": 2, "aot": 3}
 PERMUTATIONS = tuple(itertools.permutations(SCENARIOS))
@@ -510,6 +521,25 @@ def run_slot(campaign_root: Path, slot_id: str, *, device_ip: str, serial_port: 
     _require(0 <= udp_port <= 65535 and 1 <= device_port <= 65535,
              "invalid UDP port")
     root = campaign_root.resolve()
+    issue20 = campaign.get("protocol_revision") == ISSUE20_PROTOCOL_REVISION
+    if issue20:
+        campaign_metadata = campaign.get("metadata")
+        _require(isinstance(campaign_metadata, dict)
+                 and campaign_metadata.get("campaign_type") in {"pilot", "normal"},
+                 f"{ISSUE20_PROTOCOL_REVISION} requires metadata.campaign_type "
+                 "to be 'pilot' or 'normal'")
+        expected_blocks = 6 if campaign_metadata["campaign_type"] == "pilot" else 30
+        _require(campaign.get("N") == expected_blocks,
+                 f"{ISSUE20_PROTOCOL_REVISION} requires N={expected_blocks} blocks "
+                 f"for campaign_type={campaign_metadata['campaign_type']!r}")
+        _require(seconds == ISSUE20_CAPTURE_SECONDS,
+                 f"{ISSUE20_PROTOCOL_REVISION} requires --seconds {ISSUE20_CAPTURE_SECONDS}")
+        _require(trigger_after == ISSUE20_TRIGGER_AFTER_SECONDS,
+                 f"{ISSUE20_PROTOCOL_REVISION} requires --trigger-after {ISSUE20_TRIGGER_AFTER_SECONDS}")
+        _require(period_ms == ISSUE20_PERIOD_MS and timeout_ms == ISSUE20_TIMEOUT_MS
+                 and max_sample_age_ms == ISSUE20_MAX_SAMPLE_AGE_MS,
+                 f"{ISSUE20_PROTOCOL_REVISION} requires period/timeout/max-age "
+                 f"{ISSUE20_PERIOD_MS}/{ISSUE20_TIMEOUT_MS}/{ISSUE20_MAX_SAMPLE_AGE_MS} ms")
     output = root / "raw" / "slots" / slot_id
     _require(not output.exists(), f"slot output already exists; no retry is allowed: {output}")
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -526,7 +556,12 @@ def run_slot(campaign_root: Path, slot_id: str, *, device_ip: str, serial_port: 
             port=udp_port, device_port=device_port, period_ms=period_ms,
             timeout_ms=timeout_ms, initial_version=1, trigger_after=trigger_after,
             target_sequence=target_sequence, scenario=SCENARIO_CODES[slot["scenario"]],
-            max_sample_age_ms=max_sample_age_ms)
+            max_sample_age_ms=max_sample_age_ms,
+            update_deadline_ms=ISSUE20_UPDATE_DEADLINE_MS if issue20 else None,
+            post_window_ms=ISSUE20_POST_WINDOW_MS if issue20 else None,
+            stable_window_ms=ISSUE20_STABLE_WINDOW_MS if issue20 else None,
+            minimum_stable_controls=ISSUE20_MIN_STABLE_CONTROLS if issue20 else 0,
+            minimum_stable_telemetry=ISSUE20_MIN_STABLE_TELEMETRY if issue20 else 0)
     finally:
         stop.set()
         worker.join(timeout=2.0)
@@ -578,6 +613,8 @@ def run_slot(campaign_root: Path, slot_id: str, *, device_ip: str, serial_port: 
         "block_id": slot["block_id"],
         "scenario": slot["scenario"],
         "order_in_block": slot["order_in_block"],
+        "protocol_revision": campaign["protocol_revision"],
+        "campaign_type": campaign.get("metadata", {}).get("campaign_type"),
         "observer_run_id": str(uuid.uuid4()),
         # Every scheduled run has a dispatch record, including the case where
         # boot never appeared and the observer therefore sent no trigger.

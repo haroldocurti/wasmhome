@@ -172,6 +172,52 @@ class UpdateCampaignTests(unittest.TestCase):
                                   seconds=2, trigger_after=0.5, target_sequence=2)
             self.assertEqual((Path(result["output"]) / "observations.jsonl").read_bytes(), raw)
 
+    def test_issue20_run_slot_rejects_nonprotocol_capture_timing(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            artifacts = []
+            for scenario in ("native", "interp", "aot"):
+                artifact = root / f"{scenario}.bin"
+                artifact.write_bytes(scenario.encode())
+                artifacts.append({"artifact_id": scenario, "scenario": scenario,
+                                  "path": str(artifact),
+                                  "sha256": hashlib.sha256(artifact.read_bytes()).hexdigest()})
+            manifest = root / "artifacts.json"
+            manifest.write_text(json.dumps({"schema_version": 1, "artifacts": artifacts}))
+            metadata = root / "metadata.json"
+            metadata.write_text(json.dumps({"protocol_revision": "issue20-v1.0",
+                                           "campaign_type": "pilot"}))
+            package = root / "campaign"
+            plan(package, metadata, manifest, 6, "issue20-runner-check")
+            slot = json.loads((package / "schedule.json").read_text())["slots"][0]
+            with self.assertRaisesRegex(CampaignError, "requires --seconds 150"):
+                run_slot(package, slot["slot_id"], device_ip="192.0.2.1",
+                         serial_port="fake", seconds=149, trigger_after=60,
+                         target_sequence=2)
+
+    def test_issue20_run_slot_requires_protocol_block_count(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            artifacts = []
+            for scenario in ("native", "interp", "aot"):
+                artifact = root / f"{scenario}.bin"
+                artifact.write_bytes(scenario.encode())
+                artifacts.append({"artifact_id": scenario, "scenario": scenario,
+                                  "path": str(artifact),
+                                  "sha256": hashlib.sha256(artifact.read_bytes()).hexdigest()})
+            manifest = root / "artifacts.json"
+            manifest.write_text(json.dumps({"schema_version": 1, "artifacts": artifacts}))
+            metadata = root / "metadata.json"
+            metadata.write_text(json.dumps({"protocol_revision": "issue20-v1.0",
+                                           "campaign_type": "normal"}))
+            package = root / "campaign"
+            plan(package, metadata, manifest, 6, "issue20-invalid-normal-count")
+            slot = json.loads((package / "schedule.json").read_text())["slots"][0]
+            with self.assertRaisesRegex(CampaignError, "requires N=30 blocks"):
+                run_slot(package, slot["slot_id"], device_ip="192.0.2.1",
+                         serial_port="fake", seconds=150, trigger_after=60,
+                         target_sequence=2)
+
     @staticmethod
     def _write_slot(root, campaign, scheduled, *, instrument_status="valid",
                     accepted_status="success", slot_success=True):

@@ -6,8 +6,10 @@ Redigido em 09/10/2026; estado de execução sincronizado em 13/10/2026 com as e
 O plano de execução e o glossário CONTEXT.md definem o escopo científico. Este
 documento organiza o trabalho restante, os critérios para iniciar cada fase e
 os dados que precisam existir para que a coleta possa ser refeita e analisada.
-Se uma especificação deste documento conflitar com o protocolo v1, o plano de
-execução ou uma decisão aprovada no mapa Wayfinder, a decisão aprovada prevalece.
+Para a coleta normal e o piloto da #20, a revisão congelada
+[`issue20-v1.0`](protocolo-campanha-issue20-v1.0.md) fixa os parâmetros
+operacionais; este detalhamento mantém os limites científicos e a semântica dos
+resultados.
 
 ## Resultado esperado
 
@@ -32,20 +34,20 @@ calibração do observador e resultados de campanha são evidências distintas.
 
 ## Unidades e denominadores
 
-### Decisão de amostragem ainda pendente
+### Decisão de amostragem congelada
 
-A referência vigente do checklist é 30 tentativas por cenário, 90 no total;
-o contrato inicia uma tentativa normal somente após `ACCEPTED` correlacionado.
-A agenda de 30 blocos/90 slots descrita neste detalhamento é uma proposta
-operacional e pode produzir menos de 90 tentativas aceitas. Ela não substitui
-automaticamente aquela referência. Antes de congelar #20, decidir e registrar
-se o alvo definitivo será de slots ou de tentativas aceitas, com regra de
-agenda/reposição coerente e denominadores separados. Não iniciar #21 com essa
-decisão aberta. Recusas, timeouts e falhas continuam preservados em qualquer
-alternativa; nenhum disparo ambíguo recebe retransmissão automática.
+A revisão [`issue20-v1.0`](protocolo-campanha-issue20-v1.0.md) fixa N=30 blocos
+e 90 slots planejados, um slot A/B/C por bloco. `ACCEPTED` correlacionado inicia
+uma tentativa normal, portanto o total de tentativas aceitas pode ser menor que
+90. `slot_success` usa todos os slots; sucesso após aceite usa separadamente
+somente tentativas aceitas com instrumentação válida. Recusas e timeouts de
+aceite permanecem resultados de dispatch/slot, nunca atualizações aceitas.
+Nenhum disparo ambíguo recebe retransmissão automática.
 
-Até essa decisão, as definições por slot abaixo servem para o desenho do
-instrumento, não como autorização de alterar o tamanho da campanha.
+N=30 é uma escolha descritiva por viabilidade, não calculada para poder. A #19
+tem uma atualização física por cenário e o piloto terá pelo menos cinco, o que
+não estima a variância entre sessões com precisão. Por isso não se afirma poder
+confirmatório ou equivalência; as análises por cenário e bloco são exploratórias.
 
 `slot_id` identifica uma oportunidade planejada por combinação de `block_id` e
 cenário. A agenda tem um slot por cenário em cada bloco. O observador atribui um
@@ -140,24 +142,24 @@ iniciar uma dependente. Se uma espera externa bloquear a issue, registrar o
 bloqueio e encerrar essa sessão. Uma issue independente pode começar em outra
 sessão; não iniciar dependentes antes de cumprir os critérios de aceite.
 
-## Decisões a congelar antes da campanha
+## Decisões congeladas antes do piloto
 
-Registrar cada valor decidido em uma revisão identificada do protocolo de
-campanha. O piloto serve para resolver estes parâmetros, não para produzir os
-resultados definitivos.
+Os parâmetros foram pré-registrados antes do piloto na revisão
+[`issue20-v1.0`](protocolo-campanha-issue20-v1.0.md). O piloto verifica o
+procedimento e descreve a dispersão observada; não seleciona limites depois de
+conhecer resultados nem fornece os resultados definitivos.
 
 | Decisão | Estado | Critério de resolução |
 |---|---|---|
 | Semântica exata da histerese | Aprovada pelo usuário em 13/10/2026 | Banda total de 1 °C: ligar em limiar +0,5 °C, desligar em limiar −0,5 °C; manter estado dentro da banda; iniciar GPIO baixo |
-| Regra de escolha do timeout funcional | Pendente antes do piloto | Fixar antes de ver os resultados do piloto como a latência de baseline e a taxa máxima de falsos timeouts determinam o valor comum; não escolher um timeout por cenário |
-| Timeout de resposta funcional | Candidato de 300 ms | Aplicar a regra pré-registrada aos dados do piloto; congelar um valor para as campanhas normal e de resiliência |
-| Prazo total da atualização | Pendente | Medir os caminhos nativo, interpretado e AOT no piloto; fixar um prazo operacional comum e classificar sua expiração como falha |
-| Janela de estabilização e observação | Pendente | Fixar duração de aquecimento, número mínimo de respostas válidas antes da atualização e janela posterior |
-| Regra para tamanho amostral | Pendente antes do piloto | Registrar diferença mínima de interesse, variância assumida e método antes do piloto; cinco observações por cenário não sustentam cálculo preciso de poder |
-| Tamanho amostral definitivo | Referência de 30 tentativas por cenário; agenda por slots proposta | Resolver primeiro o alvo de slots versus tentativas aceitas. Justificar e congelar tamanho/agenda antes da campanha; sem base independente, não alegar poder ou equivalência a partir do piloto |
-| Alinhamento das issues #20/#21 | Pendente antes do congelamento | O piloto precisa de cinco tentativas normais aceitas por cenário; a campanha definitiva agenda N slots por cenário. Preservar recusas e timeouts pré-aceite como resultados de slot, sem chamá-los de tentativas aceitas |
-| Ordem da campanha | Referência congelável | Gerar uma lista explícita de blocos, balancear as seis permutações e preservar algoritmo, semente e arquivo final |
-| Critério de invalidação instrumental | Pendente | Definir causas observáveis e reproduzíveis antes da coleta; nunca invalidar por resultado desfavorável |
+| Regra de escolha do timeout funcional | Congelada em `issue20-v1.0` | 300 ms comum a A/B/C para resposta funcional e aceite; não ajustar por cenário nem em resposta a resultados desfavoráveis |
+| Prazo total da atualização | Congelado em `issue20-v1.0` | 60 s do disparo à primeira resposta v2 correta; expiração permanece falha válida da tentativa |
+| Janela de estabilização e observação | Congelada em `issue20-v1.0` | 60 s antes, mínimo de 30 controles corretos e 30 telemetrias válidas; 30 s após sucesso ou após o prazo terminal |
+| Regra para tamanho amostral | Congelada como descritiva | Não há variância entre tentativas suficiente para cálculo de poder; nenhuma alegação confirmatória ou de equivalência |
+| Tamanho amostral definitivo | N=30 blocos, 90 slots | Trinta slots por cenário; cinco repetições de cada permutação. `slot_success` usa todos os slots; aceites válidos têm denominador separado |
+| Alinhamento das issues #20/#21 | Congelado | Piloto: seis blocos balanceados (18 slots) e mínimo de cinco aceites por cenário. Campanha: N=30 slots por cenário; recusa/timeout pré-aceite conta no slot, nunca como tentativa aceita |
+| Ordem da campanha | Congelada por arquivo | Gerar e preservar `schedule.json`, algoritmo e semente antes da coleta. A agenda-piloto candidata balanceia as seis permutações uma vez |
+| Critério de invalidação instrumental | Congelado em `issue20-v1.0` | Só falha de medição comprovada invalida; perdas, recusas, timeouts, reinício, resultado incorreto ou falha do dispositivo permanecem nos resultados |
 
 ### Regra de controle aprovada em 13/10/2026
 
@@ -231,13 +233,13 @@ uma atualização automática ao boot não aquece o serviço que já foi medido.
    serviços, verificar boot esperado, versão, amostra e GPIO solicitado e
    observado.
 8. Salvar todos os fluxos brutos, resumo derivado, motivo terminal e hashes.
-   Preparar v1 para o próximo slot com uma sequência antirretorno ainda maior.
+   Restaurar a imagem-base integral e verificar sua leitura antes do próximo slot,
+   incluindo o estado NVS/piso antirretorno previsto no protocolo congelado.
 
-O timeout de 300 ms é o limite inicial por resposta funcional e por mensagem de
-aceite. Ele não é um prazo total da atualização. A campanha normal precisa de
-um prazo total congelado após o piloto. O limite operacional de 30 segundos
-documentado para recuperação pertence à bateria de resiliência e não deve ser
-reutilizado automaticamente para a atualização normal.
+O protocolo `issue20-v1.0` congela 300 ms por resposta funcional e por aceite,
+separados do prazo de 60 s da atualização normal. O limite operacional de 30
+segundos documentado para recuperação pertence à bateria de resiliência e não
+altera esse prazo.
 
 ### Resultado do slot e da tentativa aceita
 
@@ -282,27 +284,25 @@ dispositivo nem repetir seletivamente resultados desfavoráveis.
 
 ### Piloto
 
-Executar pelo menos cinco tentativas normais aceitas por cenário, total mínimo
-de 15. Cada uma começa com `ACCEPTED` pontual e termina com estado terminal
-registrado, seja sucesso ou falha após aceite. O piloto testa o procedimento, a
-estabilidade do equipamento, a coleta de eventos, os timeouts, o esforço de
-restauração e a completude do pacote. Recusas, timeouts e disparos sem aceite
-ficam registrados à parte e não contam entre as cinco tentativas. Só iniciar
-outro slot de piloto depois de consultar o estado do dispositivo e comprovar que
-é seguro. Guardar o piloto em campanha distinta e não combinar seus dados com os
-da campanha definitiva.
+Executar a agenda inicial de seis blocos/18 slots, balanceada em uma ocorrência
+de cada permutação, e obter pelo menos cinco atualizações normais aceitas por
+cenário com estado terminal registrado, sucesso ou falha. O piloto testa
+procedimento, estabilidade, coleta, timeouts, restauração e completude do pacote.
+Recusas e timeouts sem aceite ficam em resultados de dispatch e não contam entre
+as cinco. Depois de cada grupo de seis blocos, se qualquer cenário continuar
+abaixo do mínimo, acrescentar outro grupo completo de seis blocos (18 slots), uma
+ocorrência de cada ordem, com `campaign_id` e semente novos; repetir até cumprir
+o mínimo nos três cenários. Se a bancada não puder continuar com segurança,
+registrar a interrupção e deixar o piloto incompleto. Manter toda a família de
+piloto separada da campanha definitiva.
 
-Aplicar as regras de timeout e tamanho amostral registradas antes do piloto.
-Congelar N, a agenda e os limites antes de iniciar a campanha normal. N=30 é a
-referência por viabilidade, não uma conclusão de poder. Se a evidência não
-sustentar mudança, manter 30 blocos e tratar os intervalos como estimativas
-descritivas, sem alegar poder confirmatório.
-
-Cinco tentativas aceitas por cenário podem revelar falhas de procedimento, mas
-não sustentam uma estimativa precisa de poder. O cálculo de N deve declarar a
-diferença mínima de interesse, as hipóteses de variância e as limitações das
-cinco observações de piloto. Slots adicionais podem ser necessários para obter
-as cinco tentativas aceitas se algum dispatch não receber aceite.
+Para cada cenário, relatar mediana, mínimo, máximo e intervalo interquartil dos
+tempos observáveis, junto com timeouts, gaps, perdas, respostas tardias e
+censura; apresentar falhas aceitas nos denominadores. Com cinco/seis tentativas,
+esses resumos são exploratórios e não estimam variância entre sessões com
+precisão. O protocolo e N já foram congelados em `issue20-v1.0`; não os alterar
+após ver os resultados para favorecer um cenário. N=30 blocos é uma escolha de
+viabilidade/descritiva, não uma conclusão de poder.
 
 ### Campanha normal
 
