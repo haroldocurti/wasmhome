@@ -42,6 +42,7 @@
 #define WH_ERROR_BUFFER_SIZE 192u
 #define WH_CONTROL_EXECUTION_LIMIT_US 200000u
 #define WH_TELEMETRY_EXECUTION_LIMIT_US 50000u
+#define WH_MODULE_TELEMETRY_PERIOD_MS 100u
 #define WH_MODULE_DEFERRED_LOG_CAPACITY 32u
 #define WH_MODULE_DEFERRED_LOG_LINE_BYTES 2048u
 #define WH_MODULE_DEFERRED_LOG_POST_COMMIT_RESERVE 20u
@@ -1937,6 +1938,25 @@ update_stack_high_water(uint32_t *destination)
     xSemaphoreGive(manager_lock);
 }
 
+static bool
+telemetry_tick_once(void)
+{
+    if (xSemaphoreTake(api_lock,
+                       pdMS_TO_TICKS(WH_MODULE_TELEMETRY_PERIOD_MS)) == pdTRUE) {
+        if (!atomic_load_explicit(&stop_requested, memory_order_acquire))
+            run_telemetry_tick();
+        xSemaphoreGive(api_lock);
+        return !atomic_load_explicit(&stop_requested, memory_order_acquire);
+    }
+
+    if (!atomic_load_explicit(&stop_requested, memory_order_acquire)) {
+        xSemaphoreTake(manager_lock, portMAX_DELAY);
+        telemetry_runtime_busy_drops++;
+        xSemaphoreGive(manager_lock);
+    }
+    return !atomic_load_explicit(&stop_requested, memory_order_acquire);
+}
+
 static void *
 telemetry_thread_entry(void *argument)
 {
@@ -1947,16 +1967,11 @@ telemetry_thread_entry(void *argument)
 
     TickType_t cycle = xTaskGetTickCount();
     while (!atomic_load_explicit(&stop_requested, memory_order_acquire)) {
-        if (xSemaphoreTake(api_lock, 0) == pdTRUE) {
-            run_telemetry_tick();
-            xSemaphoreGive(api_lock);
-        } else {
-            xSemaphoreTake(manager_lock, portMAX_DELAY);
-            telemetry_runtime_busy_drops++;
-            xSemaphoreGive(manager_lock);
-        }
+        if (!telemetry_tick_once()) break;
         update_stack_high_water(&telemetry_stack_high_water);
-        vTaskDelayUntil(&cycle, pdMS_TO_TICKS(100));
+        if (!atomic_load_explicit(&stop_requested, memory_order_acquire))
+            vTaskDelayUntil(&cycle,
+                            pdMS_TO_TICKS(WH_MODULE_TELEMETRY_PERIOD_MS));
     }
     wasm_runtime_destroy_thread_env();
     return NULL;
