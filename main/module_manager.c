@@ -2333,19 +2333,15 @@ resilience_trap_matches(wh_module_resilience_case_t test_case,
 static const wh_module_image_t *
 resilience_fixture_image(void)
 {
+    static wh_module_image_t image;
 #if defined(WASMHOME_SCENARIO_MODULE_INTERP)
-    static const wh_module_image_t image = {
-        .bytes = resilience_control_traps_wasm,
-        .size = (size_t)resilience_control_traps_wasm_len,
-        .module_version = 1,
-    };
+    image.bytes = resilience_control_traps_wasm;
+    image.size = (size_t)resilience_control_traps_wasm_len;
 #else
-    static const wh_module_image_t image = {
-        .bytes = resilience_control_traps_aot,
-        .size = (size_t)resilience_control_traps_aot_len,
-        .module_version = 1,
-    };
+    image.bytes = resilience_control_traps_aot;
+    image.size = (size_t)resilience_control_traps_aot_len;
 #endif
+    image.module_version = 1;
     return image.size ? &image : NULL;
 }
 

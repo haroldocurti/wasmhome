@@ -97,11 +97,15 @@ bytes_nonzero(const uint8_t *bytes, size_t size)
 static void
 format_uuid(const uint8_t bytes[16], char text[37])
 {
-    (void)snprintf(text, 37,
-        "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x",
-        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6],
-        bytes[7], bytes[8], bytes[9], bytes[10], bytes[11], bytes[12],
-        bytes[13], bytes[14], bytes[15]);
+    static const char hex[] = "0123456789abcdef";
+    size_t output = 0;
+    for (size_t i = 0; i < 16; ++i) {
+        text[output++] = hex[bytes[i] >> 4];
+        text[output++] = hex[bytes[i] & 0x0f];
+        if (i == 3 || i == 5 || i == 7 || i == 9)
+            text[output++] = '-';
+    }
+    text[output] = '\0';
 }
 
 static bool
