@@ -20,6 +20,7 @@ from pathlib import Path
 import random
 import shutil
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -29,6 +30,24 @@ import uuid
 
 
 SCHEMA_VERSION = 1
+ISSUE20_PROTOCOL_REVISION = "issue20-v1.0"
+ISSUE20_TIMEOUT_MS = 300
+ISSUE20_PERIOD_MS = 100
+ISSUE20_MAX_SAMPLE_AGE_MS = 1000
+ISSUE20_STABLE_WINDOW_MS = 60_000
+ISSUE20_MIN_STABLE_CONTROLS = 30
+ISSUE20_MIN_STABLE_TELEMETRY = 30
+ISSUE20_UPDATE_DEADLINE_MS = 60_000
+ISSUE20_POST_WINDOW_MS = 30_000
+ISSUE20_TRIGGER_AFTER_SECONDS = 60
+ISSUE20_CAPTURE_SECONDS = 150
+DEFAULT_SERVER_LOG = Path("server/http-events.jsonl")
+# Prior native/interpreter captures had a maximum inter-block UART gap of
+# 407.149 ms. A 2 s freshness window allows nearly 5x that observed gap while
+# rejecting a stalled capture before it can qualify an update trigger.
+SERIAL_MAX_SILENCE_NS = 2_000_000_000
+SERIAL_FIRST_DATA_TIMEOUT_NS = 5_000_000_000
+MAX_SERVER_LOG_ROTATION_PASSES = 4
 SCENARIOS = ("native", "interp", "aot")
 SCENARIO_CODES = {"native": 1, "interp": 2, "aot": 3}
 PERMUTATIONS = tuple(itertools.permutations(SCENARIOS))
@@ -401,8 +420,17 @@ def preflight(root: Path, output: Path, minimum_free_bytes: int = 0,
         _require(bool(serial_port), "--probe-serial requires --serial-port")
         try:
             import serial  # type: ignore[import-not-found]
-            with serial.Serial(serial_port, serial_baud, timeout=0.2):
-                pass
+            # Construct closed, make the modem-control lines inactive, and
+            # only then assign/open the port. Constructing with a port can
+            # implicitly open it before DTR/RTS are safe for the ESP32.
+            serial_device = serial.Serial(port=None, baudrate=serial_baud, timeout=0.2)
+            try:
+                serial_device.dtr = False
+                serial_device.rts = False
+                serial_device.port = serial_port
+                serial_device.open()
+            finally:
+                serial_device.close()
         except Exception as exc:
             raise CampaignError(f"serial probe failed for {serial_port}: {exc}") from exc
         probes["serial"] = "passed"
@@ -440,19 +468,36 @@ def _start_serial_capture(port: str, baud: int, output: Path):
         serial_device = None
         try:
             import serial  # type: ignore[import-not-found]
-            serial_device = serial.Serial(port, baudrate=baud, timeout=0.1)
+            # Open without a port first so pySerial cannot assert DTR/RTS as
+            # part of opening the ESP32 USB-UART bridge. Keep them inactive
+            # before assigning the device and opening it; this mitigates reset
+            # or boot-strap pulses, but does not prove the cause of any earlier
+            # silent capture.
+            serial_device = serial.Serial(port=None, baudrate=baud, timeout=0.1)
+            serial_device.dtr = False
+            serial_device.rts = False
+            serial_device.port = port
+            serial_device.open()
             with output.open("xb") as stream:
-                stream.write(_json_bytes({"kind": "serial_open", "host_monotonic_ns": time.monotonic_ns(),
+                opened_ns = time.monotonic_ns()
+                stream.write(_json_bytes({"kind": "serial_open", "host_monotonic_ns": opened_ns,
+                                          "clock_domain": _host_clock_domain("serial_laptop"),
                                           "port_alias": Path(port).name, "baud": baud}))
                 stream.flush()
+                state["opened_ns"] = opened_ns
+                state["serial_bytes"] = 0
+                state["last_data_ns"] = None
                 ready.set()
                 while not stop.is_set():
                     data = serial_device.read(max(1, min(getattr(serial_device, "in_waiting", 0), 4096)))
                     if data:
-                        row = {"kind": "serial_bytes", "host_monotonic_ns": time.monotonic_ns(),
+                        data_ns = time.monotonic_ns()
+                        row = {"kind": "serial_bytes", "host_monotonic_ns": data_ns,
                                "byte_count": len(data), "raw_base64": base64.b64encode(data).decode("ascii")}
                         stream.write(_json_bytes(row))
                         stream.flush()
+                        state["serial_bytes"] += len(data)
+                        state["last_data_ns"] = data_ns
                 stream.write(_json_bytes({"kind": "serial_closed", "host_monotonic_ns": time.monotonic_ns()}))
                 stream.flush()
         except Exception as exc:  # propagate background failures before dispatch
@@ -466,14 +511,77 @@ def _start_serial_capture(port: str, baud: int, output: Path):
                     pass
 
     worker = threading.Thread(target=capture, name="campaign-serial-capture", daemon=True)
+    worker.capture_state = state
     state["thread"] = worker
     worker.start()
     if not ready.wait(5.0):
         stop.set()
+        worker.join(timeout=2.0)
         raise CampaignError("serial capture did not become ready")
     if state["error"] is not None:
+        worker.join(timeout=2.0)
         raise CampaignError(f"serial capture failed before dispatch: {state['error']}")
     return stop, worker
+
+
+def _host_clock_domain(name: str) -> dict:
+    try:
+        host_boot_id = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+    except OSError:
+        host_boot_id = None
+    return {"name": name, "hostname": socket.gethostname(),
+            "host_boot_id": host_boot_id, "clock": "monotonic_ns"}
+
+
+def _serial_capture_failure(worker, *, now_ns: int | None = None,
+                           require_fresh_data: bool = True) -> str | None:
+    state = getattr(worker, "capture_state", None)
+    if isinstance(state, dict):
+        if state.get("error") is not None:
+            return f"serial_capture_failed: {state['error']}"
+        if not worker.is_alive():
+            return "serial_capture_stopped_before_observer_finished"
+        if not require_fresh_data:
+            return None
+        now_ns = time.monotonic_ns() if now_ns is None else now_ns
+        opened_ns = state.get("opened_ns")
+        if not isinstance(opened_ns, int):
+            return "serial_capture_not_open"
+        last_data_ns = state.get("last_data_ns")
+        if not state.get("serial_bytes") or not isinstance(last_data_ns, int):
+            if now_ns - opened_ns >= SERIAL_FIRST_DATA_TIMEOUT_NS:
+                return "serial_capture_received_no_bytes_within_startup_window"
+            return None
+        if now_ns - last_data_ns >= SERIAL_MAX_SILENCE_NS:
+            return "serial_capture_data_stale_before_observer_finished"
+    return None
+
+
+def _serial_capture_age_ns(worker, *, now_ns: int | None = None) -> int | None:
+    state = getattr(worker, "capture_state", None)
+    if not isinstance(state, dict) or state.get("error") is not None or not worker.is_alive():
+        return None
+    last_data_ns = state.get("last_data_ns")
+    if not state.get("serial_bytes") or not isinstance(last_data_ns, int):
+        return None
+    now_ns = time.monotonic_ns() if now_ns is None else now_ns
+    return max(0, now_ns - last_data_ns)
+
+
+def _wait_for_serial_data(worker) -> None:
+    """Do not start a measurement until the open UART has yielded real bytes."""
+    state = getattr(worker, "capture_state", None)
+    _require(isinstance(state, dict) and isinstance(state.get("opened_ns"), int),
+             "serial capture did not expose a verified open state")
+    deadline_ns = state["opened_ns"] + SERIAL_FIRST_DATA_TIMEOUT_NS
+    while True:
+        failure = _serial_capture_failure(worker)
+        _require(not failure, str(failure))
+        if _serial_capture_age_ns(worker) is not None:
+            return
+        _require(time.monotonic_ns() < deadline_ns,
+                 "serial capture received no bytes within the 5 s startup window")
+        time.sleep(0.05)
 
 
 def _observer_attempt_id(observations: Path, summary: dict) -> str | None:
@@ -491,12 +599,368 @@ def _observer_attempt_id(observations: Path, summary: dict) -> str | None:
     return next(iter(attempt_ids), None)
 
 
+def _hash_stream_prefix(stream, length: int) -> tuple[str, int]:
+    digest = hashlib.sha256()
+    remaining = length
+    hashed = 0
+    while remaining > 0:
+        chunk = stream.read(min(1024 * 1024, remaining))
+        if not chunk:
+            break
+        digest.update(chunk)
+        hashed += len(chunk)
+        remaining -= len(chunk)
+    return digest.hexdigest(), hashed
+
+
+def _open_server_log(path: Path):
+    flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0)
+    return os.fdopen(os.open(path, flags), "rb")
+
+
+def _server_log_snapshot(path: Path | None) -> dict:
+    """Keep the original log inode open and record its auditable prefix."""
+    if path is None:
+        return {"metadata": {"state": "not_configured"}, "stream": None}
+    try:
+        stream = _open_server_log(path)
+    except FileNotFoundError:
+        return {"metadata": {"state": "absent"}, "stream": None}
+    except OSError as exc:
+        return {"metadata": {"state": "unreadable", "error": str(exc)}, "stream": None}
+
+    try:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode):
+            stream.close()
+            return {"metadata": {"state": "not_regular_file", "device": info.st_dev,
+                                 "inode": info.st_ino}, "stream": None}
+        prefix_sha256, prefix_bytes = _hash_stream_prefix(stream, info.st_size)
+        metadata = {"state": "present", "device": info.st_dev, "inode": info.st_ino,
+                    "offset_bytes": info.st_size, "prefix_sha256": prefix_sha256,
+                    "prefix_bytes_hashed": prefix_bytes,
+                    "prefix_complete": prefix_bytes == info.st_size}
+        return {"metadata": metadata, "stream": stream}
+    except OSError as exc:
+        stream.close()
+        return {"metadata": {"state": "unreadable", "error": str(exc)}, "stream": None}
+
+
+def _close_server_log_snapshot(snapshot: dict) -> None:
+    stream = snapshot.get("stream")
+    if stream is not None:
+        stream.close()
+
+
+def _archive_server_log_segment(stream, destination: Path, *, role: str, device: int,
+                                inode: int, start: int, end: int) -> dict:
+    stream.seek(start)
+    expected_length = max(0, end - start)
+    data = stream.read(expected_length)
+    after = os.fstat(stream.fileno())
+    truncated = len(data) != expected_length or after.st_size < end
+    changed = truncated
+    growth_during_read = False
+    if truncated:
+        end = min(end, after.st_size)
+    elif after.st_size > end:
+        growth_during_read = True
+        data += stream.read(after.st_size - end)
+        end = after.st_size
+        after = os.fstat(stream.fileno())
+        changed = after.st_size != end
+    segment = {
+        "role": role,
+        "file": destination.name,
+        "device": device,
+        "inode": inode,
+        "start_offset_bytes": start,
+        "end_offset_bytes": end,
+        "bytes_archived": len(data),
+        "sha256": _sha256_bytes(data),
+        "changed_during_read": changed,
+        "truncation_detected": truncated,
+        "growth_during_read": growth_during_read or (after.st_size > end),
+    }
+    try:
+        with destination.open("xb") as archive:
+            archive.write(data)
+        segment["archive_status"] = "written" if data else "empty_written"
+    except FileExistsError:
+        segment["archive_status"] = "already_present"
+    except OSError as exc:
+        segment.update({"archive_status": "write_error", "archive_error": str(exc)})
+    return segment
+
+
+def _best_effort_server_log_capture(path: Path, record: dict, destination: Path,
+                                    captured_offsets: dict) -> None:
+    capture = {"attempted": True, "file": destination.name}
+    try:
+        stream = _open_server_log(path)
+    except FileNotFoundError:
+        capture["status"] = "path_absent"
+        record["best_effort_capture"] = capture
+        return
+    except OSError as exc:
+        capture.update({"status": "read_error", "error": str(exc)})
+        record["best_effort_capture"] = capture
+        return
+
+    with stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode):
+            capture["status"] = "not_regular_file"
+            record["best_effort_capture"] = capture
+            return
+        identity = (info.st_dev, info.st_ino)
+        start = captured_offsets.get(identity, 0)
+        if info.st_size < start:
+            record["truncation_detected"] = True
+            start = 0
+        capture.update({"device": info.st_dev, "inode": info.st_ino,
+                        "start_offset_bytes": start, "end_offset_bytes": info.st_size})
+        if identity in captured_offsets and info.st_size == start:
+            capture["status"] = "no_unarchived_bytes"
+            capture["bytes_archived"] = 0
+            capture["sha256"] = _sha256_bytes(b"")
+        else:
+            segment = _archive_server_log_segment(
+                stream, destination, role="best_effort_final_path_inode",
+                device=info.st_dev, inode=info.st_ino, start=start, end=info.st_size)
+            capture.update({"status": segment["archive_status"],
+                            "end_offset_bytes": segment["end_offset_bytes"],
+                            "bytes_archived": segment["bytes_archived"],
+                            "sha256": segment["sha256"]})
+            record["segments"].append(segment)
+            record["bytes_archived"] += segment["bytes_archived"]
+            captured_offsets[identity] = segment["end_offset_bytes"]
+            if segment["truncation_detected"]:
+                record["truncation_detected"] = True
+        record["best_effort_capture"] = capture
+
+    try:
+        path_info = path.stat()
+        capture["path_still_matches_open_inode"] = (
+            (path_info.st_dev, path_info.st_ino) == identity)
+        if not capture["path_still_matches_open_inode"]:
+            record["rotation_detected"] = True
+            record["path_changed_during_capture"] = True
+    except OSError:
+        capture["path_still_matches_open_inode"] = False
+        record["rotation_detected"] = True
+        record["path_changed_during_capture"] = True
+
+
+def _capture_server_log_delta(path: Path, initial: dict, destination: Path) -> dict:
+    """Archive the original descriptor delta and, after rotation, its new path."""
+    initial_metadata = initial["metadata"]
+    original_stream = initial.get("stream")
+    record = {
+        "source_name": path.name,
+        "initial_snapshot": initial_metadata,
+        "initial_state": initial_metadata["state"],
+        "initial_offset_bytes": initial_metadata.get("offset_bytes"),
+        "archive_start_offset_bytes": None,
+        "archive_end_offset_bytes": None,
+        "bytes_archived": 0,
+        "rotation_detected": False,
+        "truncation_detected": False,
+        "prefix_changed": False,
+        "segments": [],
+        "rotation_passes": 0,
+        "rotation_stabilized": False,
+        "rotation_unstable": False,
+        "path_changed_during_capture": False,
+    }
+    original_info = os.fstat(original_stream.fileno()) if original_stream is not None else None
+    original_identity = ((original_info.st_dev, original_info.st_ino)
+                         if original_info is not None else None)
+    captured_identity_offsets = {}
+    if original_identity is not None:
+        captured_identity_offsets[original_identity] = initial_metadata["offset_bytes"]
+    current_segment_count = 0
+    rotated_file_count = 0
+    previous_open_identity = None
+    stable_path = False
+
+    for pass_index in range(MAX_SERVER_LOG_ROTATION_PASSES):
+        record["rotation_passes"] = pass_index + 1
+        try:
+            current_stream = _open_server_log(path)
+        except FileNotFoundError:
+            record.update({"final_state": "absent", "capture_mode": "missing"})
+            break
+        except OSError as exc:
+            record.update({"final_state": "unreadable", "capture_mode": "read_error",
+                           "error": str(exc)})
+            break
+
+        with current_stream:
+            current_info = os.fstat(current_stream.fileno())
+            if not stat.S_ISREG(current_info.st_mode):
+                record.update({"final_state": "not_regular_file", "capture_mode": "not_regular_file"})
+                break
+            current_identity = (current_info.st_dev, current_info.st_ino)
+            record.update({"final_state": "present", "final_device": current_info.st_dev,
+                           "final_inode": current_info.st_ino,
+                           "final_size_bytes": current_info.st_size})
+            if original_identity is not None and current_identity != original_identity:
+                record["rotation_detected"] = True
+            if (previous_open_identity is not None
+                    and current_identity != previous_open_identity):
+                record["rotation_detected"] = True
+
+            if current_identity != original_identity:
+                prior_end = captured_identity_offsets.get(current_identity)
+                start_offset = prior_end if prior_end is not None else 0
+                if prior_end is not None and current_info.st_size < prior_end:
+                    record["truncation_detected"] = True
+                    record["prefix_changed"] = True
+                    start_offset = 0
+                if prior_end is None or current_info.st_size != prior_end:
+                    if original_identity is None and current_segment_count == 0:
+                        segment_path = destination
+                        role = "current_file_since_slot_start"
+                    else:
+                        rotated_file_count += 1
+                        name = ("server-rotated.jsonl" if rotated_file_count == 1
+                                else f"server-rotated-{rotated_file_count}.jsonl")
+                        segment_path = destination.with_name(name)
+                        role = ("current_rotated_inode" if prior_end is None
+                                else "current_rotated_inode_delta")
+                    new_segment = _archive_server_log_segment(
+                        current_stream, segment_path, role=role,
+                        device=current_info.st_dev, inode=current_info.st_ino,
+                        start=start_offset, end=current_info.st_size)
+                    record["segments"].append(new_segment)
+                    record["bytes_archived"] += new_segment["bytes_archived"]
+                    captured_identity_offsets[current_identity] = new_segment["end_offset_bytes"]
+                    current_segment_count += 1
+                    if new_segment["changed_during_read"]:
+                        record["truncation_detected"] |= new_segment["truncation_detected"]
+                previous_open_identity = current_identity
+
+        try:
+            path_info = path.stat()
+        except FileNotFoundError:
+            record.update({"final_state": "absent", "capture_mode": "missing"})
+            record["path_changed_during_capture"] = True
+            break
+        except OSError as exc:
+            record.update({"final_state": "unreadable", "capture_mode": "read_error",
+                           "error": str(exc)})
+            record["path_changed_during_capture"] = True
+            break
+
+        if not stat.S_ISREG(path_info.st_mode):
+            record.update({"final_state": "not_regular_file", "capture_mode": "not_regular_file"})
+            record["path_changed_during_capture"] = True
+            break
+        path_identity = (path_info.st_dev, path_info.st_ino)
+        record.update({"final_state": "present", "final_device": path_info.st_dev,
+                       "final_inode": path_info.st_ino,
+                       "final_size_bytes": path_info.st_size})
+        opened_identity = (current_info.st_dev, current_info.st_ino)
+        captured_end = captured_identity_offsets.get(path_identity)
+        path_changed = path_identity != opened_identity
+        path_is_original = path_identity == original_identity
+        path_is_opened_inode = path_identity == opened_identity
+        if path_is_opened_inode:
+            path_grew_after_read = path_info.st_size > current_info.st_size
+            path_shrank_after_read = path_info.st_size < current_info.st_size
+        else:
+            path_grew_after_read = (captured_end is not None
+                                    and path_info.st_size > captured_end)
+            path_shrank_after_read = (captured_end is not None
+                                      and path_info.st_size < captured_end)
+        if path_shrank_after_read:
+            record["truncation_detected"] = True
+        if path_changed or path_grew_after_read or path_shrank_after_read:
+            record["rotation_detected"] |= path_changed
+            record["path_changed_during_capture"] |= path_changed
+            if pass_index + 1 == MAX_SERVER_LOG_ROTATION_PASSES:
+                record["rotation_unstable"] = True
+                record["capture_mode"] = "rotation_unstable"
+                break
+            previous_open_identity = opened_identity
+            continue
+
+        stable_path = True
+        record["rotation_stabilized"] = True
+        if original_identity is not None and path_identity != original_identity:
+            record["capture_mode"] = "rotated_or_replaced"
+        elif record["truncation_detected"]:
+            record["capture_mode"] = "truncated_or_rewritten"
+        elif original_identity is not None:
+            record["capture_mode"] = "appended"
+        elif initial_metadata["state"] == "absent":
+            record["capture_mode"] = "created_during_slot"
+        else:
+            record["capture_mode"] = "initial_state_unverified"
+        break
+
+    if not stable_path and not record["rotation_unstable"]:
+        record["rotation_stabilized"] = record["final_state"] == "absent"
+
+    if original_stream is not None:
+        old_end = os.fstat(original_stream.fileno()).st_size
+        initial_offset = initial_metadata["offset_bytes"]
+        old_offset = initial_offset
+        if (not initial_metadata["prefix_complete"] or old_end < initial_offset):
+            record["truncation_detected"] = True
+        else:
+            original_stream.seek(0)
+            prefix_hash, prefix_bytes = _hash_stream_prefix(original_stream, initial_offset)
+            if prefix_bytes != initial_offset or prefix_hash != initial_metadata["prefix_sha256"]:
+                record["truncation_detected"] = True
+                record["prefix_changed"] = True
+        if record["truncation_detected"]:
+            old_offset = 0
+        old_segment = _archive_server_log_segment(
+            original_stream, destination, role="original_inode_delta",
+            device=original_info.st_dev, inode=original_info.st_ino,
+            start=old_offset, end=old_end)
+        record["segments"].insert(0, old_segment)
+        record["bytes_archived"] += old_segment["bytes_archived"]
+        captured_identity_offsets[original_identity] = old_segment["end_offset_bytes"]
+        record["archive_start_offset_bytes"] = old_segment["start_offset_bytes"]
+        record["archive_end_offset_bytes"] = old_segment["end_offset_bytes"]
+        if old_segment["changed_during_read"]:
+            record["truncation_detected"] |= old_segment["truncation_detected"]
+    if record["rotation_unstable"]:
+        _best_effort_server_log_capture(
+            path, record, destination.with_name("server-rotated-best-effort.jsonl"),
+            captured_identity_offsets)
+    elif record["segments"]:
+        record["archive_start_offset_bytes"] = record["segments"][0]["start_offset_bytes"]
+        record["archive_end_offset_bytes"] = record["segments"][0]["end_offset_bytes"]
+
+    if record["capture_mode"] == "missing" and record["segments"]:
+        record["capture_mode"] = "log_disappeared_after_capture"
+    if record["truncation_detected"] and not record["rotation_unstable"]:
+        record["capture_mode"] = "truncated_or_rewritten"
+    if record["rotation_unstable"]:
+        record["capture_mode"] = "rotation_unstable"
+
+    if record["segments"]:
+        destination_statuses = {segment["archive_status"] for segment in record["segments"]}
+        if "already_present" in destination_statuses:
+            record["capture_destination_status"] = "already_present"
+        elif "write_error" in destination_statuses:
+            record["capture_destination_status"] = "write_error"
+        else:
+            record["capture_destination_status"] = "written"
+    return record
+
+
 def run_slot(campaign_root: Path, slot_id: str, *, device_ip: str, serial_port: str,
              seconds: float, trigger_after: float, target_sequence: int,
              bind_ip: str = "0.0.0.0", udp_port: int = 3333, device_port: int = 3333,
              serial_baud: int = 115200, server_log: Path | None = None,
              period_ms: float = 100, timeout_ms: float = 300,
-             max_sample_age_ms: int = 1000) -> dict:
+             max_sample_age_ms: int = 1000, remote_options: dict | None = None,
+             remote_server_log: Path | None = None) -> dict:
     campaign, schedule, _ = _load_campaign(campaign_root)
     _validate_repository(campaign)
     slot = _slot_row(schedule, slot_id)
@@ -510,27 +974,119 @@ def run_slot(campaign_root: Path, slot_id: str, *, device_ip: str, serial_port: 
     _require(0 <= udp_port <= 65535 and 1 <= device_port <= 65535,
              "invalid UDP port")
     root = campaign_root.resolve()
+    issue20 = campaign.get("protocol_revision") == ISSUE20_PROTOCOL_REVISION
+    _require(remote_server_log is None or remote_options is not None,
+             "--remote-server-log requires the remote observer backend")
+    if remote_options is not None:
+        _require(issue20, "the remote backend requires the frozen issue20-v1.0 protocol")
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from remote_observer import validate_options, _validate_observer
+        remote_options = validate_options(dict(remote_options))
+    if issue20:
+        campaign_metadata = campaign.get("metadata")
+        _require(isinstance(campaign_metadata, dict)
+                 and campaign_metadata.get("campaign_type") in {"pilot", "normal"},
+                 f"{ISSUE20_PROTOCOL_REVISION} requires metadata.campaign_type "
+                 "to be 'pilot' or 'normal'")
+        expected_blocks = 6 if campaign_metadata["campaign_type"] == "pilot" else 30
+        _require(campaign.get("N") == expected_blocks,
+                 f"{ISSUE20_PROTOCOL_REVISION} requires N={expected_blocks} blocks "
+                 f"for campaign_type={campaign_metadata['campaign_type']!r}")
+        _require(seconds == ISSUE20_CAPTURE_SECONDS,
+                 f"{ISSUE20_PROTOCOL_REVISION} requires --seconds {ISSUE20_CAPTURE_SECONDS}")
+        _require(trigger_after == ISSUE20_TRIGGER_AFTER_SECONDS,
+                 f"{ISSUE20_PROTOCOL_REVISION} requires --trigger-after {ISSUE20_TRIGGER_AFTER_SECONDS}")
+        _require(period_ms == ISSUE20_PERIOD_MS and timeout_ms == ISSUE20_TIMEOUT_MS
+                 and max_sample_age_ms == ISSUE20_MAX_SAMPLE_AGE_MS,
+                 f"{ISSUE20_PROTOCOL_REVISION} requires period/timeout/max-age "
+                 f"{ISSUE20_PERIOD_MS}/{ISSUE20_TIMEOUT_MS}/{ISSUE20_MAX_SAMPLE_AGE_MS} ms")
+    observer_options = dict(
+        device_ip=device_ip, seconds=seconds, bind_ip=bind_ip,
+        port=udp_port, device_port=device_port, period_ms=period_ms,
+        timeout_ms=timeout_ms, initial_version=1, trigger_after=trigger_after,
+        target_sequence=target_sequence, scenario=SCENARIO_CODES[slot["scenario"]],
+        max_sample_age_ms=max_sample_age_ms,
+        update_deadline_ms=ISSUE20_UPDATE_DEADLINE_MS if issue20 else None,
+        post_window_ms=ISSUE20_POST_WINDOW_MS if issue20 else None,
+        stable_window_ms=ISSUE20_STABLE_WINDOW_MS if issue20 else None,
+        minimum_stable_controls=ISSUE20_MIN_STABLE_CONTROLS if issue20 else 0,
+        minimum_stable_telemetry=ISSUE20_MIN_STABLE_TELEMETRY if issue20 else 0)
+    if remote_options is not None:
+        _validate_observer(observer_options)
+        _require(remote_server_log is None or remote_server_log.is_absolute(),
+                 "--remote-server-log must be an absolute CT107 path")
     output = root / "raw" / "slots" / slot_id
     _require(not output.exists(), f"slot output already exists; no retry is allowed: {output}")
+    server_log_source = None
+    if server_log is not None and remote_server_log is None:
+        server_log_source = server_log if server_log.is_absolute() else root / server_log
+        server_log_source = Path(os.path.abspath(server_log_source))
+        _require(os.path.abspath(server_log_source) != os.path.abspath(output / "server.jsonl"),
+                 "server log source cannot be the slot output file")
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.mkdir()
+    output.mkdir(mode=0o700)
 
-    stop, worker = _start_serial_capture(serial_port, serial_baud, output / "device.jsonl")
+    server_log_initial = _server_log_snapshot(server_log_source)
     observer_summary = None
+    remote_result = None
+    serial_error = None
+    server_log_capture = None
     try:
-        # Import lazily so plan/preflight/analyze never import serial, bind UDP, or resolve a device.
-        sys.path.insert(0, str(Path(__file__).resolve().parent))
-        from external_observer import run as observer_run
-        observer_summary = observer_run(
-            device_ip=device_ip, output=output, seconds=seconds, bind_ip=bind_ip,
-            port=udp_port, device_port=device_port, period_ms=period_ms,
-            timeout_ms=timeout_ms, initial_version=1, trigger_after=trigger_after,
-            target_sequence=target_sequence, scenario=SCENARIO_CODES[slot["scenario"]],
-            max_sample_age_ms=max_sample_age_ms)
+        stop, worker = _start_serial_capture(serial_port, serial_baud, output / "device.jsonl")
+        try:
+            if issue20:
+                _wait_for_serial_data(worker)
+            # Import lazily so plan/preflight/analyze never import serial, bind UDP, or resolve a device.
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            from external_observer import run as observer_run
+            if remote_options is None:
+                observer_summary = observer_run(
+                    output=output, **observer_options,
+                    health_check=lambda: _serial_capture_failure(
+                        worker, require_fresh_data=issue20),
+                    clock_domain=_host_clock_domain("observer_local"))
+            else:
+                from remote_observer import run_remote_observer
+                remote_result = run_remote_observer(
+                    output, observer_options, remote_options,
+                    context={"campaign_id": campaign["campaign_id"], "slot_id": slot_id,
+                             "session_id": campaign.get("metadata", {}).get("session_id"),
+                             "git_commit": campaign["git_commit"],
+                             "runner_sha256": campaign["script_sha256"]},
+                    health_check=lambda: _serial_capture_failure(
+                        worker, require_fresh_data=issue20),
+                    serial_age_check=lambda: _serial_capture_age_ns(worker),
+                    server_log=remote_server_log)
+                observer_summary = remote_result.get("observer_summary")
+                _require(isinstance(observer_summary, dict),
+                         "remote observer failed before producing a summary; preserve the sealed evidence and review")
+                if remote_server_log is not None:
+                    server_log_capture = remote_result.get("server_log_capture")
+            serial_error = _serial_capture_failure(worker)
+        finally:
+            stop.set()
+            worker.join(timeout=2.0)
+            _require(not worker.is_alive(), "serial capture thread did not stop cleanly")
+            state = getattr(worker, "capture_state", None)
+            if isinstance(state, dict) and state.get("error") is not None:
+                serial_error = f"serial_capture_failed: {state['error']}"
+
+        if server_log_source is not None:
+            server_log_capture = _capture_server_log_delta(
+                server_log_source, server_log_initial, output / "server.jsonl")
+    except BaseException as exc:
+        # An uncertain remote launch or partial capture must not disappear or
+        # become a synthetic not_sent result. Existing output prevents retries.
+        _write_json(output / "terminal-error.json", {
+            "kind": "capture_failed", "error": f"{type(exc).__name__}: {exc}",
+            "automatic_retry_permitted": False,
+            "clock_domain": _host_clock_domain("serial_laptop"),
+            "raw_files": {path.name: {"sha256": _sha256_file(path), "size_bytes": path.stat().st_size}
+                          for path in sorted(output.iterdir()) if path.is_file() and not path.is_symlink()
+                          and path.name != "terminal-error.json"}}, exclusive=True)
+        raise
     finally:
-        stop.set()
-        worker.join(timeout=2.0)
-        _require(not worker.is_alive(), "serial capture thread did not stop cleanly")
+        _close_server_log_snapshot(server_log_initial)
 
     attempt_id = _observer_attempt_id(output / "observations.jsonl", observer_summary or {})
     rows = _read_jsonl(output / "observations.jsonl", "observations.jsonl")
@@ -578,7 +1134,17 @@ def run_slot(campaign_root: Path, slot_id: str, *, device_ip: str, serial_port: 
         "block_id": slot["block_id"],
         "scenario": slot["scenario"],
         "order_in_block": slot["order_in_block"],
+        "protocol_revision": campaign["protocol_revision"],
+        "campaign_type": campaign.get("metadata", {}).get("campaign_type"),
         "observer_run_id": str(uuid.uuid4()),
+        "execution": {"observer_backend": "ssh" if remote_options is not None else "local",
+                      "remote_state": remote_result.get("state") if remote_result else None,
+                      "transport_error": remote_result.get("transport_error") if remote_result else None,
+                      "serial_error": serial_error,
+                      "instrument_aborted": observer_summary.get("instrument_aborted", False)},
+        "clock_domains": {"observer": observer_summary.get("clock_domain"),
+                          "serial": _host_clock_domain("serial_laptop"),
+                          "policy": "never subtract timestamps from different host clock domains"},
         # Every scheduled run has a dispatch record, including the case where
         # boot never appeared and the observer therefore sent no trigger.
         "dispatches": [dispatch],
@@ -589,20 +1155,114 @@ def run_slot(campaign_root: Path, slot_id: str, *, device_ip: str, serial_port: 
         "slot_success_null_reason": "requires instrument and terminal outcome adjudication",
         "raw_files": {},
     }
-    if server_log is not None:
-        source = server_log.resolve()
-        _require(source.is_file(), f"server log does not exist: {source}")
-        destination = output / "server.jsonl"
-        _require(source != destination.resolve(), "server log source cannot be the slot output file")
-        shutil.copyfile(source, destination)
-    for name in ("observations.jsonl", "summary.json", "device.jsonl", "server.jsonl"):
+    if server_log_capture is None:
+        metadata["server_log"] = {
+            "status": "not_configured",
+            "accepted": False,
+            "update_trigger_sent": trigger_was_sent,
+            "http_requests_expected": trigger_was_sent,
+        }
+    else:
+        capture = server_log_capture
+        server_log_record = {
+            **capture,
+            "update_trigger_sent": trigger_was_sent,
+            "http_requests_expected": trigger_was_sent,
+        }
+        metadata["server_log"] = server_log_record
+        if not trigger_was_sent and capture["bytes_archived"] > 0:
+            # Non-empty content since the pre-slot offset is unexpected when
+            # there was no UPDATE_TRIGGER, even if the server log is shared.
+            server_log_record.update({
+                "status": "unexpected_events_without_update_trigger",
+                "accepted": False,
+                "review_required": True,
+            })
+        elif capture["final_state"] == "absent":
+            if not trigger_was_sent and capture["initial_state"] == "absent":
+                server_log_record.update({
+                    "status": "absent_no_update_trigger",
+                    "accepted": True,
+                    "reason": "observer_did_not_send_update_trigger",
+                })
+            else:
+                server_log_record.update({
+                    "status": ("missing_after_update_trigger" if trigger_was_sent
+                              else "log_disappeared_during_slot"),
+                    "accepted": False,
+                    "review_required": True,
+                })
+        elif capture["final_state"] != "present":
+            server_log_record.update({
+                "status": "server_log_unavailable",
+                "accepted": False,
+                "review_required": True,
+            })
+        elif capture.get("capture_destination_status") == "already_present":
+            server_log_record.update({
+                "status": "slot_copy_destination_already_present",
+                "accepted": False,
+                "review_required": True,
+            })
+        elif capture.get("capture_destination_status") == "write_error":
+            server_log_record.update({
+                "status": "slot_copy_failed",
+                "accepted": False,
+                "review_required": True,
+            })
+        else:
+            continuity_problem = (capture["rotation_detected"]
+                                  or capture["truncation_detected"]
+                                  or capture["rotation_unstable"]
+                                  or capture["capture_mode"] in {
+                                      "initial_state_unverified", "changed_during_capture",
+                                      "rotated_or_replaced", "truncated_or_rewritten",
+                                      "rotation_unstable"})
+            if continuity_problem:
+                server_log_record.update({
+                    "status": "log_replaced_truncated_or_changed",
+                    "accepted": False,
+                    "review_required": True,
+                })
+            elif not trigger_was_sent:
+                server_log_record.update({
+                    "status": "empty_no_update_trigger",
+                    "accepted": True,
+                    "reason": "no_new_http_events_without_update_trigger",
+                })
+            elif capture["bytes_archived"] == 0:
+                server_log_record.update({
+                    "status": "unexpected_empty_after_update_trigger",
+                    "accepted": False,
+                    "review_required": True,
+                })
+            else:
+                server_log_record.update({
+                    "status": "captured",
+                    "accepted": True,
+                })
+        if "review_required" not in server_log_record:
+            server_log_record["review_required"] = False
+    raw_file_names = {"observations.jsonl", "summary.json", "device.jsonl"}
+    if remote_options is not None:
+        raw_file_names.update(name for name in (
+            "remote-session.json", "remote-start-claim.json", "remote-status.json",
+            "remote-manifest.json", "remote-result.json", "remote-transport-error.json")
+                              if (output / name).is_file())
+    if server_log_capture is not None:
+        raw_file_names.update(segment["file"] for segment in server_log_capture["segments"])
+        if server_log_capture.get("best_effort_capture", {}).get("file"):
+            raw_file_names.add(server_log_capture["best_effort_capture"]["file"])
+    for name in sorted(raw_file_names):
         path = output / name
         if path.is_file():
             metadata["raw_files"][name] = {"sha256": _sha256_file(path), "size_bytes": path.stat().st_size}
     _write_json(output / "slot.json", metadata, exclusive=True)
     return {"campaign_id": campaign["campaign_id"], "slot_id": slot_id,
             "dispatch_status": dispatch_status, "attempt_id": attempt_id,
-            "accepted_attempt_status": accepted_status, "output": str(output)}
+            "accepted_attempt_status": accepted_status,
+            "server_log_status": metadata["server_log"]["status"],
+            "output": str(output)}
 
 
 def _load_slot_records(root: Path, schedule: dict, campaign: dict) -> list[tuple[dict, dict, dict]]:
@@ -879,7 +1539,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--period-ms", type=float, default=100)
     p_run.add_argument("--timeout-ms", type=float, default=300)
     p_run.add_argument("--max-sample-age-ms", type=int, default=1000)
-    p_run.add_argument("--server-log", type=Path)
+    p_run.add_argument("--server-log", type=Path, default=DEFAULT_SERVER_LOG,
+                       help="HTTP request JSONL relative to campaign root "
+                       "(default: server/http-events.jsonl)")
+    p_run.add_argument("--remote-observer", metavar="wasmhome@HOST",
+                       help="run the observer as the normal CT107 user over strict-key SSH")
+    p_run.add_argument("--remote-known-hosts", type=Path)
+    p_run.add_argument("--remote-identity", type=Path)
+    p_run.add_argument("--remote-ssh-port", type=int, default=22)
+    p_run.add_argument("--remote-root", default=".local/share/wasmhome-hil")
+    p_run.add_argument("--remote-session-id", help="unique UUID; an existing session can never restart")
+    p_run.add_argument("--remote-server-log", type=Path,
+                       help="absolute HTTPS JSONL path on CT107; otherwise --server-log stays local")
 
     p_analyze = sub.add_parser("analyze", help="validate archived package and rebuild derived summaries")
     p_analyze.add_argument("campaign_root", type=Path)
@@ -901,16 +1572,29 @@ def main(argv: list[str] | None = None) -> int:
                                network_port=args.network_port, probe_network=args.probe_network,
                                network_timeout=args.network_timeout)
         elif args.command == "run-slot":
+            remote_options = None
+            if args.remote_observer is not None:
+                _require(args.remote_known_hosts is not None and args.remote_identity is not None,
+                         "--remote-observer requires --remote-known-hosts and --remote-identity")
+                remote_options = {"target": args.remote_observer,
+                                  "known_hosts": str(args.remote_known_hosts),
+                                  "identity": str(args.remote_identity), "ssh_port": args.remote_ssh_port,
+                                  "root": args.remote_root, "session_id": args.remote_session_id}
+            else:
+                _require(args.remote_known_hosts is None and args.remote_identity is None
+                         and args.remote_session_id is None and args.remote_server_log is None,
+                         "remote options require --remote-observer")
             result = run_slot(args.campaign_root, args.slot_id, device_ip=args.device_ip,
                               serial_port=args.serial_port, seconds=args.seconds,
                               trigger_after=args.trigger_after, target_sequence=args.target_sequence,
                               bind_ip=args.bind_ip, udp_port=args.udp_port, device_port=args.device_port,
                               serial_baud=args.serial_baud, server_log=args.server_log,
                               period_ms=args.period_ms, timeout_ms=args.timeout_ms,
-                              max_sample_age_ms=args.max_sample_age_ms)
+                              max_sample_age_ms=args.max_sample_age_ms,
+                              remote_options=remote_options, remote_server_log=args.remote_server_log)
         else:
             result = analyze(args.campaign_root)
-    except (CampaignError, OSError, subprocess.CalledProcessError) as exc:
+    except (ValueError, OSError, subprocess.CalledProcessError) as exc:
         parser.exit(2, f"error: {exc}\n")
     print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False))
     return 0

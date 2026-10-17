@@ -21,6 +21,9 @@
 #include <string.h>
 
 #define NETWORK_READY BIT0
+#define UART_HEARTBEAT_TASK_STACK_BYTES 3072
+#define UART_HEARTBEAT_TASK_PRIORITY 1
+#define UART_HEARTBEAT_RECORD "WASMHOME_UART_HEARTBEAT,v1\n"
 static uint64_t boot_id;
 static EventGroupHandle_t network;
 static SemaphoreHandle_t transport_lock;
@@ -51,6 +54,18 @@ void wh_platform_event(const char *event, esp_err_t status)
            "\",\"monotonic_us\":%" PRId64 ",\"status\":%d,\"heap_internal\":%u}\n",
            event, scenario, boot_id, esp_timer_get_time(), (int)status,
            (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+}
+
+static void uart_heartbeat_task(void *argument)
+{
+    (void)argument;
+    const TickType_t interval = pdMS_TO_TICKS(CONFIG_WASMHOME_UART_HEARTBEAT_INTERVAL_MS);
+    TickType_t cycle = xTaskGetTickCount();
+    for (;;) {
+        vTaskDelayUntil(&cycle, interval);
+        (void)fputs(UART_HEARTBEAT_RECORD, stdout);
+        (void)fflush(stdout);
+    }
 }
 
 esp_err_t wh_gpio_apply(uint8_t requested, uint8_t *observed)
@@ -199,6 +214,12 @@ esp_err_t wh_platform_start(void)
     started = true;
     do { esp_fill_random(&boot_id, sizeof(boot_id)); } while (!boot_id);
     wh_platform_event("boot_observed", (esp_err_t)esp_reset_reason());
+    if (pdMS_TO_TICKS(CONFIG_WASMHOME_UART_HEARTBEAT_INTERVAL_MS) == 0)
+        return ESP_ERR_INVALID_ARG;
+    if (xTaskCreate(uart_heartbeat_task, "wh_uart_heartbeat",
+                    UART_HEARTBEAT_TASK_STACK_BYTES, NULL,
+                    UART_HEARTBEAT_TASK_PRIORITY, NULL) != pdPASS)
+        return ESP_ERR_NO_MEM;
     network = xEventGroupCreate();
     transport_lock = xSemaphoreCreateMutex();
     if (!network || !transport_lock) return ESP_ERR_NO_MEM;

@@ -1,6 +1,6 @@
 # Checklist de execução do plano
 
-## Estado do plano — atualizado em 15/10/2026
+## Estado do plano — atualizado em 16/10/2026
 
 A #7 permanece concluída. A #11 teve aceite físico no ensaio
 `services-run03`, fonte `a91ff5e`: v1 e v2 passaram 45 critérios cada,
@@ -25,11 +25,14 @@ posterior. Uma sessão de 30 chamadas não representa 30 atualizações independ
 As falhas anteriores permanecem documentadas; o aceite é de viabilidade mínima.
 
 A #12 foi integrada pela PR #30. As evidências físicas de #13 e #14 estão
-documentadas, respectivamente, nas PRs #31 e #32, ainda aguardando integração.
-A #15 está concluída nesta PR. Depois de integrar essas três PRs, as próximas
-etapas são #16/#17/#18, que seguem suas dependências; #19 → piloto #20 → campanha
-#21; #22 → #23 → análise #24. Tamanho amostral e timeout continuam condicionados
-ao piloto.
+documentadas nas PRs #31 e #32. As PRs #34–#37 integraram #16, #17, #18 e #19,
+incluindo a calibração comparativa dos três caminhos de atualização. O protocolo
+pré-registrado da #20 fixa janelas, timeouts e N=30 blocos por viabilidade
+descritiva. O CT107, toolchain e servidores foram alcançados pela rota Tailscale;
+a placa não responde no IP histórico e não foi identificada por serial, então o
+piloto físico permanece pendente. Ver [registro e limites do piloto](evidence/issue20-pilot-2026-10-16/README.md).
+Depois do piloto, #21 segue com 90 slots planejados e denominadores de slots e
+aceites separados; #22 → #23 → análise #24.
 
 [Aceite físico A/B/C](evidence/e1-physical-2026-10-14/README.md)
 · [Tentativa anterior](evidence/aot-run-8b3bddd-2026-10-14/README.md)
@@ -98,7 +101,7 @@ O [registro de retomada](retomada-linux.md) reúne comandos, caminhos, SHAs, rev
 - A bancada mantém dois serviços. O módulo de telemetria permanece ativo e publica amostras numeradas do DS18B20 por binding nativo. O módulo de controle executa a regra do GPIO nas versões v1/v2 e é o único módulo substituído em B e C. A campanha nativa substitui a imagem OTA da aplicação.
 - O driver opera o DS18B20 em três fios, 10 bits, com aquisição a cada 500 ms. A telemetria é observada a cada 100 ms. A regra de controle usa histerese de 1 °C, limiar de 25 °C em v1 e 30 °C em v2. O loopback físico é GPIO5→GPIO6. O observador envia estímulos conhecidos para verificar o resultado de controle e mede separadamente a telemetria do sensor.
 - UDP binário v1 é o canal de observação; HTTPS entrega artefatos; JSONL preserva os registros brutos. Heartbeat, compilação e diagnóstico não comprovam disponibilidade funcional.
-- A campanha normal tem como referência 30 blocos, uma tentativa completa de cada cenário por bloco, total de 90 tentativas. A campanha de resiliência é separada e tem 70 tentativas de falha mais dois controles. O piloto pode justificar outra amostra normal, mas qualquer ajuste precisa de análise e justificativa registradas antes da coleta definitiva.
+- A campanha normal tem N=30 blocos e 90 slots planejados, com A/B/C uma vez por bloco. O número de aceites pode ser menor; slots, aceites e aceites válidos são reportados com denominadores separados. N=30 é descritivo por viabilidade, sem alegação de poder. A campanha de resiliência é separada e tem 70 tentativas de falha mais dois controles.
 
 ### Conflito documental encontrado
 
@@ -131,7 +134,7 @@ O conteúdo original do parágrafo de delimitação em [plano-de-execucao.md](pl
   - [x] Registrar a confirmação humana de 09/10 de que `192.168.0.138` está reservado à MAC `BC:24:11:B6:36:F7` do CT 107. A sessão verificou IP/MAC efetivos; não leu o painel DHCP. Reconfirmar o endpoint no início da configuração HTTPS da #15.
   - [x] Reconstrução autorizada pelo usuário em 09/10. CT 109 criado com hostname `wasmhome-bench-rebuild`, MAC `BC:24:11:73:7F:32`, IP DHCP `192.168.0.171`, 1 CPU, 1.024 MiB RAM, swap 0 e 24 GiB em DevServer. [Criação](evidence/execucao-2026-10-09/lxc-rebuild-create.txt), [identidade](evidence/execucao-2026-10-09/lxc-rebuild-identity.txt), [reboot gracioso](evidence/execucao-2026-10-09/lxc-rebuild-after-reboot.txt) e [SSH/persistência](evidence/execucao-2026-10-09/lxc-rebuild-ssh-after-reboot.txt) passaram. O CT 109 foi parado ao final; o CT 107 permanece em execução. Divergências do instrumento e do ifupdown2 estão no [registro da reconstrução](proposta-reconstrucao-lxc.md). O CT 108 pertence ao Paperclip e não foi usado.
   - [x] Capacidade, template e ID foram reconfirmados antes da criação, com resultados no registro acima. A amostra do host não comprova capacidade para compilar a toolchain.
-- [ ] Fechar entradas/saídas de referência para v1/v2, parâmetros, timeout candidato, cadência e janelas de observação. Reconfirmar condições da bancada antes do primeiro ensaio de cada sessão. Timeout inicial: 300 ms, sujeito ao piloto.
+- [x] Pré-registrar parâmetros comuns para v1/v2, cadências, janelas e timeouts em [protocolo da #20](protocolo-campanha-issue20-v1.0.md). Reconfirmar condições físicas e operacionais antes de cada sessão.
 
 ## E1. Viabilidade dos três cenários
 
@@ -179,14 +182,14 @@ Depois que cada bloqueio próprio for atendido, não é necessário serializar a
 
 ## E5. Métricas, piloto e congelamento
 
-- [ ] **Conciliar amostra e agenda antes de #20/#21.** A referência vigente é 30 tentativas por cenário; a agenda proposta de 90 slots pode gerar menos de 90 tentativas aceitas. Decidir e registrar o alvo de slots versus atualizações aceitas, com contagem, agenda/reposição e denominadores coerentes. Os planos registram a proposta e a pendência, sem substituir a referência silenciosamente. Preservar todos os disparos, recusas, timeouts e falhas.
+- [x] **Conciliar amostra e agenda para #20/#21.** A campanha normal usa N=30 blocos e 90 slots, não presume 90 aceites. `slot_success` mantém o denominador planejado; aceites e aceites instrumentais válidos têm denominadores separados. A agenda-piloto usa seis blocos para cobrir as seis ordens. Parâmetros e justificativa: [protocolo congelado da #20](protocolo-campanha-issue20-v1.0.md).
 
-- [ ] **#19, métricas comparáveis.** Dependências: #16, #17 e #18. Cobrir payload, tempo total e etapas, SRAM/PSRAM antes/durante/depois, custo do runtime e da chamada, processamento, lacunas e perdas. Usar relógio monotônico do observador para intervalos que cruzam reboot; não subtrair relógios de dispositivos. Representar campo inaplicável como `null`/`not_applicable`, nunca zero. Verificar a equivalência funcional da carga e o checksum/resultados.
-- [ ] **#20, piloto e protocolo congelado.** Dependência: #19. Executar cinco atualizações completas por cenário, 15 tentativas rastreáveis fora do conjunto final. Uma tentativa normal só começa após `update_accepted` correlacionado. Guardar `t_envio` e `t_aceite` (null se não recebido); para tentativa aceita, `update_total` começa em `t_envio`. Disparos sem aceite ficam em registro separado e não recebem aceite ou resultado de atualização inventado. Revisar dispersão, timeout, cadência, janelas, aquecimento, condições iniciais, sequência, critérios de invalidação e matriz de logs. O aquecimento deve ocorrer antes do disparo medido. Congelar o timeout funcional, inicialmente 300 ms, e aplicar o mesmo valor à resiliência. Preservar falhas após aceite e justificar antes da campanha qualquer alteração da referência de 30 tentativas por cenário.
+- [x] **#19, métricas comparáveis.** Dependências: #16, #17 e #18. A calibração revisada está em [issue19-metrics-calibration-2026-10-16](evidence/issue19-metrics-calibration-2026-10-16.md); registra valores, relógios, perdas, hashes, limites e o fato de existir uma atualização por cenário, sem estimativa de dispersão.
+- [~] **#20, piloto e protocolo congelado.** Dependência: #19. Parâmetros, dispersão a relatar, N, janelas, preparo e invalidação foram pré-registrados em [issue20-v1.0](protocolo-campanha-issue20-v1.0.md). Baseline 16 MiB aprovada pelo usuário, comparada byte a byte e restaurada após a tentativa. Dos 18 slots planejados, 1 (`B0001-native`) chegou à pré-janela; houve zero triggers e zero aceites. O despacho ficou `not_sent` porque a janela não recebeu UDP válido. A meta mínima de aceites completos continua em 0/5 por cenário (A/B/C); estado, evidência e próximo bloqueio em [registro atualizado](evidence/issue20-pilot-2026-10-16/README.md) e [tentativa HIL](evidence/issue20-pilot-2026-10-16/hil-attempt-2026-10-17.md).
 
 ## E6. Campanhas definitivas
 
-- [ ] **#21, campanha normal balanceada.** Dependência: #20. Executar o tamanho amostral justificado e congelado na #20. A referência é 30 blocos, com A/B/C uma vez por bloco na mesma placa, total de 90 tentativas e cada uma das seis ordens cinco vezes. Se houver ajuste documentado antes da coleta, redefinir o balanceamento das ordens de forma coerente com a amostra aprovada. Registrar embaralhamento e semente. Restaurar v1 com envelope autenticado e sequência nova; usar para v2 uma sequência ainda maior no mesmo namespace. Aguardar estabilidade e excluir o preparo da janela. Uma tentativa só passa a integrar a campanha após `update_accepted` correlacionado; guardar `t_envio` e `t_aceite` (null se não recebido), iniciar `update_total` em `t_envio` para tentativas aceitas e manter falhas/timeouts ocorridos depois do aceite no denominador. Disparos sem aceite ficam em registros separados, sem contagem como tentativa aceita nem aceite inferido. Só invalidar falha comprovada do instrumento, com motivo e reposição identificada; nunca repetir seletivamente resultado desfavorável.
+- [ ] **#21, campanha normal balanceada.** Dependência: #20. Executar N=30 blocos/90 slots planejados, com A/B/C uma vez por bloco na mesma placa e cada ordem cinco vezes. Os 90 slots não implicam 90 aceites: relatar `slot_success` por slot e sucesso pós-aceite entre atualizações aceitas com instrumentação válida. Registrar agenda e semente antes da primeira coleta. Restaurar a imagem-base integral verificada antes de cada slot; não reiniciar o piso NVS isoladamente. Aguardar 60 s de estabilidade antes do disparo e excluir o preparo da janela. Guardar envio e aceite, manter falhas/timeouts após aceite no denominador correspondente e invalidar somente falha instrumental comprovada, com motivo e reposição ligada ao slot original.
 - [ ] **#23, campanha de resiliência.** Dependências: #20 e #22. Executar a matriz aprovada separadamente da campanha normal, cinco vezes por célula aplicável:
 
   | Caso | Cenários | Tentativas | Resultado mínimo esperado |

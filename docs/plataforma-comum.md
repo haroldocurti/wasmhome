@@ -75,6 +75,12 @@ Os demais eventos incluem inicialização, associação/perda de Wi-Fi, bind/fal
 do UDP e erros de aquisição. São diagnóstico serial. `platform_initialized`,
 `wifi_ip_acquired` e `udp_bound` não comprovam disponibilidade funcional.
 
+Durante a execução, a plataforma também emite a linha fixa
+`WASMHOME_UART_HEARTBEAT,v1` no intervalo configurável
+`CONFIG_WASMHOME_UART_HEARTBEAT_INTERVAL_MS` (500 ms por padrão; faixa segura
+de 500–750 ms para o lease remoto de 2 s). Ela não contém estado da aplicação,
+identificadores ou dados de rede, e não modifica o protocolo nem a cadência UDP.
+
 O benchmark preliminar fica desabilitado por padrão. Para a prova específica
 de execução da issue #9, habilitar `WASMHOME_RUN_BENCHMARK` e registrar esse
 desvio. As linhas CSV continuam sendo diagnóstico, não tentativas de atualização.

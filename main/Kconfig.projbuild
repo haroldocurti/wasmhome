@@ -12,6 +12,15 @@ config WASMHOME_UDP_PORT
     int "UDP observation port (device and observer)"
     range 1024 65535
     default 3333
+config WASMHOME_UART_HEARTBEAT_INTERVAL_MS
+    int "UART health-record interval during app runtime (ms)"
+    range 500 750
+    default 500
+    help
+        Emits a fixed, non-identifying UART record while the common app runtime
+        is active. Keep this interval below the external observer's two-second
+        challenge-bound UART freshness limit. This record is independent of the
+        UDP observation protocol and contains no device or network identifiers.
 config WASMHOME_SENSOR_GPIO
     int
     default 4

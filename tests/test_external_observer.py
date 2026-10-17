@@ -9,7 +9,9 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "tools"))
-from external_observer import Observer, run
+from external_observer import (
+    Observer, _not_triggered_update_state, _trigger_eligible_ns, run,
+)
 from calibrate_observer import calibrate as calibrate_host
 from calibrate_observer_hardware import calibrate as calibrate_hardware
 from observation_protocol_v1 import MessageType, Packet, encode
@@ -119,6 +121,86 @@ class ObserverTests(unittest.TestCase):
         self.control(sample=2, seq=2, now=150, version=1, gpio=1)
         self.assertEqual(self.observer.summary()["update_total_ns"], 30)
         self.assertEqual(self.observer.counters["incorrect_control"], 1)
+
+    def test_issue20_success_closes_capture_after_post_window(self):
+        observer = Observer(self.log, self.peer, period_ns=100, timeout_ns=300,
+                            attempt_id=uuid.UUID(int=1), update_deadline_ns=1000,
+                            post_window_ns=500)
+        self.observer = observer
+        observer.boot_id = 1
+        observer.boots = [1]
+        observer.send_trigger(self.socket, 100, 2, 1)
+        self.acceptance(now=110)
+        observer.send_control(self.socket, 900, 900)
+        self.control(now=950, version=2, gpio=0)
+        summary = observer.summary()
+        self.assertTrue(summary["update_success_within_deadline"])
+        self.assertEqual(summary["update_state"], "activated")
+        self.assertEqual(summary["capture_end_ns"], 1450)
+        self.assertEqual(summary["counters"]["update_success"], 1)
+
+    def test_issue20_late_v2_is_recovery_not_success(self):
+        observer = Observer(self.log, self.peer, period_ns=100, timeout_ns=300,
+                            attempt_id=uuid.UUID(int=1), update_deadline_ns=1000,
+                            post_window_ns=500)
+        self.observer = observer
+        observer.boot_id = 1
+        observer.boots = [1]
+        observer.send_trigger(self.socket, 100, 2, 1)
+        self.acceptance(now=110)
+        observer.expire(1101)
+        observer.send_control(self.socket, 1200, 1200)
+        self.control(now=1300, version=2, gpio=0)
+        summary = observer.summary()
+        self.assertFalse(summary["update_success_within_deadline"])
+        self.assertEqual(summary["update_state"], "late_activated")
+        self.assertEqual(summary["capture_end_ns"], 1600)
+        self.assertEqual(summary["counters"]["update_timeout"], 1)
+        self.assertEqual(summary["counters"]["late_v2_recovery"], 1)
+
+    def test_issue20_pre_window_requires_stable_boot_controls_and_telemetry(self):
+        observer = Observer(self.log, self.peer, period_ns=100, timeout_ns=300,
+                            stable_window_ns=1000, minimum_stable_controls=2,
+                            minimum_stable_telemetry=2)
+        self.observer = observer
+        observer.boot_id = 1
+        observer.boots = [1]
+        observer.first_boot_seen_ns = 1
+        observer.success_times.extend([700, 1000])
+        observer.telemetry_times.extend([600, 900])
+        result = observer.qualify_pre_window(1500, 0)
+        self.assertTrue(result["passed"])
+        self.assertEqual(result["correct_controls"], 2)
+        self.assertEqual(result["valid_telemetry_messages"], 2)
+        self.assertEqual(result["boot_ids"], [1])
+
+    def test_issue20_failed_pre_window_is_not_mislabeled_as_missing_boot(self):
+        observer = Observer(self.log, self.peer, period_ns=100, timeout_ns=300,
+                            stable_window_ns=1000, minimum_stable_controls=2,
+                            minimum_stable_telemetry=2)
+        observer.boot_id = 1
+        observer.boots = [1]
+        observer.first_boot_seen_ns = 1
+        result = observer.qualify_pre_window(1500, 0)
+        self.assertFalse(result["passed"])
+        self.assertEqual(observer.summary()["pre_window"]["reason"],
+                         "too_few_correct_controls,too_few_valid_telemetry_messages")
+        self.assertEqual(_not_triggered_update_state(observer), "pre_window_failed")
+
+    def test_issue20_trigger_cannot_precede_stable_window(self):
+        with self.assertRaisesRegex(ValueError, "complete stable window"):
+            run("127.0.0.1", "unused", seconds=2, trigger_after=0.5,
+                target_sequence=2, stable_window_ms=1000)
+
+    def test_issue20_trigger_can_start_at_stable_window_boundary(self):
+        with patch("external_observer.Path.mkdir", side_effect=RuntimeError("timing accepted")):
+            with self.assertRaisesRegex(RuntimeError, "timing accepted"):
+                run("127.0.0.1", "unused", seconds=150, trigger_after=60,
+                    target_sequence=2, stable_window_ms=60_000)
+
+    def test_issue20_stability_window_starts_at_first_observed_boot(self):
+        self.assertEqual(_trigger_eligible_ns(1_000, 60, 60_000_000_000, 2_000),
+                         60_000_002_000)
 
     def test_uncorrelated_late_and_rejected_acceptances_do_not_start_attempt(self):
         for args, category in (({"target": 3}, "uncorrelated_acceptance"),
