@@ -4,6 +4,12 @@
 comparação somente de leitura da captura integral atual. O dump privado não foi
 copiado nem publicado; não houve gravação.
 
+**Nota de atualização:** este documento registra a decisão e o preflight de
+16/10, antes da aprovação de uma nova baseline pelo usuário em 17/10. A
+conclusão histórica de não iniciar gravação foi substituída pela aprovação da
+baseline `00aa…`; a tentativa e a restauração posteriores constam no [registro
+HIL de 17/10](hil-attempt-2026-10-17.md). Os dumps seguem privados.
+
 ## Resultado
 
 O hash `b66c24a3514be56702c1cf7f8d2116e44d5fe0475e3c3c67b65850258eb18ae3`
@@ -51,9 +57,9 @@ nenhum dump foi copiado para esta evidência ou incluído no Git.
 
 ## Limite que permanece
 
-Em 16/10/2026, o preflight vivo identificou ESP32-S3 QFN56 rev. 0.2, MAC
-`dc:b4:d9:0b:22:e4`, e flash de 16 MiB. Os comandos `chip_id`/`flash_id` do
-esptool 4.12.0 acionaram hard reset, sem gravação. A leitura integral local
+Em 16/10/2026, o preflight vivo identificou ESP32-S3 QFN56 rev. 0.2 e flash
+de 16 MiB. O MAC permanece no recibo privado. Os comandos `chip_id`/`flash_id`
+do esptool 4.12.0 acionaram hard reset, sem gravação. A leitura integral local
 ignorável tem 16.777.216 bytes e SHA-256
 `d29c187d0c691c5b874d1ad3a1cda8632144a70e8613a9c9148e76f8c3aa8c78`.
 
@@ -76,9 +82,10 @@ fora das regiões nomeadas no recibo não têm bytes diferentes. A comparação 
 determina a causa nem a semântica das alterações NVS; não presume que sejam
 inofensivas ou que correspondam à calibração histórica. O `boot_id`, firmware
 ativo, sensor, GPIO5→GPIO6 e telemetria/controle vivos continuam sem evidência.
-Como a condição de igualdade da imagem-base falhou, nenhuma gravação, restauração
-ou tentativa de piloto pode começar até a divergência ser reconciliada e a
-baseline aplicável ser aprovada. Os arquivos de dump continuam privados e
+À época, a condição de igualdade com `b66…` falhou e a gravação permaneceu
+bloqueada até a baseline aplicável ser aprovada. Em 17/10 o usuário aprovou a
+captura `00aa…`; a tentativa posterior e sua restauração verificada estão
+registradas no relatório HIL. Os arquivos de dump continuam privados e
 ignorados pelo Git.
 
 ## Inspeção semântica sanitizada da NVS
@@ -109,11 +116,12 @@ estado antirretorno. Esta é uma atribuição negativa limitada ao conteúdo NVS
 decodificado: o estado `secure_version` em eFuse não está contido no dump de
 flash e não foi lido.
 
-Assim, a comparação restringe a mudança lógica à calibração PHY, mas não torna
-seguro adotar a leitura viva como nova baseline. Ainda faltam a causa/condição
-de gravação dessa calibração, versão do firmware que produziu o estado, evidência
-de boot/telemetria e uma leitura autorizada do estado eFuse relevante. A porta
-de escrita permanece fechada até a reconciliação documentada.
+Assim, para a captura examinada em 16/10, a comparação restringiu a mudança
+lógica à calibração PHY, mas não fundamentava adotar aquela leitura viva como
+baseline. O usuário aprovou outra captura integral em 17/10, registrada no
+[adendo de baseline](baseline-approval-addendum-2026-10-17.md). Essa aprovação
+posterior não altera a conclusão histórica deste diff; o bloqueio físico atual
+é a falta de janela UDP qualificada.
 
 ## Hipótese de desconexão da rede
 

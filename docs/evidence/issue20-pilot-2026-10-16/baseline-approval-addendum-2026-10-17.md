@@ -43,37 +43,42 @@ cenário A/B/C. A agenda balanceada inicial continua com seis blocos e 18 slots;
 tentativas, recusas, timeouts, respostas tardias e falhas permanecem nos
 registros e denominadores definidos pelo protocolo.
 
-O piloto só começa após a confirmação de firmware/boot, piso antirretorno,
-sensor, GPIO5→GPIO6, endpoint isolado e espaço dos logs. Se qualquer pré-condição
-falhar, nenhum disparo ou gravação é iniciado.
+O despacho de uma atualização medida só começa após a confirmação de
+firmware/boot, piso antirretorno, sensor, GPIO5→GPIO6, endpoint isolado, espaço
+dos logs e janela válida. A gravação de firmware/tabela de partições usada para
+preparar o perfil de ensaio é uma etapa de preparação separada: se a
+qualificação falhar, não há `UPDATE_TRIGGER` e a baseline integral aceita é
+restaurada e verificada. Foi o que ocorreu no slot de 17/10 descrito abaixo.
 
 ## Estado de leitura antes do piloto
 
 Depois da captura aceita, a identificação somente de leitura reconfirmou a
-mesma ESP32-S3, revisão 0.2, e a flash de 16 MiB. A leitura eFuse indicou
-`SECURE_BOOT_EN=False`, `SPI_BOOT_CRYPT_CNT=Disable (0b000)`,
-`DIS_DOWNLOAD_MANUAL_ENCRYPT=False` e `SECURE_VERSION=0`; portanto, os bits de
-secure boot e flash encryption não impedem a restauração bruta previamente
-autorizada. O recibo completo continua privado.
+mesma ESP32-S3, revisão 0.2, e a flash de 16 MiB. Metadados de eFuse foram
+consultados localmente para planejar a restauração bruta autorizada; os valores
+de segurança permanecem no recibo privado e não são publicados aqui.
 
 O firmware que já estava no snapshot é um app de diagnóstico de plataforma, não
 um build de serviço do piloto. Em duas observações UDP somente de leitura de
-60 s, não houve pacote recebido pelo observador e nenhum controle ou
+60 s, não houve pacote válido ou `boot_id` recebido pelo observador. Sem boot,
+ele permaneceu em `awaiting_boot` e enviou zero pedidos `CONTROL_REQUEST`; nenhum
 `UPDATE_TRIGGER` foi enviado. O console serial confirmou boot único, associação
 Wi-Fi, socket UDP aberto, DS18B20 funcional após a primeira amostra de partida e
-loopback GPIO5→GPIO6 correto; também registrou falhas repetidas de `sendto` e o
-evento `platform_selftest_diagnostic_only`. Essa falha do app atual não foi
-classificada como falha instrumental nem como resultado de tentativa: não houve
-tentativa. O preflight será refeito com o firmware temporário de serviço A/B/C,
-usando observador e endpoint de artefatos isolados. Nenhuma gravação nem
-disparo de atualização ocorreu até este ponto.
+loopback GPIO5→GPIO6 correto; também registrou falhas repetidas de `sendto` da
+aplicação e o evento `platform_selftest_diagnostic_only`. Essa falha do app
+atual não foi classificada como falha instrumental nem como resultado de
+tentativa: não houve tentativa. O preflight será refeito com o firmware
+temporário de serviço A/B/C, usando observador e endpoint de artefatos isolados.
+Até este ponto não houve gravação nem disparo de atualização.
 
 ## Resultado posterior da tentativa de 17/10
 
-Depois deste preflight somente de leitura, foi executada a tentativa
-`B0001-native` da campanha `164c919d-d1d9-401b-9451-84c39ed930b9`. A janela
-pré-disparo não recebeu UDP válido suficiente e o runner terminou com
-`dispatch_status=not_sent`; nenhum `UPDATE_TRIGGER` ou pedido HTTPS ocorreu.
+Depois deste preflight somente de leitura, um dos 18 slots planejados iniciou a
+qualificação de `B0001-native` na campanha
+`164c919d-d1d9-401b-9451-84c39ed930b9`. O observador registrou 601 amostras
+`awaiting_boot`, enviou zero pedidos de controle e não recebeu `boot_id`. A
+entrada de despacho registrou `dispatch_status=not_sent` e `attempt_id=null`;
+isso não remove o ID de execução próprio do observador. Nenhum
+`UPDATE_TRIGGER` ou pedido HTTPS ocorreu.
 Foram gravados apenas o firmware de aplicação e a tabela de partições para
 essa preparação. A imagem integral aceita foi restaurada e o esptool concluiu
 `Hash of data verified.` A ausência de telemetria/controle observados permanece

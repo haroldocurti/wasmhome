@@ -6,13 +6,15 @@ O usuário aprovou a baseline física e autorizou os ensaios. A leitura integral
 pré-escrita de 16 MiB coincidiu byte a byte com a baseline aceita, SHA-256
 `00aa22c35720354383c3d686a14612a7cb2fd99c57cb1ce214d07338c1c167a5`.
 
-A campanha `164c919d-d1d9-401b-9451-84c39ed930b9` iniciou o slot planejado
-`B0001-native`, mas a qualificação pré-disparo falhou: não chegaram ao
-observador as amostras UDP de telemetria e controle necessárias para uma janela
-estável. O runner encerrou com `dispatch_status=not_sent`, sem `attempt_id`;
-nenhum `UPDATE_TRIGGER` foi enviado e nenhum pedido HTTPS foi observado. O
-slot não produziu aceite ou resultado de atualização. As cinco atualizações
-completas aceitas continuam sem evidência: A `0/5`, B `0/5`, C `0/5`.
+A campanha `164c919d-d1d9-401b-9451-84c39ed930b9` iniciou a qualificação de
+1 dos 18 slots planejados: `B0001-native`. A janela pré-disparo não recebeu
+telemetria ou respostas de controle válidas nem observou um `boot_id`; o
+observador registrou 601 amostras `awaiting_boot` e enviou zero pedidos de
+controle. O registro de despacho ficou com `dispatch_status=not_sent` e
+`attempt_id=null`; a sessão do observador tem seu próprio ID de execução.
+Nenhum `UPDATE_TRIGGER` ou pedido HTTPS foi observado, e nenhum aceite foi
+obtido. O progresso da meta mínima continua em 0 de 5 aceites completos por
+cenário: A `0/5`, B `0/5`, C `0/5`.
 
 Durante a preparação do slot, foram gravados somente o firmware de aplicação
 e a tabela de partições; o log do esptool confirmou os hashes gravados. Ao
@@ -64,8 +66,9 @@ tentativas do piloto.
 - Localmente, o adaptador USB serial conhecido aparece em `/dev/ttyACM0` com
   VID:PID `1a86:55d3`. Na checagem inicial, nenhum processo segurava o device.
   Depois, o operador usou esptool 4.12.0 somente com `chip_id` e `flash_id`:
-  confirmou ESP32-S3 QFN56 rev. 0.2, MAC `dc:b4:d9:0b:22:e4` e flash de
-  16 MiB. Esses comandos acionaram hard reset; não houve gravação.
+  confirmou ESP32-S3 QFN56 rev. 0.2 e flash de 16 MiB. O identificador de rede
+  permanece no recibo privado. Esses comandos acionaram hard reset; não houve
+  gravação.
 - O operador leu a flash integralmente, sem gravar, em
   `build-hardware/issue20-live-preflight-20261016.bin` (arquivo local ignorado,
   não incluído no repositório): 16.777.216 bytes, SHA-256
@@ -76,7 +79,7 @@ tentativas do piloto.
   `0xb000`: 3.944; `0xe000`: 952. Não houve diferenças em bootloader, tabela
   de partições, setores NVS `0x9000`, `0xc000` e `0xd000`, `otadata`, PHY-init,
   slots OTA nem áreas sem região nomeada no recibo. O hash integral não
-  coincide com a imagem-base aprovada `b66…`; a causa da diferença ainda não
+  coincide com a imagem-base então selecionada `b66…`; a causa da diferença ainda não
   está determinada. A inspeção semântica offline isolou uma mudança lógica em
   um registro de calibração PHY; os 31 registros Wi-Fi permaneceram iguais,
   sem itens adicionados/removidos. Há rotação de página NVS. Não foi encontrado
@@ -99,17 +102,20 @@ qualificada continuam sem confirmação para esta campanha.
 ### Trabalho de preparação concluído antes do HIL
 
 - A origem de `b66c24a3…` foi auditada somente por leitura: o arquivo privado de
-  16 MiB coincide com seu recibo; a leitura pré-HIL e a restauração final da #16
-  repetem o hash, com oito regiões verificadas. `4fcc…` pertence a um dump
-  integral de outra sessão; `b00…` é histórico de um backup de aplicação de
-  1 MiB. A cadeia e os limites estão em [auditoria da imagem-base](backup-audit.md).
+  16 MiB coincide com seu recibo; a leitura pré-HIL e a restauração final da
+  sessão #16 repetem o hash `b66…`, com oito regiões verificadas. Isso não é a
+  leitura viva da #20 em 16/10, cujo hash `d29…` divergiu de `b66…` em 7.920
+  bytes de NVS. `4fcc…` pertence a um dump integral de outra sessão; `b00…` é
+  histórico de um backup de aplicação de 1 MiB. A cadeia e os limites estão em
+  [auditoria da imagem-base](backup-audit.md).
 - O preflight vivo identificou uma ESP32-S3 QFN56 rev. 0.2 com flash de 16 MiB
   e produziu uma leitura integral; a comparação com `b66…` divergiu em 7.920
   bytes de NVS. A triagem de metadados atribuiu a divergência lógica a um único
   registro de calibração PHY, sem alteração dos registros Wi-Fi, boot ID
-  persistente ou ledger antirretorno da aplicação nos snapshots. Ainda faltam
-  a causa da mudança, versão/boot ativos e estado eFuse; a escrita permanece
-  bloqueada até a baseline aplicável ser reconciliada com evidência.
+  persistente ou ledger antirretorno da aplicação nos snapshots. Esse era o
+  limite de conhecimento em 16/10; em 17/10 o usuário aprovou a leitura integral
+  de hash `00aa…` como nova baseline. O bloqueio atual é a janela UDP, descrita
+  no resultado da sessão de 17/10.
 - Revisados `CONTEXT.md`, checklist, plano de execução, plano detalhado,
   protocolo UDP e resultados/calibração das issues #16–#19.
 - Congelados limites, janelas, preparação, classificação de resultados e
