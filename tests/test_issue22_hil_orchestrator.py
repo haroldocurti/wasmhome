@@ -384,6 +384,85 @@ class Issue22OrchestratorTests(unittest.TestCase):
         with self.assertRaisesRegex(orchestrator.OrchestratorError, "expected firmware profile"):
             orchestrator._validate_observer_boot(summary, expected_version=2)
 
+    def test_native_provisioning_requires_acceptance_without_policy_version_change(self):
+        valid = {"accepted_ns": 100, "activated_ns": None,
+                 "update_state": "accepted_without_v2"}
+        orchestrator._validate_provisioning_acceptance(valid, profile="native")
+        for invalid in ({**valid, "accepted_ns": None},
+                        {**valid, "accepted_ns": True},
+                        {**valid, "accepted_ns": -1},
+                        {**valid, "update_state": "no_timely_acceptance"},
+                        {**valid, "update_state": "activated", "activated_ns": 200},
+                        {**valid, "activated_ns": 200}):
+            with self.subTest(summary=invalid):
+                with self.assertRaises(orchestrator.OrchestratorError):
+                    orchestrator._validate_provisioning_acceptance(invalid, profile="native")
+
+    def test_module_provisioning_requires_timely_acceptance_and_activation(self):
+        valid = {"accepted_ns": 100, "activated_ns": 200, "update_state": "activated"}
+        for profile in ("interp", "aot"):
+            orchestrator._validate_provisioning_acceptance(valid, profile=profile)
+            for invalid in ({**valid, "accepted_ns": None},
+                            {**valid, "activated_ns": None},
+                            {**valid, "activated_ns": 99},
+                            {**valid, "activated_ns": True},
+                            {"accepted_ns": 100, "activated_ns": None,
+                             "update_state": "accepted_without_v2"}):
+                with self.subTest(profile=profile, summary=invalid):
+                    with self.assertRaises(orchestrator.OrchestratorError):
+                        orchestrator._validate_provisioning_acceptance(invalid, profile=profile)
+
+    def test_native_acceptance_still_requires_post_boot_nvs_preflight_validation(self):
+        row = resilience_preliminary_plan("native-provisioning-ledger-gate")[0]
+        self.assertEqual(row["scenario"], "native")
+        operation = self.root / "operation"
+        operation.mkdir()
+        board = mock.Mock()
+        nvs = b"\0" * orchestrator.NVS_BYTES
+        flash_size = 0x100000
+        flash = bytearray(b"\xff" * flash_size)
+        flash[orchestrator.NVS_OFFSET:orchestrator.NVS_OFFSET + len(nvs)] = nvs
+        flash[orchestrator.TABLE_OFFSET:orchestrator.TABLE_OFFSET + orchestrator.TABLE_BYTES] = self.valid_partition_table()
+
+        def read(offset, _size, destination, **_kwargs):
+            destination.write_bytes(nvs if offset == orchestrator.NVS_OFFSET else flash)
+
+        board.read.side_effect = read
+        accepted = {"accepted_ns": 100, "activated_ns": None,
+                    "update_state": "accepted_without_v2", "boot_ids": [11, 12]}
+        post_boot = {"boot_ids": [13], "valid_controls_by_boot": {"13": 1},
+                     "counters": {"telemetry_valid": 1}, "initial_version": 1}
+        preflight = {"sentinel": "real ledger validation remains mandatory"}
+        profiles = {"profiles": {"native": {"path": "/unused/app.bin",
+                    "bootloader": {"path": "/unused/bootloader.bin"}}}}
+        with mock.patch.object(orchestrator, "FLASH_BYTES", flash_size), \
+             mock.patch.object(orchestrator, "_observer_once", side_effect=[accepted, post_boot]), \
+             mock.patch.object(orchestrator.nvs_preflight, "build_preflight", return_value=preflight) as build, \
+             mock.patch.object(orchestrator.hil_runner, "validate_preflight",
+                side_effect=orchestrator.hil_runner.HILInputError("pending ledger rejected")) as validate:
+            with self.assertRaisesRegex(orchestrator.hil_runner.HILInputError, "pending ledger rejected"):
+                orchestrator._prepare_profile(object(), board, row, profiles, object(), operation,
+                    self.root / "baseline.bin", "a" * 64)
+        build.assert_called_once_with(nvs, profile="native", boot_id="000000000000000d")
+        validate.assert_called_once_with(preflight, row)
+        self.assertEqual(board.run.call_count, 2)
+
+    def test_post_esptool_boot_requires_new_identity_and_fresh_both_services(self):
+        valid = {"boot_ids": [22], "valid_controls_by_boot": {"22": 1},
+                 "counters": {"telemetry_valid": 1}, "initial_version": 1}
+        self.assertEqual(orchestrator._validate_observer_boot(valid,
+            expected_version=1, previous_boot_ids=[20, 21]), "0000000000000016")
+        for previous in ([22], [], [True]):
+            with self.subTest(previous_boots=previous):
+                with self.assertRaises(orchestrator.OrchestratorError):
+                    orchestrator._validate_observer_boot(valid,
+                        expected_version=1, previous_boot_ids=previous)
+        for invalid in ({**valid, "valid_controls_by_boot": {}},
+                        {**valid, "counters": {"telemetry_valid": 0}}):
+            with self.assertRaises(orchestrator.OrchestratorError):
+                orchestrator._validate_observer_boot(invalid,
+                    expected_version=1, previous_boot_ids=[21])
+
     def test_parser_has_recovery_actions_and_high_unprivileged_port(self):
         options = orchestrator.build_parser().parse_args([])
         self.assertEqual(orchestrator.PORT, 18445)

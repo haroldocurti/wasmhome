@@ -1026,7 +1026,31 @@ def _verify_nvs_not_already_updated(nvs_dump: Path, profile: str) -> None:
                 "baseline already has sequence 2 for this profile; do not replay/update NVS directly")
 
 
-def _validate_observer_boot(summary: dict, *, expected_version: int) -> str:
+def _validate_provisioning_acceptance(summary: dict, *, profile: str) -> None:
+    """Require the observer's timely signed-trigger acceptance for every OTA.
+
+    accepted_ns is emitted only for an accepted UPDATE response within the
+    observer timeout. Policy version 2 is evidence of module activation, while
+    native HIL deliberately retains control policy 1 in both firmware releases.
+    Native release activation is proved later by its non-pending sequence-2
+    ledger, registered payload hash/slot and fresh post-esptool boot evidence.
+    """
+    require(profile in {"native", "interp", "aot"}, "unknown provisioning profile")
+    accepted = summary.get("accepted_ns")
+    require(type(accepted) is int and accepted >= 0,
+            "signed sequence-2 OTA lacks timely trigger acceptance")
+    activated = summary.get("activated_ns")
+    if profile == "native":
+        require(summary.get("update_state") == "accepted_without_v2" and activated is None,
+                "native provisioning must preserve control policy version 1")
+    else:
+        require(summary.get("update_state") == "activated"
+                and type(activated) is int and activated >= accepted,
+                "module signed sequence-2 OTA did not reach observed version-2 activation")
+
+
+def _validate_observer_boot(summary: dict, *, expected_version: int,
+                            previous_boot_ids: list[int] | None = None) -> str:
     boots = summary.get("boot_ids")
     require(isinstance(boots, list) and len(boots) == 1 and type(boots[0]) is int
             and 0 < boots[0] < 1 << 64,
@@ -1034,6 +1058,12 @@ def _validate_observer_boot(summary: dict, *, expected_version: int) -> str:
     require(summary.get("initial_version") == expected_version,
             "post-esptool observer was not configured for expected firmware profile version")
     boot = boots[0]
+    if previous_boot_ids is not None:
+        require(isinstance(previous_boot_ids, list) and previous_boot_ids
+                and all(type(value) is int and 0 < value < 1 << 64 for value in previous_boot_ids),
+                "provisioning observer lacks prior boot identities")
+        require(boot not in previous_boot_ids,
+                "post-esptool observer did not prove a new boot identity")
     controls = summary.get("valid_controls_by_boot", {})
     require(type(controls.get(str(boot), controls.get(boot, 0))) is int,
             "observer control coverage is malformed")
@@ -1071,9 +1101,7 @@ def _prepare_profile(options, board: Board, row: dict, profile_data: dict,
     provision_dir = _private_output(operation, "ota-provisioning")
     summary = _observer_once(options, provision_dir, seconds=60, profile=row["scenario"],
                              attempt_id=provision_id, trigger=True)
-    require(summary.get("update_state") == "activated" and summary.get("accepted_ns") is not None
-            and summary.get("activated_ns") is not None,
-            "normal signed sequence-2 OTA did not reach observed activation")
+    _validate_provisioning_acceptance(summary, profile=row["scenario"])
 
     nvs_path = operation / "nvs-after-ota.bin"
     board.read(NVS_OFFSET, NVS_BYTES, nvs_path)
@@ -1090,7 +1118,8 @@ def _prepare_profile(options, board: Board, row: dict, profile_data: dict,
                                   seconds=5, profile=row["scenario"], attempt_id=provision_id,
                                   trigger=False)
     boot_id = _validate_observer_boot(boot_summary,
-                                     expected_version=1 if row["scenario"] == "native" else 2)
+        expected_version=1 if row["scenario"] == "native" else 2,
+        previous_boot_ids=summary.get("boot_ids", []))
     preflight = nvs_preflight.build_preflight(nvs_path.read_bytes(), profile=profile, boot_id=boot_id)
     hil_runner.validate_preflight(preflight, row)
     preflight_path = operation / "preflight.json"

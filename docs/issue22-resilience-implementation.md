@@ -430,3 +430,15 @@ appended SHA-256, exact EOF, IRAM entrypoint and the IDF bootloader descriptor.
 Generated-header parsing ignores block/line comments and rejects conditional
 or ambiguous definitions, so an inactive rollback macro cannot pass the gate.
 These checks require no serial API, privileged operation or CT service.
+
+## Provisioning release identity and control policy
+
+Native resilience uses control policy version 1 in both firmware releases v1
+and v2. Its signed sequence-2 OTA must receive timely acceptance; the shared
+observer consequently reports `accepted_without_v2`, with no policy-version-2
+activation timestamp. The coordinator accepts that intermediate observation
+only and still requires a new post-esptool boot with fresh telemetry/control,
+then validates the real non-pending sequence-2 NVS ledger and registered active
+payload hash/size/slot before any fault request. Interp/AOT instead update the
+control module to version 2 and must report ordinary observed activation.
+The #20 observer behavior is unchanged.

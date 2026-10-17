@@ -162,7 +162,19 @@ bootloader at 0x0 and its bootstrap app into both app slots, then verifies the
 bootloader readback before booting it. The existing baseline partition table
 is retained because its exact map was validated before any write. Provisioning uses only the ordinary signed OTA sequence-2
 request and the verified HTTPS package. It never calls `write_flash` for the
-NVS offset. NVS is read-only evidence: after the OTA sequence, esptool completes
+NVS offset. Every provisioning observer must report timely acceptance of the
+signed sequence-2 trigger (`accepted_ns`). Module profiles must additionally
+observe control/module version 2 and report `activated` with `activated_ns`.
+Native bootstrap v1 and OTA release v2 both retain `WASMHOME_CONTROL_VERSION=1`:
+release label/sequence and control policy version are different fields. Native
+therefore requires `accepted_without_v2` and no `activated_ns`; that observation
+alone does not establish release activation. The following read-only NVS
+preflight must still prove a present sequence-2 ledger, `pending=false`, the
+registered payload hash/size and a valid active slot, and the post-esptool
+observer must show a new boot identity plus fresh telemetry and correct control
+at native policy version 1. A version-2 native control response is rejected.
+The shared #20 observer and its version-2 activation rule remain unchanged.
+NVS is read-only evidence: after the OTA sequence, esptool completes
 all flash access, the board boots, and a fresh boot ID is sampled for the
 sanitized preflight. One `resilience_hil_runner.py run` invocation then
 executes the claimed row and the before/after HTTPS snapshots are correlated
@@ -254,8 +266,8 @@ completed local builds rather than assembled from unrelated bootloader files.
 The HIL coordinator snapshots all four artifacts and binds the manifest hash
 to its journal. Create a new signed six-artifact package containing the new
 native v1/v2 and the verified module v1/v2 payloads. Update the native release
-hash and size in `resilience_hil_runner.EXPECTED_RELEASE_ARTIFACTS` to the exact
-new v2 image; preserve module hashes only when their bytes still match.
+hash and size in both `resilience_hil_runner.EXPECTED_RELEASE_ARTIFACTS` and
+`resilience_nvs_preflight.PROFILES` to the exact new v2 image; preserve module hashes only when their bytes still match.
 
 Changing the server port does not alter signed module envelopes or negative
 fixtures: their manifests contain campaign, version, sequence, payload digest
