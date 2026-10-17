@@ -15,6 +15,7 @@
 #include "signed_update.h"
 
 #include <inttypes.h>
+#include <stdio.h>
 #include <string.h>
 
 #if defined(WASMHOME_SCENARIO_MODULE_AOT)
@@ -49,6 +50,10 @@ typedef struct {
     uint64_t request_sequence;
     uint64_t origin_boot_id;
     uint64_t target_sequence;
+    bool resilience_fixture;
+    char fixture_case[9];
+    SemaphoreHandle_t fixture_done;
+    void *fixture_result;
 } update_request_t;
 
 typedef struct {
@@ -65,6 +70,7 @@ typedef struct {
     uint64_t ledger_readback_floor;
     uint32_t payload_bytes_expected;
     uint32_t payload_bytes_received;
+    uint32_t sink_bytes_written;
     wh_module_selection_outcome_t selection_outcome;
     bool manifest_ready;
     bool payload_verified;
@@ -207,7 +213,9 @@ static esp_err_t sink_begin(void *context,
 {
     update_attempt_t *attempt = context;
     if (!attempt || !manifest || !slot_id || manifest->scenario != WH_MODULE_UPDATE_SCENARIO ||
-        manifest->sequence != WH_MODULE_UPDATE_SEQUENCE || manifest->payload_size == 0 ||
+        manifest->sequence != (attempt->request.resilience_fixture
+            ? attempt->request.target_sequence : WH_MODULE_UPDATE_SEQUENCE) ||
+        manifest->payload_size == 0 ||
         manifest->artifact_kind != WH_MODULE_UPDATE_SCENARIO ||
         strcmp(manifest->campaign_id, campaign_id()) != 0 ||
         strcmp(manifest->component, "gpio-control") != 0 ||
@@ -252,8 +260,14 @@ static esp_err_t sink_begin(void *context,
 
 static esp_err_t sink_write(void *context, const uint8_t *data, size_t size)
 {
-    if (!context) return ESP_ERR_INVALID_ARG;
-    return wh_module_slot_store_write(data, size);
+    update_attempt_t *attempt = context;
+    if (!attempt) return ESP_ERR_INVALID_ARG;
+    const esp_err_t err = wh_module_slot_store_write(data, size);
+    if (err == ESP_OK && size <= UINT32_MAX - attempt->sink_bytes_written)
+        attempt->sink_bytes_written += (uint32_t)size;
+    else if (err == ESP_OK)
+        return ESP_ERR_INVALID_SIZE;
+    return err;
 }
 
 static esp_err_t sink_finish(void *context,
@@ -466,6 +480,151 @@ static esp_err_t reconcile_interrupted_module_update(
     return wh_signed_update_get_state(WH_MODULE_UPDATE_SCENARIO,
                                       "gpio-control", campaign_id(), state);
 }
+
+#if defined(CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
+static bool resilience_case_supported(const char *case_id)
+{
+    return case_id && (strcmp(case_id, "ENV-SIG") == 0 ||
+                       strcmp(case_id, "ENV-HASH") == 0 ||
+                       strcmp(case_id, "ENV-OLD") == 0);
+}
+
+static bool valid_fixture_ipv4(const char *address)
+{
+    unsigned octets[4] = {0};
+    char tail = '\0';
+    if (!address || sscanf(address, "%u.%u.%u.%u%c", &octets[0], &octets[1],
+                           &octets[2], &octets[3], &tail) != 4)
+        return false;
+    return octets[0] <= 255 && octets[1] <= 255 &&
+           octets[2] <= 255 && octets[3] <= 255;
+}
+
+static bool state_same_active_selection(const wh_signed_update_state_t *left,
+                                        const wh_signed_update_state_t *right)
+{
+    return left && right && !left->pending && !right->pending &&
+        left->scenario == right->scenario &&
+        strcmp(left->component, right->component) == 0 &&
+        left->accepted_floor == right->accepted_floor &&
+        left->active_sequence == right->active_sequence &&
+        left->active_slot == right->active_slot &&
+        left->active_payload_size == right->active_payload_size &&
+        left->active_target_version == right->active_target_version &&
+        left->active_origin_boot_id == right->active_origin_boot_id &&
+        strcmp(left->active_release_version, right->active_release_version) == 0 &&
+        memcmp(left->active_attempt_id, right->active_attempt_id, 16) == 0 &&
+        mbedtls_ct_memcmp(left->active_payload_sha256,
+                          right->active_payload_sha256, 32) == 0 &&
+        mbedtls_ct_memcmp(left->active_manifest_sha256,
+                          right->active_manifest_sha256, 32) == 0;
+}
+
+static bool same_control_slot(const wh_module_slot_info_t *left,
+                              const wh_module_slot_info_t *right)
+{
+    return left && right && left->state == WH_MODULE_SLOT_ACTIVE &&
+        right->state == WH_MODULE_SLOT_ACTIVE &&
+        left->module_version == right->module_version &&
+        left->generation == right->generation &&
+        left->artifact_bytes == right->artifact_bytes &&
+        mbedtls_ct_memcmp(left->sha256, right->sha256, 32) == 0;
+}
+
+static void process_resilience_fixture(
+    const update_request_t *request,
+    wh_module_update_resilience_result_t *result)
+{
+    if (!request || !result) return;
+    memset(result, 0, sizeof(*result));
+    result->status = ESP_FAIL;
+    result->cleanup_status = ESP_FAIL;
+    result->previous_slot = WH_SIGNED_UPDATE_NO_ACTIVE_SLOT;
+    result->candidate_slot = WH_SIGNED_UPDATE_NO_ACTIVE_SLOT;
+    (void)snprintf(result->stage, sizeof(result->stage), "fixture_setup");
+
+    update_attempt_t attempt = {
+        .request = *request,
+        .started_us = (uint64_t)esp_timer_get_time(),
+        .slot_id = WH_SIGNED_UPDATE_NO_ACTIVE_SLOT,
+        .selection_outcome = WH_MODULE_SELECTION_NOT_COMMITTED,
+    };
+    wh_signed_update_state_t before = {0}, after = {0};
+    wh_module_manager_info_t manager_before = {0}, manager_after = {0};
+    esp_err_t before_status = wh_signed_update_get_state(
+        WH_MODULE_UPDATE_SCENARIO, "gpio-control", campaign_id(), &before);
+    const bool manager_before_ok = get_manager_snapshot(&manager_before);
+    if (before_status != ESP_OK || !manager_before_ok) {
+        result->status = before_status != ESP_OK ? before_status : ESP_ERR_INVALID_STATE;
+        return;
+    }
+    attempt.previous_floor = before.accepted_floor;
+    attempt.previous_sequence = before.active_sequence;
+    attempt.previous_slot = before.active_slot;
+    attempt.previous_ledger = before;
+    attempt.has_previous = true;
+    attempt.request.target_sequence = before.accepted_floor + 1;
+    result->previous_floor = before.accepted_floor;
+    result->previous_slot = before.active_slot;
+
+    const wh_signed_update_sink_t sink = {
+        .context = &attempt,
+        .begin = sink_begin,
+        .write = sink_write,
+        .finish = sink_finish,
+        .abort = sink_abort,
+    };
+    const char *stage = "fixture_setup";
+    const esp_err_t err = wh_signed_update_resilience_download(
+        WH_MODULE_UPDATE_SCENARIO, request->fixture_case, request->attempt_id,
+        &sink, update_pipeline_event, &attempt, &attempt.manifest,
+        &attempt.failure, &stage, &result->cleanup_status);
+    result->status = err;
+    result->failure = attempt.failure;
+    (void)snprintf(result->stage, sizeof(result->stage), "%s", stage ? stage : "unknown");
+    result->payload_bytes_written = attempt.sink_bytes_written;
+    result->candidate_slot = attempt.slot_id;
+
+    const esp_err_t after_status = wh_signed_update_get_state(
+        WH_MODULE_UPDATE_SCENARIO, "gpio-control", campaign_id(), &after);
+    const bool manager_after_ok = get_manager_snapshot(&manager_after);
+    if (after_status == ESP_OK) result->observed_floor = after.accepted_floor;
+    result->active_slot_unchanged = after_status == ESP_OK &&
+        state_same_active_selection(&before, &after) && before.active_slot == after.active_slot;
+    result->accepted_sequence_unchanged = after_status == ESP_OK &&
+        !after.pending && before.accepted_floor == after.accepted_floor &&
+        before.active_sequence == after.active_sequence;
+    result->active_version_unchanged = manager_after_ok &&
+        same_control_slot(&manager_before.control, &manager_after.control);
+    result->inactive_slot_only = result->candidate_slot < WH_MODULE_SLOT_COUNT &&
+        result->candidate_slot != before.active_slot;
+
+    if (strcmp(request->fixture_case, "ENV-SIG") == 0) {
+        result->real_envelope_validator = err != ESP_OK &&
+            attempt.failure == WH_SIGNED_UPDATE_FAILURE_SIGNATURE &&
+            strcmp(result->stage, "envelope_signature") == 0;
+    } else if (strcmp(request->fixture_case, "ENV-HASH") == 0) {
+        result->real_envelope_validator = err == ESP_ERR_INVALID_CRC &&
+            attempt.failure == WH_SIGNED_UPDATE_FAILURE_PAYLOAD_HASH &&
+            strcmp(result->stage, "payload_hash") == 0;
+        result->payload_invalidated = result->real_envelope_validator &&
+            attempt.sink_bytes_written > 0 && result->inactive_slot_only &&
+            result->cleanup_status == ESP_OK;
+    } else if (strcmp(request->fixture_case, "ENV-OLD") == 0) {
+        result->nvs_floor_checked = before.accepted_floor >= 1 &&
+            attempt.manifest.sequence != 0 &&
+            attempt.manifest.sequence <= before.accepted_floor &&
+            err == ESP_ERR_INVALID_VERSION;
+        result->real_envelope_validator = result->nvs_floor_checked &&
+            attempt.failure == WH_SIGNED_UPDATE_FAILURE_POLICY &&
+            strcmp(result->stage, "envelope_sequence") == 0;
+    }
+    result->expected_rejection = result->real_envelope_validator &&
+        result->active_slot_unchanged && result->active_version_unchanged &&
+        result->accepted_sequence_unchanged &&
+        result->cleanup_status == ESP_OK;
+}
+#endif
 #endif
 
 esp_err_t wh_module_update_resolve_boot_control(
@@ -722,11 +881,20 @@ static void update_worker(void *argument)
     update_request_t request;
     for (;;) {
         if (xQueueReceive(update_queue, &request, portMAX_DELAY) != pdTRUE) continue;
-        process_update(&request);
+        if (request.resilience_fixture) {
+#if defined(CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
+            process_resilience_fixture(&request,
+                (wh_module_update_resilience_result_t *)request.fixture_result);
+#endif
+        } else {
+            process_update(&request);
+        }
         xSemaphoreTake(update_lock, portMAX_DELAY);
         update_active = false;
         memset(&active_request, 0, sizeof(active_request));
         xSemaphoreGive(update_lock);
+        if (request.resilience_fixture && request.fixture_done)
+            xSemaphoreGive(request.fixture_done);
     }
 }
 
@@ -754,6 +922,84 @@ esp_err_t wh_module_update_start(void)
     return ESP_OK;
 #endif
 }
+
+ #if defined(CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
+esp_err_t wh_module_update_resilience_preflight(const char *case_id)
+{
+    if (!resilience_case_supported(case_id) || !update_lock || !update_queue ||
+        !update_task || !CONFIG_WASMHOME_RESILIENCE_FIXTURE_SERVER_IPV4[0] ||
+        !CONFIG_WASMHOME_RESILIENCE_FIXTURE_SERVER_NAME[0])
+        return ESP_ERR_INVALID_STATE;
+    if (!valid_fixture_ipv4(CONFIG_WASMHOME_RESILIENCE_FIXTURE_SERVER_IPV4))
+        return ESP_ERR_INVALID_ARG;
+
+    xSemaphoreTake(update_lock, portMAX_DELAY);
+    const bool busy = update_active;
+    xSemaphoreGive(update_lock);
+    if (busy) return ESP_ERR_INVALID_STATE;
+
+    wh_signed_update_state_t state = {0};
+    esp_err_t err = wh_signed_update_get_state(WH_MODULE_UPDATE_SCENARIO,
+        "gpio-control", campaign_id(), &state);
+    if (err != ESP_OK) return err;
+    wh_module_manager_info_t info;
+    if (!get_manager_snapshot(&info)) return ESP_ERR_INVALID_STATE;
+    if (state.pending || state.accepted_floor != WH_MODULE_UPDATE_SEQUENCE ||
+        state.active_sequence != WH_MODULE_UPDATE_SEQUENCE ||
+        state.active_target_version != WH_MODULE_UPDATE_TARGET_VERSION ||
+        state.active_slot >= WH_MODULE_SLOT_COUNT ||
+        strcmp(state.active_release_version, "v2") != 0 ||
+        info.control.state != WH_MODULE_SLOT_ACTIVE ||
+        info.control.module_version != WH_MODULE_UPDATE_TARGET_VERSION)
+        return ESP_ERR_INVALID_STATE;
+    return ESP_OK;
+}
+
+esp_err_t wh_module_update_run_resilience_fixture(
+    const char *case_id, const uint8_t attempt_id[16],
+    wh_module_update_resilience_result_t *result)
+{
+    static const uint8_t zero_attempt[16] = {0};
+    if (!attempt_id || memcmp(attempt_id, zero_attempt, sizeof(zero_attempt)) == 0 ||
+        !result || !resilience_case_supported(case_id))
+        return ESP_ERR_INVALID_ARG;
+    esp_err_t err = wh_module_update_resilience_preflight(case_id);
+    if (err != ESP_OK) return err;
+
+    SemaphoreHandle_t done = xSemaphoreCreateBinary();
+    if (!done) return ESP_ERR_NO_MEM;
+    update_request_t request = {0};
+    request.resilience_fixture = true;
+    memcpy(request.attempt_id, attempt_id, sizeof(request.attempt_id));
+    memcpy(request.fixture_case, case_id, strlen(case_id) + 1);
+    request.origin_boot_id = wh_platform_boot_id();
+    request.fixture_done = done;
+    request.fixture_result = result;
+
+    xSemaphoreTake(update_lock, portMAX_DELAY);
+    if (update_active) {
+        xSemaphoreGive(update_lock);
+        vSemaphoreDelete(done);
+        return ESP_ERR_INVALID_STATE;
+    }
+    update_active = true;
+    active_request = request;
+    if (xQueueSend(update_queue, &request, 0) != pdTRUE) {
+        update_active = false;
+        memset(&active_request, 0, sizeof(active_request));
+        xSemaphoreGive(update_lock);
+        vSemaphoreDelete(done);
+        return ESP_ERR_INVALID_STATE;
+    }
+    xSemaphoreGive(update_lock);
+    if (xSemaphoreTake(done, portMAX_DELAY) != pdTRUE) {
+        vSemaphoreDelete(done);
+        return ESP_FAIL;
+    }
+    vSemaphoreDelete(done);
+    return ESP_OK;
+}
+#endif
 
 void wh_module_update_handle_trigger(const uint8_t *packet, size_t length)
 {

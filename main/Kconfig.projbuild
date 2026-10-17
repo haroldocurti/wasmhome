@@ -93,7 +93,7 @@ config WASMHOME_RESILIENCE_TEST_MODE
 config WASMHOME_RESILIENCE_FIXTURE_SERVER_IPV4
     string "Isolated resilience fixture HTTPS server IPv4"
     default ""
-    depends on WASMHOME_RESILIENCE_TEST_MODE
+    depends on WASMHOME_RESILIENCE_TEST_MODE || WASMHOME_MODULE_RESILIENCE_TEST_MODE
     help
         Required to enable ENV-SIG/HASH/OLD. Keep these files on an isolated
         endpoint; the campaign artifact servers are not modified or reused.
@@ -102,12 +102,12 @@ config WASMHOME_RESILIENCE_FIXTURE_SERVER_PORT
     int "Isolated resilience fixture HTTPS server port"
     range 1 65535
     default 8445
-    depends on WASMHOME_RESILIENCE_TEST_MODE
+    depends on WASMHOME_RESILIENCE_TEST_MODE || WASMHOME_MODULE_RESILIENCE_TEST_MODE
 
 config WASMHOME_RESILIENCE_FIXTURE_SERVER_NAME
     string "Isolated resilience fixture HTTPS certificate DNS name"
     default ""
-    depends on WASMHOME_RESILIENCE_TEST_MODE
+    depends on WASMHOME_RESILIENCE_TEST_MODE || WASMHOME_MODULE_RESILIENCE_TEST_MODE
 
 config WASMHOME_RESILIENCE_FUNCTIONAL_TIMEOUT_MS
     int "Candidate functional timeout used by resilience fixture"
@@ -185,6 +185,27 @@ config WASMHOME_MODULE_SERVICES
         Starts the persistent WAMR manager in interpreter/AOT firmware. Two
         role-specific module images must be embedded by the service artifact
         build. Defaults below are provisional and require board acceptance.
+
+config WASMHOME_MODULE_RESILIENCE_TEST_MODE
+    bool "Enable serial Wasm trap resilience fixtures"
+    default n
+    depends on WASMHOME_MODULE_SERVICES && WASMHOME_SIGNED_UPDATE
+    help
+        Opt-in bench-only requests for compile-time embedded Wasm traps and
+        fixed-path signed-envelope fixtures. The serial request selects only
+        a closed case ID and attempt ID; it cannot supply artifact bytes, a
+        path or a URL. Trap fixtures use the inactive control slot. Envelope
+        fixtures use the isolated HTTPS endpoint and real module-slot/NVS
+        validator path. Signed updates and the endpoint pins are required.
+
+config WASMHOME_MODULE_RESILIENCE_FUNCTIONAL_TIMEOUT_MS
+    int "Candidate functional timeout used by module resilience fixture"
+    range 100 1000
+    default 300
+    depends on WASMHOME_MODULE_RESILIENCE_TEST_MODE
+    help
+        Initial candidate only. Freeze or adjust after the #20 pilot before
+        using it as an acceptance threshold for a campaign.
 
 config WASMHOME_MODULE_CONTROL_VERSION
     int "Host-assigned control module version"

@@ -378,7 +378,7 @@ static void perform_resilience_fixture(const char *case_id,
     const char *stage = "fixture_setup";
     const esp_err_t err = wh_signed_update_resilience_download(
         WH_NATIVE_SCENARIO_NATIVE, case_id, attempt_id, &sink, NULL, NULL,
-        &manifest, &failure, &stage);
+        &manifest, &failure, &stage, NULL);
 
     const bool is_sig = strcmp(case_id, "ENV-SIG") == 0;
     const bool is_hash = strcmp(case_id, "ENV-HASH") == 0;

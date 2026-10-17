@@ -175,7 +175,8 @@ esp_err_t wh_signed_update_resilience_download(
     const wh_signed_update_sink_t *sink,
     wh_signed_update_event_fn event_fn, void *event_context,
     wh_signed_update_manifest_t *manifest_out,
-    wh_signed_update_failure_t *failure_out, const char **stage_out);
+    wh_signed_update_failure_t *failure_out, const char **stage_out,
+    esp_err_t *cleanup_out);
 
 /* Stage writes pending before payload I/O. Activation adapters record the
    chosen persistent slot before changing the in-memory selection. commit()

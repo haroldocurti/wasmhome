@@ -14,6 +14,9 @@
 
 #if defined(CONFIG_WASMHOME_MODULE_SERVICES)
 #include "module_manager.h"
+#if defined(CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
+#include "module_resilience_test.h"
+#endif
 #if defined(WASMHOME_SCENARIO_MODULE_INTERP)
 extern const uint8_t service_telemetry_wasm[];
 extern const uint32_t service_telemetry_wasm_len;
@@ -417,6 +420,9 @@ void app_main(void)
                               .module_version = 2};
 #endif
     ESP_ERROR_CHECK(wh_module_manager_start(&telemetry, &control));
+#if defined(CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
+    ESP_ERROR_CHECK(wh_module_resilience_test_start());
+#endif
     return;
 #endif
 #if defined(CONFIG_WASMHOME_NATIVE_SERVICES)

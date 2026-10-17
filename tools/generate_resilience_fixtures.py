@@ -82,7 +82,7 @@ def _record(root: Path, case_id: str, scenario: int, private_key: Path,
 
 def generate(package: Path, public_key: Path, trusted_private_key: Path,
              untrusted_private_key: Path, untrusted_public_key: Path, output: Path, *, old_sequence=1,
-             next_sequence=2, expected_campaign_id=None,
+             next_sequence=2, module_next_sequence=3, expected_campaign_id=None,
              expected_aot_toolchain_id=None):
     package = package.resolve()
     public_key = public_key.resolve()
@@ -90,8 +90,9 @@ def generate(package: Path, public_key: Path, trusted_private_key: Path,
     untrusted_private_key = untrusted_private_key.resolve()
     untrusted_public_key = untrusted_public_key.resolve()
     output = output.absolute()
-    if old_sequence <= 0 or next_sequence <= old_sequence:
-        raise ValueError("old_sequence must be positive and next_sequence must be greater")
+    if (old_sequence <= 0 or next_sequence <= old_sequence or
+            module_next_sequence <= old_sequence):
+        raise ValueError("old_sequence must be positive and both next sequences must be greater")
     if os.path.lexists(output):
         raise ValueError("output directory already exists; refusing to overwrite")
     verified = verify_set(package, public_key,
@@ -117,6 +118,8 @@ def generate(package: Path, public_key: Path, trusted_private_key: Path,
     records = []
     try:
         for scenario in (1, 2, 3):
+            scenario_next_sequence = (next_sequence if scenario == 1
+                                      else module_next_sequence)
             artifact = entries[(scenario, "v2")]
             signed_payload = (package / artifact["payload_path"]).read_bytes()
             source_envelope = (package / artifact["envelope_path"]).read_bytes()
@@ -124,12 +127,12 @@ def generate(package: Path, public_key: Path, trusted_private_key: Path,
                             expected_campaign_id=campaign_id,
                             expected_aot_toolchain_id=toolchain_id)
 
-            sig_manifest = _fixture_manifest(campaign_id, scenario, next_sequence,
+            sig_manifest = _fixture_manifest(campaign_id, scenario, scenario_next_sequence,
                                              signed_payload, toolchain_id)
             records.append(_record(staging, "ENV-SIG", scenario, untrusted_private_key,
                                    sig_manifest, signed_payload, signed_payload))
 
-            hash_manifest = _fixture_manifest(campaign_id, scenario, next_sequence,
+            hash_manifest = _fixture_manifest(campaign_id, scenario, scenario_next_sequence,
                                               signed_payload, toolchain_id)
             tampered = bytearray(signed_payload)
             tampered[-1] ^= 0x01
@@ -144,6 +147,8 @@ def generate(package: Path, public_key: Path, trusted_private_key: Path,
         # Full semantic/signature checks catch malformed generation before publishing.
         for record in records:
             scenario = record["scenario"]
+            scenario_next_sequence = (next_sequence if scenario == 1
+                                      else module_next_sequence)
             envelope = (staging / record["manifest_path"]).read_bytes()
             received = (staging / record["payload_path"]).read_bytes()
             if record["case_id"] == "ENV-SIG":
@@ -173,7 +178,7 @@ def generate(package: Path, public_key: Path, trusted_private_key: Path,
                 manifest = verify_envelope(envelope, received, public_key,
                                            expected_campaign_id=campaign_id,
                                            expected_aot_toolchain_id=toolchain_id)
-                if manifest[7] != old_sequence or manifest[7] >= next_sequence:
+                if manifest[7] != old_sequence or manifest[7] >= scenario_next_sequence:
                     raise ValueError("ENV-OLD sequence differs from the requested floor fixture")
 
         fixture_index = {
@@ -185,6 +190,12 @@ def generate(package: Path, public_key: Path, trusted_private_key: Path,
             "aot_toolchain_id": toolchain_id,
             "sequence_setup": {"old_sequence": old_sequence,
                                "next_sequence": next_sequence,
+                               "module_next_sequence": module_next_sequence,
+                               "next_sequences_by_scenario": {
+                                   "scenario-1": next_sequence,
+                                   "scenario-2": module_next_sequence,
+                                   "scenario-3": module_next_sequence,
+                               },
                                "requires_real_nvs_floor_at_least_old_sequence": True},
             "source_package_verified": verified,
             "artifacts": records,
@@ -216,6 +227,8 @@ def main(argv=None):
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--old-sequence", type=int, default=1)
     parser.add_argument("--next-sequence", type=int, default=2)
+    parser.add_argument("--module-next-sequence", type=int, default=3,
+                        help="next sequence for scenarios 2/3 after module v2 has floor 2")
     parser.add_argument("--expected-campaign-id")
     parser.add_argument("--expected-aot-toolchain-id")
     args = parser.parse_args(argv)
@@ -224,6 +237,7 @@ def main(argv=None):
                           args.untrusted_private_key, args.untrusted_public_key,
                           args.output,
                           old_sequence=args.old_sequence, next_sequence=args.next_sequence,
+                          module_next_sequence=args.module_next_sequence,
                           expected_campaign_id=args.expected_campaign_id,
                           expected_aot_toolchain_id=args.expected_aot_toolchain_id)
         print(json.dumps({"fixture_count": len(result["artifacts"]),

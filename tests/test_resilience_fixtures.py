@@ -74,10 +74,16 @@ class ResilienceFixtureTests(unittest.TestCase):
                          expected_aot_toolchain_id="wamr-2.4.5-wasmhome.3")
         self.assertEqual(len(index["artifacts"]), 9)
         self.assertEqual(index["status"], "host_generated_not_device_validated")
+        self.assertEqual(index["sequence_setup"]["next_sequences_by_scenario"], {
+            "scenario-1": 2, "scenario-2": 3, "scenario-3": 3,
+        })
         self.assertFalse(list(output.rglob("*.key")))
         for record in index["artifacts"]:
             envelope = (output / record["manifest_path"]).read_bytes()
             payload = (output / record["payload_path"]).read_bytes()
+            if record["case_id"] in ("ENV-SIG", "ENV-HASH"):
+                self.assertEqual(record["sequence"],
+                                 2 if record["scenario"] == 1 else 3)
             if record["case_id"] == "ENV-SIG":
                 verify_envelope(envelope, payload, self.untrusted_public)
                 with self.assertRaisesRegex(ValueError, "signature|kid"):

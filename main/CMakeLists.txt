@@ -141,6 +141,35 @@ elseif(EXPERIMENT_SCENARIO STREQUAL "module-interp" OR EXPERIMENT_SCENARIO STREQ
         "../artifacts/service_telemetry_${MODULE_ARTIFACT_SUFFIX}_embedded.c"
         "../artifacts/service_control_v1_${MODULE_ARTIFACT_SUFFIX}_embedded.c"
         "../artifacts/service_control_v2_${MODULE_ARTIFACT_SUFFIX}_embedded.c")
+    if(CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
+        if(NOT CMAKE_BUILD_EARLY_EXPANSION)
+            foreach(RESILIENCE_OUTPUT IN ITEMS
+                    resilience_control_traps_${MODULE_ARTIFACT_SUFFIX}
+                    resilience_control_traps_${MODULE_ARTIFACT_SUFFIX}_embedded.c)
+                if(NOT EXISTS "${CMAKE_SOURCE_DIR}/artifacts/${RESILIENCE_OUTPUT}")
+                    message(FATAL_ERROR
+                        "Issue #22 fixture ${RESILIENCE_OUTPUT} is missing; run tools/generate_resilience_wasm.py")
+                endif()
+            endforeach()
+            execute_process(
+                COMMAND "${PYTHON}" "${CMAKE_SOURCE_DIR}/tools/generate_resilience_wasm.py" --verify
+                RESULT_VARIABLE RESILIENCE_FIXTURE_VALIDATION_RESULT
+                OUTPUT_VARIABLE RESILIENCE_FIXTURE_VALIDATION_OUTPUT
+                ERROR_VARIABLE RESILIENCE_FIXTURE_VALIDATION_ERROR)
+            if(NOT RESILIENCE_FIXTURE_VALIDATION_RESULT EQUAL 0)
+                message(FATAL_ERROR
+                    "Issue #22 fixture integrity check failed: ${RESILIENCE_FIXTURE_VALIDATION_ERROR}")
+            endif()
+            set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+                "${CMAKE_SOURCE_DIR}/workload/resilience_control_traps.wat"
+                "${CMAKE_SOURCE_DIR}/tools/generate_resilience_wasm.py"
+                "${CMAKE_SOURCE_DIR}/artifacts/resilience-wasm-fixture.json"
+                "${CMAKE_SOURCE_DIR}/artifacts/resilience_control_traps_${MODULE_ARTIFACT_SUFFIX}"
+                "${CMAKE_SOURCE_DIR}/artifacts/resilience_control_traps_${MODULE_ARTIFACT_SUFFIX}_embedded.c")
+        endif()
+        list(APPEND SCENARIO_SOURCE "module_resilience_test.c" "resilience_test_protocol.c"
+            "../artifacts/resilience_control_traps_${MODULE_ARTIFACT_SUFFIX}_embedded.c")
+    endif()
 else()
     message(FATAL_ERROR "EXPERIMENT_SCENARIO must be native, interp, aot, module-interp or module-aot")
 endif()
