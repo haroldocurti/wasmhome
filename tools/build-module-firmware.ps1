@@ -72,7 +72,8 @@ try {
     if ($ModuleResilienceTestMode) {
         & python tools/generate_resilience_wasm.py `
             --wat2wasm $Wat2Wasm `
-            --wamrc $env:WAMRC
+            --wamrc $env:WAMRC `
+            --wamrc-build-receipt $WamrcBuildReceipt
         if ($LASTEXITCODE -ne 0) { throw 'Pinned resilience Wasm/AOT fixture generation failed.' }
     }
 

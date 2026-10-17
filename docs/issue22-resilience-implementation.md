@@ -102,6 +102,17 @@ firmwares compilados são:
 | `module-interp` | `8839b1517a6771915fdbcbe658560bc9bfa17f5dfb1b49febf01dea9099dece4` |
 | `module-aot` | `797a30d3254795de3448abbe4b6f264927ec70ff75d9cb246e4b88906deb93ab` |
 
+O vínculo entre esse `wamrc` e o runtime WAMR `.3` está registrado em
+[`docs/evidence/issue22-wamrc-build-provenance.json`](evidence/issue22-wamrc-build-provenance.json).
+O registro público conserva o SHA-256 do recibo bruto (`cf3af320…44ad0b`), o
+digest canônico do JSON (`3d4ac129…c5d0d1`) e a identidade do runtime; paths
+locais foram substituídos por aliases e o conteúdo dos snapshots grandes foi
+omitido, mantendo seus hashes e tamanhos. O próprio registro tem SHA-256
+`d894e72de14ef9ce9622d379e64ce586faca1f11b0a326b4ad1eb350d774fa6d`.
+Os manifestos de serviço e fixture carregam os três digests e a identidade do
+runtime, e os verificadores rejeitam divergências. Esse recibo local não é
+assinado nem substitui uma recompilação independente.
+
 Os builds foram feitos em diretórios isolados e não foram gravados nem
 executados na placa. Compilação local não valida transporte HTTPS real ou
 comportamento HIL.

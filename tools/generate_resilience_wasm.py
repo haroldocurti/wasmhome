@@ -9,7 +9,9 @@ import subprocess
 import tempfile
 
 from embed_artifact import render
-from runtime_package import require
+from runtime_package import require, verify as verify_runtime
+from toolchain_provenance import compiler_receipt, receipt_digest, sha
+from wamrc_provenance import assert_manifest_provenance, verify_receipt
 
 ROOT = pathlib.Path(__file__).absolute().parents[1]
 SOURCE = ROOT / "workload/resilience_control_traps.wat"
@@ -41,6 +43,7 @@ def verify(root=ROOT):
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     require(manifest.get("schema") == "wasmhome-issue22-trap-fixture-v1",
             "resilience fixture manifest schema differs")
+    assert_manifest_provenance(manifest, root)
     toolchain = manifest.get("toolchain", {})
     require(toolchain.get("wat2wasm_version") == WABT_VERSION_OUTPUT and
             toolchain.get("wat2wasm_release_url") == WABT_RELEASE_URL and
@@ -75,9 +78,10 @@ def verify(root=ROOT):
     return manifest
 
 
-def generate(wat2wasm, wamrc):
+def generate(wat2wasm, wamrc, wamrc_build_receipt):
     wat2wasm = wat2wasm.absolute()
     wamrc = wamrc.absolute()
+    wamrc_build_receipt = wamrc_build_receipt.absolute()
     require(wat2wasm.is_file(), "wat2wasm executable is missing")
     require(wamrc.is_file(), "wamrc executable is missing")
     wat_version = subprocess.run([str(wat2wasm), "--version"], check=True,
@@ -91,6 +95,8 @@ def generate(wat2wasm, wamrc):
     require(wamrc_version == "wamrc 2.4.5", "pinned wamrc 2.4.5 is required")
     require(sha_file(wamrc) == WAMRC_SHA256,
             "wamrc binary differs from the pinned WAMR compiler build")
+    compiler = compiler_receipt(wamrc_build_receipt, wamrc, verify_runtime(ROOT)[0])
+    _, provenance_digest = verify_receipt(wamrc_build_receipt, compiler, ROOT)
 
     OUT.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="wasmhome-issue22-fixture-") as temp:
@@ -113,6 +119,10 @@ def generate(wat2wasm, wamrc):
     manifest = {
         "schema": "wasmhome-issue22-trap-fixture-v1",
         "status": "generated_not_device_validated",
+        "runtime_identity": compiler["runtime_identity"],
+        "wamrc_build_receipt_sha256": receipt_digest(compiler),
+        "wamrc_receipt_input_file_sha256": sha(wamrc_build_receipt),
+        "wamrc_provenance_record_sha256": provenance_digest,
         "source": {"path": "workload/resilience_control_traps.wat",
                    "sha256": sha_file(SOURCE)},
         "toolchain": {
@@ -149,14 +159,16 @@ def main():
                         help="verify generated ignored outputs against their manifest")
     parser.add_argument("--wat2wasm", type=pathlib.Path)
     parser.add_argument("--wamrc", type=pathlib.Path)
+    parser.add_argument("--wamrc-build-receipt", type=pathlib.Path)
     args = parser.parse_args()
     try:
         if args.verify:
             verify()
         else:
-            require(args.wat2wasm is not None and args.wamrc is not None,
-                    "--wat2wasm and --wamrc are required for generation")
-            generate(args.wat2wasm, args.wamrc)
+            require(args.wat2wasm is not None and args.wamrc is not None and
+                    args.wamrc_build_receipt is not None,
+                    "--wat2wasm, --wamrc and --wamrc-build-receipt are required for generation")
+            generate(args.wat2wasm, args.wamrc, args.wamrc_build_receipt)
         print("Issue #22 Wasm trap fixture: verified/generated")
     except (ValueError, OSError, KeyError, json.JSONDecodeError,
             subprocess.CalledProcessError) as error:

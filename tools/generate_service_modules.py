@@ -11,6 +11,7 @@ import tempfile
 from embed_artifact import render
 from toolchain_provenance import preflight, sha, workspace
 from runtime_package import require
+from wamrc_provenance import assert_manifest_provenance, verify_receipt
 
 ROOT = pathlib.Path(__file__).absolute().parents[1]
 OUT = ROOT / "artifacts"
@@ -45,6 +46,10 @@ def verify(root=ROOT):
             "service module manifest schema differs")
     require(manifest.get("source_revision") == workspace(root),
             "service source/toolchain inputs changed since artifact generation")
+    assert_manifest_provenance(manifest, root)
+    require(manifest.get("toolchain", {}).get("wamrc_build_receipt_sha256") ==
+            manifest.get("wamrc_build_receipt_sha256"),
+            "service manifest nested WAMRC receipt digest differs")
     for base, source, threshold, exports in MODULES:
         key = pathlib.Path(source).relative_to(root).as_posix()
         require(manifest.get("sources", {}).get(key) == sha(source),
@@ -79,6 +84,7 @@ def build(root, sdk, package, wamrc, receipt, idf):
         clang = sdk / "bin/clang.exe"
     toolchain = preflight(root, sdk, package.absolute(), wamrc.absolute(),
                           receipt.absolute(), idf.absolute())
+    _, record_sha256 = verify_receipt(receipt, toolchain["wamrc_build_receipt"], root)
     require(toolchain["wasi_sdk_identity"].get("version") == "27.0",
             "WASI-SDK 27.0 is required")
     require("clang version 20.1.8-wasi-sdk" in toolchain["clang_version"],
@@ -136,6 +142,9 @@ def build(root, sdk, package, wamrc, receipt, idf):
             schema="wasmhome-issue12-service-modules-v1",
             status="generated_not_device_validated",
             runtime_identity=toolchain["runtime_identity"],
+            wamrc_build_receipt_sha256=toolchain["wamrc_build_receipt_sha256"],
+            wamrc_receipt_input_file_sha256=toolchain["wamrc_receipt_input_file_sha256"],
+            wamrc_provenance_record_sha256=record_sha256,
             source_revision=source_revision,
             toolchain=dict(
                 wasi_sdk_identity=toolchain["wasi_sdk_identity"],
