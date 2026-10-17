@@ -1,13 +1,20 @@
 # Implementação defensável da issue #22
 
+Para executar HIL físico sem root, consulte o
+[orquestrador de usuário](issue22-hil-orchestrator.md). Ele substitui os
+passos operacionais manuais de `systemd`, `root@Proxmox` e runner isolado
+descritos nas revisões anteriores deste documento.
+
 Status em 2026-10-17: **integração opt-in implementada, suíte host aprovada e
-builds locais `module-interp`/`module-aot` aprovados; HIL ainda pendente**. Este
-registro não fecha a issue nem autoriza a campanha #23.
+builds locais `module-interp`/`module-aot` aprovados; HIL ainda pendente**. A
+issue #22 requer uma prova preliminar de 16 tentativas físicas. A matriz completa
+de 70 falhas + 2 controles pertence à issue #23 e não é critério de fechamento
+da #22.
 
 ## Implementado no código
 
-- `tools/resilience_harness.py` planeja exatamente 70 falhas e dois controles,
-  valida pedidos fechados, correlaciona JSONL serial e observações UDP por
+- `tools/resilience_harness.py` gera a matriz completa da #23 (70 falhas e dois
+  controles), valida pedidos fechados, correlaciona JSONL serial e observações UDP por
   `attempt_id`/`boot_id`, e preserva `unconfirmed` quando falta
   `fault_accepted`. Timeout ou silêncio não viram rejeição.
 - `tools/resilience_hil_runner.py` executa uma linha explicitamente armada,
@@ -113,13 +120,19 @@ de fixtures `192.168.0.138:8445`. O perfil nativo foi compilado no commit
 `42f34de`; os perfis modulares foram compilados a partir do checkout
 `c8f1dd07c8bdb88d2b0b4fa919c8b6ced42ce6c6`, exigido pelo manifesto de
 proveniência dos módulos. Os três perfis são opt-in e não foram gravados nem
-executados na placa. Os hashes de firmware desta matriz são:
+executados na placa. Estes são hashes dos builds locais desta configuração:
 
 | Perfil | Tamanho | SHA-256 do firmware |
 |---|---:|---|
 | `native` | 915.808 B | `e36cdfa37a875996db44f45393342d643c1fc55f282b49379e4498365af3747c` |
 | `module-interp` | 1.022.320 B | `a4019449255b4ad228e3aca53e2f4198be8f64f61f68835b6a702d2d3fca5548` |
 | `module-aot` | 1.010.032 B | `18767cf4f045ad24d1a7a3118bb6baf63e406f259dacd26183031f574cb57250` |
+
+O hash local nativo `e36cdf…` identifica um build v1 da configuração #22; ele
+não é a identidade do release OTA v2. O preflight e o runner usam separadamente
+o protocolo nativo `control_version=1` e o SHA-256 do artefato v2 lido do ledger.
+Se o release v2 assinado com os hooks finais da #22 mudar, seu hash e tamanho
+precisam ser revisados e registrados antes do HIL.
 
 O artefato Wasm e o manifesto de serviços registram WAMR port
 `2.4.5-wasmhome.3`, `wamrc 2.4.5` SHA-256
@@ -175,26 +188,15 @@ fixtures não determinam o piso atual do dispositivo.
 
 O servidor fechado está em `tools/resilience_fixture_https_server.py` e valida
 índice, fingerprints, assinatura, hashes, caminhos e sequência antes de abrir
-um socket. O CLI também recusa `8443` e `8444` explicitamente, inclusive com
-`--check`; a regressão cobre ambas as portas e permite o smoke temporário em
-`18445`. A unit não secreta e revisável está versionada em
-[`deploy/wasmhome-issue22-hil-fixtures-campaign16.service`](../deploy/wasmhome-issue22-hil-fixtures-campaign16.service).
-No CT107 `wasmhome-bench`, ela usa somente `192.168.0.138:8445`, o campaign
-acima e a raiz isolada de fixtures. `systemd-analyze verify` passou e o
-preflight `--check`, executado como `wasmhome-http`, validou as nove duplas
-manifesto/payload sem abrir socket. A unit permanece `static`/inativa; não há
-listener em `8445`. As campanhas existentes `8443` e `8444` continuaram ativas
-nos PIDs observados `266369` e `268013`. Um smoke TLS local usando o mesmo
-servidor atualizado, em loopback `127.0.0.1:18445`, verificou 18 GETs, todos
-HTTP 200 com bytes e hashes iguais às fixtures; isso não inicia o endpoint CT
-em `8445` nem substitui a validação HIL na placa.
-
-Depois da liberação da bancada #20 e de confirmar o piso NVS real do cenário,
-controle o endpoint dedicado manualmente com `systemctl start
-wasmhome-issue22-hil-fixtures-campaign16.service` e finalize com `systemctl stop
-wasmhome-issue22-hil-fixtures-campaign16.service`. A URL base fica em
-`https://192.168.0.138:8445/issues16-18-bench-20261016-observer13/resilience/`
-e o nome TLS é `wasmhome-issue22.test`. O CA público tem SHA-256
+um socket. O CLI recusa explicitamente as portas existentes `8443` e `8444` e
+permite a porta temporária `18445`. Um smoke TLS local verificou 18 GETs com
+bytes e hashes iguais às fixtures; isso não inicia o endpoint CT nem substitui
+a validação HIL na placa. Para HIL, o orquestrador de usuário serve uma
+allowlist combinada (nove fixtures inválidas e três releases v2/sequence-2)
+em `192.168.0.138:18445`, somente durante a execução, sem systemd e por SSH
+estrito como `wasmhome`. Os builds atuais ainda apontam para `:8445` e serão
+recusados até endpoint, certificado, manifesto e pacote estarem alinhados em
+um rebuild. O CA público tem SHA-256
 `757b99b20a567a27041be3f204831b7aa2f6d0192504e7d13fd6261267f1a942`, a chave
 pública dedicada da fixture `e2b4d52e6f7f76af469ef90aa9d6f099c92e3da0d3fd46efec083d67d9137afd`,
 e o índice publicado `bf36fb7c2a2a65616b0651dbb5cdf69af569d249b46d99a6d840ce372c41ab0f`.
@@ -223,94 +225,127 @@ HTTPS. `termios` e as linhas DTR/RTS são restauradas no fechamento e em falha
 de inicialização; quando o host não consegue ler o estado original das linhas
 modem, o runner não as altera.
 
-O preflight é pequeno e não aceita campos de Wi-Fi, MAC ou credenciais. Este
-exemplo mostra o schema e valores ilustrativos; deve ser preenchido com leituras
-reais, nunca copiado como evidência:
+O diagnóstico offline `tools/resilience_nvs_preflight.py` aceita somente um
+arquivo local com os 24 KiB da partição NVS e o perfil em ensaio. Ele usa o
+parser ESP-IDF com decodificação de valores desligada, valida páginas/CRCs e
+monta apenas os blobs permitidos: `wh_update/ledger`,
+`wh_resilience/pending` e `wh_mod_resil/pending`. A saída não contém chaves ou
+valores de outras namespaces, UUIDs, blobs ou dados Wi-Fi/configuração. O
+arquivo JSON novo é criado com permissão `0600`; o coletor não abre serial nem
+grava flash/NVS. `--boot-id` deve vir do evento de boot da sessão atual. O
+schema v4 separa `control_version` (versão do protocolo de controle/telemetria)
+de `release_artifact_sha256` (hash do artefato v2 registrado no ledger NVS).
+Para native, o protocolo continua v1; o artefato OTA ativo é v2/seq2. O hash do
+artefato vem do ledger e precisa corresponder ao release assinado conhecido. A
+partição NVS não prova qual imagem está executando nem substitui a verificação
+do slot.
+Os campos `reserved` explícitos do ledger e dos dois registros de recuperação
+precisam ser zero. O preflight não interpreta bytes de padding implícito do C.
+
+O exemplo mostra a forma do schema v4 e o artefato nativo v2 identificado na
+evidência da OTA assinada de 2026-10-16:
 
 ```json
 {
-  "schema": "wasmhome-issue22-readonly-preflight-v1",
+  "schema": "wasmhome-issue22-readonly-preflight-v4",
   "campaign_id": "issues16-18-bench-20261016-observer13",
   "profile": "native",
+  "record_identity": {"scenario": 1, "component": "firmware"},
   "boot_id": "0123456789abcdef",
-  "firmware_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "native_state": {"ledger_present": true, "accepted_floor": 2, "pending": false},
-  "module_state": null
+  "control_version": 1,
+  "release_artifact_sha256": "8df016fe253d58eb0b9073037e38cf6568162a0964c03aa2aa384d9185f44137",
+  "native_state": {
+    "ledger_present": true,
+    "accepted_floor": 2,
+    "ledger_active_target_version": 2,
+    "ledger_active_sequence": 2,
+    "active_slot": 131072,
+    "active_payload_size": 898832,
+    "active_payload_sha256": "8df016fe253d58eb0b9073037e38cf6568162a0964c03aa2aa384d9185f44137",
+    "active_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "pending": false
+  },
+  "module_state": null,
+  "recovery_state": {"previous_attempt_present": true, "recovery_complete": true}
 }
 ```
 
-Para `ENV-SIG` e `ENV-HASH`, o preflight nativo exige piso exatamente 2; para
-`ENV-OLD`, exige piso pelo menos 1. `NAT-ABORT` exige estado não pendente, sem
-um piso mínimo de update. Em `module-interp` e `module-aot`, todos os casos
-exigem ledger modular presente, sem tentativa pendente, piso 2, módulo ativo
-v2 e sequência ativa 2. O baseline aprovado `00aa22c35720354383c3d686a14612a7cb2fd99c57cb1ce214d07338c1c167a5`
-não contém esses ledgers; floor 0 não satisfaz estes gates. É necessário
-provisionar e confirmar os estados exigidos depois da restauração da baseline
-e antes do HIL. O runner confere o SHA informado contra o artefato registrado
-para o perfil, mas esse SHA continua sendo uma atestação do operador: o
-firmware atual não reporta o hash da imagem em execução. O módulo também não
-emite hoje seu floor/versão ativo no evento de boot; a leitura modular precisa
-vir de diagnóstico NVS somente leitura revisado, sem extrair ou publicar
-campos alheios ao ledger.
+Para qualquer cenário, o runner exige o registro do campaign/profile correto,
+sem update pendente, floor 2, target version 2, sequência 2, slot OTA/module
+válido e hashes esperados de payload/manifest. `release_artifact_sha256` deve
+coincidir com o hash ativo no ledger e com o release v2 assinado registrado em
+[`issue16-native-ota-2026-10-16.json`](evidence/issue16-native-ota-2026-10-16.json).
+O controle nativo continua usando `control_version=1`; essa versão de protocolo
+não é comparada com target version/sequence do ledger. O dump NVS não recalcula
+os bytes do slot nem prova qual imagem está executando.
 
-Com a bancada #20 liberada, perfil correto gravado e preflight medido, mantenha
-host e ESP32 na mesma LAN: `--device-ip` é o IPv4 atual da placa e `--bind-ip`
-é o IPv4 da interface LAN do host que receberá UDP. Os três builds apontam ao
-fixture CT107 em `192.168.0.138:8445`, TLS `wasmhome-issue22.test`. Gere o plano
-offline e execute somente a linha desejada. O UUID passado em
-`--arm-attempt-id` deve ser o dessa mesma linha:
+Não é necessário existir tentativa de recuperação anterior: namespace `pending`
+ausente representa o primeiro ensaio limpo. Se existir registro, ele precisa ser
+válido e completo. No registro nativo, os dois bits de recuperação e um
+`recovery_boot` não nulo indicam completude; `accepted_acknowledged` é validado
+como booleano, mas o valor zero não bloqueia nova tentativa depois de uma
+recuperação válida. No registro modular, são necessários `accepted=1`,
+`slot_recovered=1`, os dois bits de serviço e `recovery_boot` não nulo;
+`recovery_reported` é validado como booleano, mas não é condição de recuperação.
+Registro incompleto no perfil selecionado ou no outro perfil, e o bit global de
+update pendente, bloqueiam o ensaio.
+Isso torna `ENV-OLD` um teste da rejeição da fixture seq. 1 contra o estado
+ativo seq. 2. O baseline aprovado
+`00aa22c35720354383c3d686a14612a7cb2fd99c57cb1ce214d07338c1c167a5` tem CRCs
+de páginas NVS válidos, mas não contém o ledger da campanha; o preflight deve
+reportar o ledger ausente e o runner recusará a saída. A evidência de OTA física
+#16 comprova que o payload nativo v2 SHA-256
+`8df016fe253d58eb0b9073037e38cf6568162a0964c03aa2aa384d9185f44137` foi
+executado e reconciliado com floor 2. Uma captura NVS pós-OTA satisfaz os gates
+de release somente se também contiver o registro do campaign/profile com target
+version 2, sequência 2, slot/hash correspondentes e `pending=false`; a evidência
+publicada não inclui um dump NVS sanitizado que confirme esses campos sozinha.
+O provisionamento deve usar OTA assinada; não se deve escrever o ledger NVS
+diretamente. O preflight não atesta sozinho o hash da imagem atualmente em
+execução.
 
-```sh
-python3 tools/resilience_harness.py plan --seed issue22-run-01 \
-  --output "$HIL_PRIVATE/plan.jsonl"
-python3 tools/resilience_hil_runner.py run \
-  --plan "$HIL_PRIVATE/plan.jsonl" --slot "$SLOT" \
-  --preflight "$HIL_PRIVATE/preflight.json" \
-  --arm-attempt-id "$ATTEMPT_ID" \
-  --serial-port /dev/ttyACM0 --baud 115200 \
-  --device-ip "$ESP32_LAN_IP" --bind-ip "$HOST_LAN_IP" \
-  --udp-port 3333 --device-port 3333 \
-  --output "$HIL_PRIVATE/attempt-$SLOT"
-```
-
-`--timeout-ms 300` continua candidato, não limite de aceite congelado. O
-runner mede UDP no relógio monotônico do host e não subtrai esse relógio do
-`monotonic_us` do MCU. Só registra o envio do pedido; apenas um evento serial
-`fault_accepted` pode provar que o firmware aceitou a injeção. Ausência desse
-evento permanece `unconfirmed`, nunca vira rejeição por silêncio.
-
-Se o log HTTPS do CT não estiver montado em leitura, capture seu prefixo antes
-e depois da tentativa pela rota aprovada via Proxmox/Tailscale e `pct exec`
-(sem SSH direto ao CT), mantendo os snapshots privados. O caminho de log da
-unit é `/var/log/wasmhome/issue22-hil-20261017/campaign16-http.jsonl`:
+Exemplo de geração da saída nativa (a captura NVS é fornecida localmente por
+um procedimento separado):
 
 ```sh
 umask 077
-set -o noclobber
-snapshot_http() {
-  ssh -i "$PROXMOX_IDENTITY" -o IdentitiesOnly=yes -o BatchMode=yes \
-    -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$PROXMOX_KNOWN_HOSTS" \
-    root@100.89.142.40 \
-    'pct exec 107 -- sh -c "test ! -f /var/log/wasmhome/issue22-hil-20261017/campaign16-http.jsonl || cat /var/log/wasmhome/issue22-hil-20261017/campaign16-http.jsonl"' \
-    > "$1"
-}
-snapshot_http "$HIL_PRIVATE/http-before.jsonl"
-# execute exatamente uma tentativa, sem requisições concorrentes ao fixture server
-snapshot_http "$HIL_PRIVATE/http-after.jsonl"
-python3 tools/resilience_hil_runner.py correlate-http \
-  --run-dir "$HIL_PRIVATE/attempt-$SLOT" \
-  --before "$HIL_PRIVATE/http-before.jsonl" \
-  --after "$HIL_PRIVATE/http-after.jsonl"
+python3 tools/resilience_nvs_preflight.py \
+  --nvs-dump "$HIL_PRIVATE/nvs.bin" --profile native \
+  --boot-id "$BOOT_ID" --output "$HIL_PRIVATE/preflight.json"
 ```
 
-O correlator exige que o segundo snapshot seja uma extensão byte a byte do
-primeiro, extrai só as linhas acrescentadas e verifica as rotas HTTP esperadas.
-Como o servidor não registra `attempt_id`, essa ligação é uma janela de log
-para uma única tentativa operacional, não prova causal isolada. O relatório
-HTTP fica separado e `fault_accepted_inferred` permanece `false`; somente a
-serial e a correlação UDP classificam os eventos da tentativa. Não pode haver
-requisições concorrentes à unit durante essa janela. Os snapshots guardam o IP
-do peer e também devem permanecer no diretório privado da bancada.
+## Plano preliminar fechado da #22
+
+A #22 usa exatamente 16 disparos e uma repetição por caso aplicável, na ordem
+abaixo. ENV cobre os três perfis; os controles e traps Wasm cobrem `interp` e
+`aot`; NAT-ABORT cobre somente `native`. A matriz completa de 72 linhas,
+incluindo cinco repetições por célula, é exclusiva da #23.
+
+| Linhas | Caso | Cenário(s) | Critério observado |
+|---|---|---|---|
+| 1–3 | ENV-SIG | native, interp, aot | `SIGNATURE_INVALID` em `envelope_signature`, sem gravação do payload; ativo, versão e sequência preservados; controle e telemetria recuperados. |
+| 4–6 | ENV-HASH | native, interp, aot | `HASH_MISMATCH` em `payload_hash`; somente slot inativo escrito e depois invalidado; nenhum payload ativo; versão e sequência preservadas. |
+| 7–9 | ENV-OLD | native, interp, aot | `SEQUENCE_NOT_NEWER` em `envelope_sequence` usando o validador real e piso NVS 2; slot, versão e sequência ativos preservados. |
+| 10–11 | WASM-ZERO | interp, aot | chamada bem-sucedida de `probe_zero`, retorno `0x12345678`; controle positivo necessário para interpretar os traps. |
+| 12–13 | WASM-OOB | interp, aot | chamada WAMR falha com exceção de acesso fora dos limites, sem reboot; telemetria contínua e controle recuperado em até 30 s. |
+| 14–15 | WASM-DIV0 | interp, aot | chamada WAMR falha com exceção de divisão inteira por zero, sem reboot; telemetria contínua e controle recuperado em até 30 s. |
+| 16 | NAT-ABORT | native | marcador e pânico controlados, novo `boot_id`, `ESP_RST_PANIC`, interrupção observada dos dois serviços e recuperação em até 30 s. |
+
+Cada disparo só entra como tentativa aceita após `fault_accepted` correlacionado.
+Classifique a linha com `tools/resilience_harness.py correlate`; não infira
+rejeição pelo silêncio. Sem confirmação, preserve como `unconfirmed`. Registre
+todos os UUIDs e resultados individuais. Para aprovar o mecanismo, a linha deve
+ser `passed` após o timeout funcional estar congelado em #20; antes disso,
+`candidate_passed` é apenas evidência candidata e não satisfaz o critério.
+
+Use o orquestrador em [`docs/issue22-hil-orchestrator.md`](issue22-hil-orchestrator.md)
+para executar a matriz de 16 linhas. Ele verifica o timeout congelado e a
+baseline aceita na #20, compara a flash completa, administra o listener HTTPS
+como processo de usuário no CT e restaura/verifica a baseline após cada linha.
+O fluxo antigo com `systemctl`, `root@100.89.142.40`, `pct exec` e disparo
+manual de cada linha foi removido. O runner abaixo continua sendo o executor
+interno de uma linha por vez, sem classificar silêncio como rejeição nem inferir
+`fault_accepted` a partir da janela HTTP.
 
 ## Estado por critério de aceitação
 
@@ -319,12 +354,12 @@ do peer e também devem permanecer no diretório privado da bancada.
 | ENV-SIG | Atualizador nativo e perfis modulares B/C usam validador COSE real; testes de parser/assinatura, suíte host, builds ESP-IDF e staging da fixture HTTPS passaram. | Após #20 liberar a bancada, observar rejeição física no estágio esperado em A/B/C. |
 | ENV-HASH | A/B/C escrevem somente no slot OTA/modular inativo; abort apaga e lê de volta a partição inteira; invariância do ativo tem testes host; builds e staging HTTPS passaram. | Comprovar na placa bytes gravados/invalidados e ativo/piso preservados em cada perfil. |
 | ENV-OLD | A/B/C chegam ao ledger NVS real; estágio `envelope_sequence` mapeado; testes host cobrem piso e preservação de ativo/piso; builds e staging HTTPS passaram. | Confirmar piso real maior que zero, depois observar rejeição física em A/B/C após #20 liberar a bancada. |
-| ENV em B/C | Pedido serial fechado e execução ENV-SIG/HASH/OLD estão ligados aos perfis `module-interp` e `module-aot`; builds locais passaram. | Ensaios HIL B/C, incluindo todas as falhas e controles da matriz. |
+| ENV em B/C | Pedido serial fechado e execução ENV-SIG/HASH/OLD estão ligados aos perfis `module-interp` e `module-aot`; builds locais passaram. | Uma linha preliminar aprovada de cada caso nos dois perfis modulares. |
 | WASM-ZERO/OOB/DIV0 | Fixtures Wasm/AOT fixadas, compiladas no firmware por perfil; dispatcher, persistência antes da chamada, exceção WAMR, aposentadoria do slot e health check do controle estão integrados; builds e cobertura host passaram. | Executar em ESP32-S3 em interp e AOT e observar trap, UDP e continuidade/recovery reais. |
 | NAT-ABORT | Caminho de firmware e correlação após reboot implementados. | Builds e prova física de pânico, novo boot e recuperação recebida por UDP. |
 | Timeout funcional | `300 ms` permanece valor candidato, reportado como não congelado. | #20 ainda não congelou empiricamente o timeout. |
 | Recuperação operacional | Harness calcula recuperação a partir das observações UDP. | Confirmar recebimento UDP e recuperação dentro de 30 s no ensaio físico. |
-| Contagem | Planner produz 70 falhas + 2 controles. | Nenhuma tentativa aceita ou célula HIL foi executada; aceite de ensaio não equivale a aceite do artefato. |
+| Contagem / escopo | O planner gera 16 linhas fechadas para #22 e mantém as 70 falhas + 2 controles da #23. | Executar e revisar as 16 linhas preliminares; reservar as 72 linhas para #23. |
 
 ## Preflight físico somente leitura (2026-10-16)
 
@@ -355,16 +390,16 @@ aceitação de artefato nem recuperação funcional.
 - A geração reproduzível dos fixtures Wasm/AOT e a compilação dos dois perfis
   passaram, mas a execução real do fixture dentro do WAMR na ESP32-S3 ainda
   precisa ser observada. Os testes host não substituem esse trap real.
-- O serviço HTTPS de fixtures isolado está preparado no CT107 com os nove
-  conjuntos e CA/nome TLS correspondentes, e a unit permanece parada. Só iniciar
-  `wasmhome-issue22-hil-fixtures-campaign16.service` depois que #20 liberar a
-  bancada e os pisos NVS reais forem confirmados. As rotas `8443` e `8444`
-  existentes permanecem fora do escopo; a serial nunca escolhe endereço nem
-  caminho.
+- O serviço HTTPS combinado começa e termina junto de cada invocação do
+  orquestrador, como processo de `wasmhome` em porta alta `18445`. Nenhuma unit
+  de sistema, linger, `sudo` ou acesso `root@Proxmox` é necessário. Os listeners
+  `8443`, `8444` e `8445` ficam intocados; porta ocupada bloqueia o ensaio.
 - Fazer o piloto #20 e congelar o timeout antes de atribuir limite funcional;
   `300 ms` não é ainda critério empírico aprovado.
-- Executar primeiro a prova HIL controlada em A/B/C, confirmar ambiente,
-  `boot_id`, firmware, identidade da placa e estado inicial, e só então iniciar
-  a matriz. Os builds locais não contam como tentativas aceitas nem como uma
-  célula HIL; faltam o piloto #20, as 70 falhas aceitas, dois controles e a
-  avaliação operacional para fechar a issue ou iniciar a campanha #23.
+- Executar primeiro o piloto #20 e depois a prova preliminar de 16 tentativas
+  da #22, confirmando ambiente, `boot_id`, release, identidade da placa e estado
+  inicial antes de cada execução. O runner exige `--plan-scope preliminary`
+  para esse arquivo de 16 linhas e mantém `full` como escopo padrão para as 72
+  linhas da #23. Só depois da revisão do resultado preliminar pode começar a
+  matriz #23. Builds locais não contam como tentativas aceitas nem como células
+  HIL.

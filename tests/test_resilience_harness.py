@@ -14,6 +14,7 @@ from tools.resilience_harness import (
     parse_fault_request,
     parse_serial_event,
     resilience_plan,
+    resilience_preliminary_plan,
     _read_serial_events,
     _observer_gap_series,
     _observer_packet_times,
@@ -127,6 +128,37 @@ class ResilienceHarnessTests(unittest.TestCase):
         for scenario in ("interp", "aot"):
             for case in ("WASM-OOB", "WASM-DIV0"):
                 self.assertEqual(counts[(scenario, case)], 5)
+
+    def test_issue22_preliminary_plan_is_exactly_the_closed_16_attempt_proof(self):
+        plan = resilience_preliminary_plan("issue22-seed")
+        expected = [
+            (case, scenario, 1, "failure")
+            for case in ("ENV-SIG", "ENV-HASH", "ENV-OLD")
+            for scenario in ("native", "interp", "aot")
+        ] + [
+            ("WASM-ZERO", scenario, 1, "control") for scenario in ("interp", "aot")
+        ] + [
+            (case, scenario, 1, "failure")
+            for case in ("WASM-OOB", "WASM-DIV0")
+            for scenario in ("interp", "aot")
+        ] + [("NAT-ABORT", "native", 1, "failure")]
+        self.assertEqual(len(plan), 16)
+        self.assertEqual(
+            [(row["case_id"], row["scenario"], row["repetition"], row["purpose"])
+             for row in plan], expected)
+        self.assertEqual({row["plan_index"] for row in plan}, set(range(1, 17)))
+        self.assertEqual({row["event"] for row in plan}, {"fault_request"})
+        self.assertTrue(all(row["status"] == "planned" for row in plan))
+        self.assertTrue(all(set(row) == {
+            "event", "attempt_id", "case_id", "scenario", "repetition",
+            "purpose", "plan_index", "status",
+        } for row in plan))
+        self.assertEqual(len({row["attempt_id"] for row in plan}), 16)
+        self.assertEqual(plan, resilience_preliminary_plan("issue22-seed"))
+        self.assertNotEqual(
+            [row["attempt_id"] for row in plan],
+            [row["attempt_id"] for row in resilience_preliminary_plan("another-seed")],
+        )
 
     def test_serial_parser_requires_correlation_fields_and_prefix(self):
         self.assertIsNone(parse_serial_event(b"normal ESP-IDF log\r\n"))

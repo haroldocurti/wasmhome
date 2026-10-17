@@ -10,20 +10,24 @@ import socket
 import struct
 import tempfile
 import unittest
+import uuid
 from pathlib import Path
 from unittest import mock
 import termios
 
-from tools.resilience_harness import _read_jsonl, resilience_plan
+from tools.resilience_harness import (
+    _read_jsonl, resilience_plan, resilience_preliminary_plan,
+)
 from tools.resilience_hil_runner import (
     CAMPAIGN_ID, PREFLIGHT_SCHEMA, HILInputError, _capture_serial,
-    EXPECTED_FIRMWARE_SHA256, ExclusiveSerialPort, _dispatch,
-    correlate_http_rows, correlate_http_snapshots,
+    CONTROL_VERSION_BY_PROFILE, EXPECTED_RELEASE_ARTIFACTS, ExclusiveSerialPort, _dispatch,
+    _http_rows, correlate_http_rows, correlate_http_snapshots,
     _gate_report_classifications, _observation_coverage,
     _post_execution_coverage, _preflight_observation_coverage,
-    execute_trial, load_plan, main,
+    Observer, execute_trial, load_plan, main,
     validate_preflight,
 )
+from tools.resilience_hil_runner import UPDATE_RECORD_IDENTITY
 
 
 def row_for(case, scenario):
@@ -32,25 +36,34 @@ def row_for(case, scenario):
 
 
 def preflight(item, *, floor=2, active_version=2, active_sequence=2):
+    profile = {"native": "native", "interp": "module-interp", "aot": "module-aot"}[item["scenario"]]
     common = {
         "schema": PREFLIGHT_SCHEMA,
         "campaign_id": CAMPAIGN_ID,
-        "profile": {"native": "native", "interp": "module-interp", "aot": "module-aot"}[item["scenario"]],
+        "profile": profile,
+        "record_identity": UPDATE_RECORD_IDENTITY[profile],
+        "control_version": CONTROL_VERSION_BY_PROFILE[profile],
         "boot_id": "0123456789abcdef",
-        "firmware_sha256": EXPECTED_FIRMWARE_SHA256[
-            {"native": "native", "interp": "module-interp", "aot": "module-aot"}[item["scenario"]]],
+        "release_artifact_sha256": EXPECTED_RELEASE_ARTIFACTS[profile][0],
         "native_state": None,
         "module_state": None,
+        "recovery_state": {"previous_attempt_present": True, "recovery_complete": True},
+    }
+    slot = 0x20000 if item["scenario"] == "native" else 1
+    state = {
+        "ledger_present": True, "accepted_floor": floor,
+        "ledger_active_target_version": active_version,
+        "ledger_active_sequence": active_sequence,
+        "active_slot": slot,
+        "active_payload_size": EXPECTED_RELEASE_ARTIFACTS[profile][1],
+        "active_payload_sha256": EXPECTED_RELEASE_ARTIFACTS[profile][0],
+        "active_manifest_sha256": "b" * 64,
+        "pending": False,
     }
     if item["scenario"] == "native":
-        common["native_state"] = {"ledger_present": True,
-                                  "accepted_floor": floor, "pending": False}
+        common["native_state"] = state
     else:
-        common["module_state"] = {
-            "ledger_present": True, "accepted_floor": floor,
-            "active_version": active_version, "active_sequence": active_sequence,
-            "pending": False,
-        }
+        common["module_state"] = state
     return common
 
 
@@ -102,6 +115,7 @@ class SparseObserver:
     """A deterministic observer double for coverage-gate tests."""
     def __init__(self, _log, _peer, _period_ns, _timeout_ns, *,
                  initial_version, attempt_id, max_sample_age_ms):
+        self.initial_version = initial_version
         self.boot_id = int("0123456789abcdef", 16)
         self.retired_boots = set()
         self.success_by_boot = Counter({self.boot_id: self.initial_controls})
@@ -168,25 +182,86 @@ class ResilienceHILRunnerTests(unittest.TestCase):
             with self.assertRaises(HILInputError):
                 load_plan(path)
 
+    def test_plan_loader_requires_explicit_closed_issue22_preliminary_matrix(self):
+        with tempfile.TemporaryDirectory() as temp_name:
+            path = Path(temp_name) / "plan.jsonl"
+            original = resilience_preliminary_plan("issue22-loader-seed")
+            write = lambda rows: path.write_text("".join(
+                json.dumps(item) + "\n" for item in rows))
+
+            write(original)
+            with self.assertRaisesRegex(HILInputError, "complete 72-attempt full matrix"):
+                load_plan(path)
+            self.assertEqual(len(load_plan(path, scope="preliminary")), 16)
+
+            missing = original[:-1]
+            write(missing)
+            with self.assertRaisesRegex(HILInputError, "complete 16-attempt preliminary matrix"):
+                load_plan(path, scope="preliminary")
+
+            extra = original + [dict(original[-1])]
+            write(extra)
+            with self.assertRaisesRegex(HILInputError, "complete 16-attempt preliminary matrix"):
+                load_plan(path, scope="preliminary")
+
+            duplicate = [dict(row) for row in original]
+            duplicate[3] = dict(duplicate[2])
+            write(duplicate)
+            with self.assertRaisesRegex(HILInputError, "matrix differs at case_id"):
+                load_plan(path, scope="preliminary")
+
+            duplicate_id = [dict(row) for row in original]
+            duplicate_id[3]["attempt_id"] = duplicate_id[2]["attempt_id"]
+            write(duplicate_id)
+            with self.assertRaisesRegex(HILInputError, "unique canonical UUIDv5"):
+                load_plan(path, scope="preliminary")
+
+            unknown = [dict(row) for row in original]
+            unknown[0]["unexpected"] = "not part of the plan schema"
+            write(unknown)
+            with self.assertRaisesRegex(HILInputError, "fields differ"):
+                load_plan(path, scope="preliminary")
+
+            wrong_type = [dict(row) for row in original]
+            wrong_type[0]["plan_index"] = True
+            write(wrong_type)
+            with self.assertRaisesRegex(HILInputError, "matrix differs at plan_index"):
+                load_plan(path, scope="preliminary")
+
+            wrong_id = [dict(row) for row in original]
+            wrong_id[0]["attempt_id"] = str(uuid.uuid4())
+            write(wrong_id)
+            with self.assertRaisesRegex(HILInputError, "unique canonical UUIDv5"):
+                load_plan(path, scope="preliminary")
+            with self.assertRaisesRegex(HILInputError, "scope must be explicitly recognized"):
+                load_plan(path, scope="unknown")
+
+            full = resilience_plan("issue22-loader-seed")
+            write(full)
+            self.assertEqual(len(load_plan(path, scope="full")), 72)
+            with self.assertRaisesRegex(HILInputError, "complete 16-attempt preliminary matrix"):
+                load_plan(path, scope="preliminary")
+
     def test_preflight_rejects_zero_and_wrong_native_floors(self):
         old = row_for("ENV-OLD", "native")
-        with self.assertRaisesRegex(HILInputError, "floor 0"):
+        with self.assertRaisesRegex(HILInputError, "ledger floor, target version, and sequence 2"):
             validate_preflight(preflight(old, floor=0), old)
-        self.assertEqual(validate_preflight(preflight(old, floor=1), old)["native_state"]["accepted_floor"], 1)
+        with self.assertRaises(HILInputError):
+            validate_preflight(preflight(old, floor=1), old)
         hashed = row_for("ENV-HASH", "native")
-        with self.assertRaisesRegex(HILInputError, "exactly 2"):
+        with self.assertRaisesRegex(HILInputError, "ledger floor, target version, and sequence 2"):
             validate_preflight(preflight(hashed, floor=3), hashed)
         self.assertEqual(validate_preflight(preflight(hashed, floor=2), hashed)["campaign_id"], CAMPAIGN_ID)
         wrong_build = preflight(hashed)
-        wrong_build["firmware_sha256"] = "f" * 64
-        with self.assertRaisesRegex(HILInputError, "registered issue #22 profile build"):
+        wrong_build["release_artifact_sha256"] = "f" * 64
+        with self.assertRaisesRegex(HILInputError, "registered signed v2 artifact"):
             validate_preflight(wrong_build, hashed)
 
     def test_modular_preflight_requires_floor_two_and_active_v2(self):
         item = row_for("WASM-OOB", "interp")
-        with self.assertRaisesRegex(HILInputError, "active module version/sequence=2"):
+        with self.assertRaisesRegex(HILInputError, "ledger floor, target version, and sequence 2"):
             validate_preflight(preflight(item, active_version=1), item)
-        with self.assertRaisesRegex(HILInputError, "active module version/sequence=2"):
+        with self.assertRaisesRegex(HILInputError, "ledger floor, target version, and sequence 2"):
             validate_preflight(preflight(item, floor=0), item)
         self.assertEqual(validate_preflight(preflight(item), item)["profile"], "module-interp")
 
@@ -195,6 +270,16 @@ class ResilienceHILRunnerTests(unittest.TestCase):
         value = preflight(item)
         value["wifi_password"] = "not allowed"
         with self.assertRaisesRegex(HILInputError, "privacy-minimized"):
+            validate_preflight(value, item)
+
+    def test_preflight_allows_first_attempt_but_rejects_incomplete_prior_attempt(self):
+        item = row_for("ENV-SIG", "native")
+        value = preflight(item)
+        value["recovery_state"]["previous_attempt_present"] = False
+        self.assertIs(validate_preflight(value, item)["recovery_state"]["recovery_complete"], True)
+        value = preflight(item)
+        value["recovery_state"]["recovery_complete"] = False
+        with self.assertRaisesRegex(HILInputError, "has not completed recovery"):
             validate_preflight(value, item)
 
     def test_raw_serial_capture_uses_base64_and_monotonic_timestamp(self):
@@ -215,13 +300,15 @@ class ResilienceHILRunnerTests(unittest.TestCase):
             output.mkdir(mode=0o700)
             serial_port = SelectableFakeSerial()
             udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            result = execute_trial(
-                item=item, preflight=preflight(item), serial_port=serial_port,
-                udp=udp, output=output, bind_ip="127.0.0.1", device_ip="127.0.0.1",
-                udp_port=0, device_port=3333, pre_seconds=0.005, post_seconds=0.005,
-                boot_wait_seconds=0.005, period_ms=0.1, timeout_ms=1,
-                max_sample_age_ms=1000)
+            with mock.patch("tools.resilience_hil_runner.Observer", wraps=Observer) as observer_ctor:
+                result = execute_trial(
+                    item=item, preflight=preflight(item), serial_port=serial_port,
+                    udp=udp, output=output, bind_ip="127.0.0.1", device_ip="127.0.0.1",
+                    udp_port=0, device_port=3333, pre_seconds=0.005, post_seconds=0.005,
+                    boot_wait_seconds=0.005, period_ms=0.1, timeout_ms=1,
+                    max_sample_age_ms=1000)
             self.assertEqual(result["status"], "no_boot_observed")
+            self.assertEqual(observer_ctor.call_args.kwargs["initial_version"], 1)
             self.assertEqual(result["dispatch"]["dispatch_status"], "not_sent_no_boot")
             self.assertEqual(serial_port.write_calls, [])
             self.assertEqual(_read_jsonl(output / "requests.jsonl"), [])
@@ -467,7 +554,7 @@ class ResilienceHILRunnerTests(unittest.TestCase):
         base = "resilience/ENV-SIG/scenario-1/manifest.cose"
         entry = {
             "schema": "wasmhome-issue22-fixture-http-v1", "time_unix_ns": 1,
-            "peer": "192.0.2.1", "host": "wasmhome-issue22.test:8445",
+            "peer": "192.0.2.1", "host": "wasmhome-issue22.test:18445",
             "method": "GET", "path": base, "status": 200, "bytes_sent": 256,
             "sha256": "d" * 64, "tls_protocol": "TLSv1.3", "tls_cipher": "TLS_AES_128_GCM_SHA256",
             "duration_ns": 12,
@@ -492,6 +579,20 @@ class ResilienceHILRunnerTests(unittest.TestCase):
             with self.assertRaisesRegex(HILInputError, "append-only"):
                 correlate_http_snapshots(run_dir, before, after)
 
+    def test_http_log_parser_accepts_user_mode_port_but_keeps_host_allowlist(self):
+        row = {
+            "schema": "wasmhome-issue22-fixture-http-v1", "time_unix_ns": 1,
+            "peer": "192.0.2.1", "host": "wasmhome-issue22.test:18445",
+            "method": "GET", "path": "resilience/ENV-SIG/scenario-1/manifest.cose",
+            "status": 200, "bytes_sent": 256, "sha256": "d" * 64,
+            "tls_protocol": "TLSv1.3", "tls_cipher": "TLS_AES_128_GCM_SHA256",
+            "duration_ns": 12,
+        }
+        self.assertEqual(_http_rows((json.dumps(row) + "\n").encode()), [row])
+        row["host"] = "wasmhome-issue22.test:18446"
+        with self.assertRaisesRegex(HILInputError, "private host value"):
+            _http_rows((json.dumps(row) + "\n").encode())
+
     def test_zero_floor_barrier_runs_before_serial_or_output_access(self):
         item = row_for("ENV-HASH", "native")
         with tempfile.TemporaryDirectory() as temp_name:
@@ -514,7 +615,7 @@ class ResilienceHILRunnerTests(unittest.TestCase):
                       "--output", str(output)])
             self.assertEqual(raised.exception.code, 2)
             self.assertFalse(output.exists())
-            self.assertIn("exactly 2", stderr.getvalue())
+            self.assertIn("ledger floor, target version, and sequence 2", stderr.getvalue())
 
 
 if __name__ == "__main__":

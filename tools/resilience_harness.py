@@ -155,6 +155,42 @@ def resilience_plan(seed: str) -> list[dict]:
     return plan
 
 
+def resilience_preliminary_plan(seed: str) -> list[dict]:
+    """Build the closed 16-attempt preliminary matrix required by issue #22.
+
+    This proof samples each ENV failure once in native/interp/AOT order, then
+    runs both Wasm controls, one OOB and DIV0 trap per modular profile, and one
+    native controlled abort. The separate 72-row issue #23 planner is unchanged.
+    """
+    if not isinstance(seed, str) or not seed or len(seed) > 128:
+        raise ValueError("seed must be a non-empty string of at most 128 characters")
+    cells: list[tuple[str, str, int, str]] = []
+    for case_id in ENV_CASES:
+        cells.extend((scenario, case_id, 1, "failure") for scenario in SCENARIOS)
+    cells.extend((scenario, "WASM-ZERO", 1, "control") for scenario in WASM_MODES)
+    for case_id in ("WASM-OOB", "WASM-DIV0"):
+        cells.extend((scenario, case_id, 1, "failure") for scenario in WASM_MODES)
+    cells.append(("native", "NAT-ABORT", 1, "failure"))
+
+    plan = []
+    for index, (scenario, case_id, repetition, purpose) in enumerate(cells, 1):
+        identity = f"{seed}:{index}:{scenario}:{case_id}:{repetition}"
+        attempt_id = str(uuid.uuid5(PLAN_NAMESPACE, identity))
+        plan.append({
+            "event": "fault_request",
+            "attempt_id": attempt_id,
+            "case_id": case_id,
+            "scenario": scenario,
+            "repetition": repetition,
+            "purpose": purpose,
+            "plan_index": index,
+            "status": "planned",
+        })
+    if len(plan) != 16 or sum(item["purpose"] == "failure" for item in plan) != 14:
+        raise AssertionError("internal issue #22 preliminary matrix differs from its 16-attempt contract")
+    return plan
+
+
 def parse_serial_event(raw_line: bytes | str) -> dict | None:
     """Decode one prefixed event; return None for unrelated serial output."""
     if isinstance(raw_line, bytes):
@@ -959,9 +995,11 @@ def _write_exclusive(path: Path, data: bytes):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
-    plan_parser = subparsers.add_parser("plan", help="write the approved 72-slot matrix offline")
+    plan_parser = subparsers.add_parser("plan", help="write an approved resilience matrix offline")
     plan_parser.add_argument("--seed", required=True)
     plan_parser.add_argument("--output", type=Path, required=True)
+    plan_parser.add_argument("--scope", choices=("full", "preliminary"), default="full",
+                             help="full 72-row issue #23 matrix (default) or preliminary 16-row issue #22 proof")
     correlate_parser = subparsers.add_parser("correlate", help="join existing serial and UDP captures")
     correlate_parser.add_argument("--serial-log", type=Path, required=True)
     correlate_parser.add_argument("--observations", type=Path, required=True)
@@ -971,12 +1009,18 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         if args.command == "plan":
-            records = resilience_plan(args.seed)
+            if args.scope == "preliminary":
+                records = resilience_preliminary_plan(args.seed)
+                failures, controls = 14, 2
+            else:
+                records = resilience_plan(args.seed)
+                failures, controls = 70, 2
             content = "".join(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n"
                               for record in records).encode("utf-8")
             _write_exclusive(args.output, content)
-            print(json.dumps({"planned_slots": len(records), "failures": 70,
-                              "controls": 2, "output": str(args.output)}, sort_keys=True))
+            print(json.dumps({"scope": args.scope, "planned_slots": len(records),
+                              "failures": failures, "controls": controls,
+                              "output": str(args.output)}, sort_keys=True))
             return 0
 
         events = _read_serial_events(args.serial_log)

@@ -9,22 +9,83 @@ import os
 import pathlib
 import re
 import ssl
+import stat
 import threading
+import tempfile
 import time
 import urllib.parse
 
-from signed_artifacts import _json_load, public_der_from_key, verify_envelope
+try:
+    from .signed_artifacts import (
+        MAX_ENVELOPE, MAX_PAYLOAD, _json_load, _read_limited, public_der_from_key,
+        verify_envelope, verify_set,
+    )
+except ImportError:
+    from signed_artifacts import (
+        MAX_ENVELOPE, MAX_PAYLOAD, _json_load, _read_limited, public_der_from_key,
+        verify_envelope, verify_set,
+    )
 
 CASES = ("ENV-SIG", "ENV-HASH", "ENV-OLD")
 PAYLOADS = {1: "firmware.bin", 2: "control.wasm", 3: "control.aot"}
 SCENARIOS = (1, 2, 3)
 MAX_PAYLOAD = {1: 7 * 1024 * 1024, 2: 65536, 3: 65536}
 RESERVED_CAMPAIGN_PORTS = frozenset({8443, 8444})
+DEFAULT_PORT = 18445
 
 
 def require(condition, message):
     if not condition:
         raise ValueError(message)
+
+
+def write_server_pid_receipt(path):
+    """Durably record this server process before constructing/binding its socket."""
+    receipt = pathlib.Path(path)
+    require(receipt.is_absolute() and ".." not in receipt.parts,
+            "server PID receipt must be an absolute canonical path")
+    parent = receipt.parent
+    require(parent.is_dir() and not parent.is_symlink(),
+            "server PID receipt directory is missing or symlinked")
+    parent_info = parent.stat()
+    require(parent_info.st_uid == os.getuid() and stat.S_IMODE(parent_info.st_mode) == 0o700,
+            "server PID receipt directory must be private and user-owned")
+    try:
+        receipt.lstat()
+    except FileNotFoundError:
+        pass
+    else:
+        raise ValueError("server PID receipt already exists; verify/stop the prior campaign process first")
+    raw_stat = pathlib.Path("/proc/self/stat").read_text(encoding="ascii")
+    fields_after_comm = raw_stat.rsplit(")", 1)[1].split()
+    start_time = fields_after_comm[19]
+    require(start_time.isdigit(), "cannot read server process start-time")
+    payload = f"{os.getpid()} {start_time}\n".encode("ascii")
+    fd, temporary = tempfile.mkstemp(prefix=".server.pid.", dir=parent)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "wb") as stream:
+            fd = -1
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        # Hard-link gives an atomic no-replace commit. A concurrent or stale
+        # receipt is a hard gate; this server must not overwrite it.
+        os.link(temporary, receipt, follow_symlinks=False)
+        os.unlink(temporary)
+        directory_fd = os.open(parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        if fd >= 0:
+            os.close(fd)
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+    return os.getpid(), start_time
 
 
 def validate_fixture_port(port):
@@ -65,7 +126,8 @@ def validate_file(root, relative, expected_bytes, expected_sha256, limit):
 
 
 def load_allowlist(root, trusted_public_path, untrusted_public_path,
-                   expected_campaign_id, expected_aot_toolchain_id):
+                   expected_campaign_id, expected_aot_toolchain_id,
+                   ota_package_root=None, ota_public_key=None):
     root = pathlib.Path(root)
     require(root.is_dir() and not root.is_symlink(), "fixture root missing or symlink")
     root = root.resolve()
@@ -165,6 +227,53 @@ def load_allowlist(root, trusted_public_path, untrusted_public_path,
     top_level = {path.name for path in root.iterdir()}
     require(top_level == {"fixture-index.json", "resilience", "verification"},
             "fixture package contains unexpected top-level entries")
+
+    # The ordinary signed sequence-2 updater uses a separate, immutable package
+    # layout and signing key. Keep it opt-in so a fixture-only server cannot
+    # accidentally become a release server. The orchestrator supplies both
+    # inputs and requires all three scenario payloads to be v2/sequence 2.
+    require((ota_package_root is None) == (ota_public_key is None),
+            "OTA package root and signing key must be supplied together")
+    if ota_package_root is not None:
+        ota_root = pathlib.Path(ota_package_root)
+        require(ota_root.is_dir() and not ota_root.is_symlink(),
+                "OTA package root missing or symlink")
+        ota_root = ota_root.resolve()
+        verification = verify_set(ota_root, ota_public_key,
+            expected_campaign_id=expected_campaign_id,
+            expected_aot_toolchain_id=expected_aot_toolchain_id)
+        require(verification.get("campaign_id") == campaign_id,
+                "OTA package and fixture campaign differ")
+        ota_index = _json_load(ota_root / "index.json", max_bytes=65536)
+        names = {1: "firmware.bin", 2: "control.wasm", 3: "control.aot"}
+        records = ota_index.get("artifacts")
+        require(isinstance(records, list), "OTA package artifact index is invalid")
+        selected = [record for record in records if isinstance(record, dict)
+                    and record.get("label") == "v2"]
+        require(len(selected) == 3, "OTA package must contain exactly three v2 artifacts")
+        for record in selected:
+            scenario = record.get("scenario")
+            require(scenario in SCENARIOS and record.get("sequence") == 2
+                    and record.get("release_version") == "v2",
+                    "OTA package release must be signed sequence 2")
+            expected_component = "firmware" if scenario == 1 else "gpio-control"
+            base = pathlib.PurePosixPath(f"scenario-{scenario}") / expected_component / "v2"
+            payload_rel = (base / names[scenario]).as_posix()
+            envelope_rel = (base / "manifest.cose").as_posix()
+            require(record.get("component") == expected_component
+                    and record.get("payload_path") == payload_rel
+                    and record.get("envelope_path") == envelope_rel,
+                    "OTA package route differs from the normal signed-update contract")
+            for relative, byte_count_field, digest_field, limit in (
+                    (payload_rel, "payload_bytes", "payload_sha256", MAX_PAYLOAD[scenario]),
+                    (envelope_rel, "envelope_bytes", "envelope_sha256", MAX_ENVELOPE)):
+                path = ota_root.joinpath(*pathlib.PurePosixPath(relative).parts)
+                data = _read_limited(path, limit, "OTA package artifact")
+                require(len(data) == record.get(byte_count_field)
+                        and hashlib.sha256(data).hexdigest() == record.get(digest_field),
+                        "OTA package artifact digest/size differs from its signed index")
+                require(relative not in allowed, "OTA package route collides with a fixture route")
+                allowed[relative] = (path, len(data), hashlib.sha256(data).hexdigest())
     return root, campaign_id, allowed, index
 
 
@@ -196,9 +305,17 @@ class FixtureHandler(http.server.BaseHTTPRequestHandler):
         encoded = (json.dumps(entry, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
         with self.server.log_lock:
             descriptor = os.open(self.server.log_path,
-                os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o640)
+                os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0),
+                self.server.log_mode)
             try:
-                os.write(descriptor, encoded)
+                os.fchmod(descriptor, self.server.log_mode)
+                view = memoryview(encoded)
+                while view:
+                    written = os.write(descriptor, view)
+                    if written <= 0:
+                        raise OSError("short write to private HTTPS event log")
+                    view = view[written:]
+                os.fsync(descriptor)
             finally:
                 os.close(descriptor)
 
@@ -269,16 +386,20 @@ class FixtureHTTPServer(http.server.ThreadingHTTPServer):
     request_timeout = 10
 
     def __init__(self, address, root, certificate, private_key, log_path, server_name,
-                 server_ip, trusted_public, untrusted_public, campaign_id, aot_toolchain_id):
+                 server_ip, trusted_public, untrusted_public, campaign_id, aot_toolchain_id,
+                 ota_package_root=None, ota_public_key=None, log_mode=0o640):
         validate_fixture_port(address[1])
         package_root, campaign, allowed, index = load_allowlist(
-            root, trusted_public, untrusted_public, campaign_id, aot_toolchain_id)
+            root, trusted_public, untrusted_public, campaign_id, aot_toolchain_id,
+            ota_package_root=ota_package_root, ota_public_key=ota_public_key)
         self.package_root = package_root
         self.campaign_id = campaign
         self.expected_server_name = server_name
         self.server_ip = server_ip
         self.allowed = allowed
         self.log_path = pathlib.Path(log_path).absolute()
+        require(log_mode in (0o600, 0o640), "HTTP log mode must be 0600 or 0640")
+        self.log_mode = log_mode
         require(self.log_path.parent.is_dir() and not self.log_path.parent.is_symlink(),
                 "HTTP log directory is missing or symlink")
         require(not self.log_path.is_symlink(), "HTTP log path is symlink")
@@ -324,34 +445,50 @@ def main():
     parser.add_argument("--private-key", type=pathlib.Path, required=True)
     parser.add_argument("--log", type=pathlib.Path, required=True)
     parser.add_argument("--bind", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8445)
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--server-name", required=True)
     parser.add_argument("--server-ip", required=True)
     parser.add_argument("--campaign-id", required=True)
     parser.add_argument("--aot-toolchain-id", required=True)
+    parser.add_argument("--ota-package-root", type=pathlib.Path,
+                        help="optional verified signed-artifacts package; only v2/sequence-2 routes are served")
+    parser.add_argument("--ota-public-key", type=pathlib.Path,
+                        help="trusted public key for the optional signed OTA package")
+    parser.add_argument("--log-mode", type=lambda value: int(value, 8), default=0o640,
+                        help="private append log mode: 600 or 640")
+    parser.add_argument("--pid-file", type=pathlib.Path,
+                        help="private receipt written by this process before binding the HTTPS socket")
     parser.add_argument("--check", action="store_true", help="validate immutable catalog/TLS config without binding")
     args = parser.parse_args()
     try:
         validate_fixture_port(args.port)
     except ValueError as error:
         parser.error(str(error))
+    require(args.log_mode in (0o600, 0o640), "HTTP log mode must be 0600 or 0640")
     require(ipaddress.ip_address(args.server_ip).version == 4, "server IP must be IPv4")
     # Constructing the server also opens the socket; --check performs the same
     # package and TLS validations without opening a listener.
     if args.check:
         root, campaign, allowed, index = load_allowlist(args.fixture_root,
-            args.trusted_public_key, args.untrusted_public_key, args.campaign_id, args.aot_toolchain_id)
+            args.trusted_public_key, args.untrusted_public_key, args.campaign_id,
+            args.aot_toolchain_id, ota_package_root=args.ota_package_root,
+            ota_public_key=args.ota_public_key)
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.minimum_version = ssl.TLSVersion.TLSv1_2
         context.load_cert_chain(certfile=str(args.certificate), keyfile=str(args.private_key))
         require(args.log.parent.is_dir() and not args.log.parent.is_symlink(), "HTTP log directory missing")
+        require(not args.log.is_symlink(), "HTTP log path is a symlink")
         print(json.dumps({"status":"validated", "campaign_id":campaign, "fixtures":len(allowed)//2,
             "bind":args.bind, "port":args.port, "server_name":args.server_name,
             "server_ip":args.server_ip, "trusted_public_key_sha256":index["trusted_fixture_public_key_sha256"]}, sort_keys=True))
         return 0
+    if args.pid_file is not None:
+        write_server_pid_receipt(args.pid_file)
     server = FixtureHTTPServer((args.bind, args.port), args.fixture_root, args.certificate,
         args.private_key, args.log, args.server_name, args.server_ip, args.trusted_public_key,
-        args.untrusted_public_key, args.campaign_id, args.aot_toolchain_id)
+        args.untrusted_public_key, args.campaign_id, args.aot_toolchain_id,
+        ota_package_root=args.ota_package_root, ota_public_key=args.ota_public_key,
+        log_mode=args.log_mode)
     print(json.dumps({"status":"listening", "bind":args.bind, "port":args.port,
         "campaign_id":server.campaign_id, "fixtures":len(server.allowed)//2}, sort_keys=True), flush=True)
     try:

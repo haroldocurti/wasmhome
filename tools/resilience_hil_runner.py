@@ -31,11 +31,12 @@ from external_observer import Observer
 from resilience_harness import (
     FAULT_CASES, SCENARIOS, ResilienceFormatError, _read_jsonl,
     _read_serial_events, correlate, make_fault_request, resilience_plan,
+    resilience_preliminary_plan,
 )
 
 
 CAMPAIGN_ID = "issues16-18-bench-20261016-observer13"
-PREFLIGHT_SCHEMA = "wasmhome-issue22-readonly-preflight-v1"
+PREFLIGHT_SCHEMA = "wasmhome-issue22-readonly-preflight-v4"
 RUN_SCHEMA = "wasmhome-issue22-hil-run-v1"
 HTTP_SCHEMA = "wasmhome-issue22-fixture-http-v1"
 HTTP_FIELDS = {
@@ -43,10 +44,22 @@ HTTP_FIELDS = {
     "bytes_sent", "sha256", "tls_protocol", "tls_cipher", "duration_ns",
 }
 PROFILE_FOR_SCENARIO = {"native": "native", "interp": "module-interp", "aot": "module-aot"}
-EXPECTED_FIRMWARE_SHA256 = {
-    "native": "e36cdfa37a875996db44f45393342d643c1fc55f282b49379e4498365af3747c",
-    "module-interp": "a4019449255b4ad228e3aca53e2f4198be8f64f61f68835b6a702d2d3fca5548",
-    "module-aot": "18767cf4f045ad24d1a7a3118bb6baf63e406f259dacd26183031f574cb57250",
+CONTROL_VERSION_BY_PROFILE = {"native": 1, "module-interp": 2, "module-aot": 2}
+UPDATE_RECORD_IDENTITY = {
+    "native": {"scenario": 1, "component": "firmware"},
+    "module-interp": {"scenario": 2, "component": "gpio-control"},
+    "module-aot": {"scenario": 3, "component": "gpio-control"},
+}
+ACTIVE_SLOT_VALUES = {
+    "native": {0x20000, 0x720000},
+    "module-interp": {0, 1},
+    "module-aot": {0, 1},
+}
+EXPECTED_RELEASE_ARTIFACTS = {
+    # Exact signed v2 artifacts from docs/evidence/issue16-native-ota-2026-10-16.json.
+    "native": ("8df016fe253d58eb0b9073037e38cf6568162a0964c03aa2aa384d9185f44137", 898832),
+    "module-interp": ("3a972948112397acdaad03c81714a3daf147ecce926f0854341e58a350f3d5c5", 328),
+    "module-aot": ("293d78b1af5e0c7e76593d9b8e755692ee311d8427c43d94673ddfd499d5bf53", 1256),
 }
 PAYLOAD_FOR_SCENARIO = {"native": "firmware.bin", "interp": "control.wasm", "aot": "control.aot"}
 MAX_HTTP_BYTES = 64 * 1024 * 1024
@@ -395,8 +408,14 @@ def _strict_json(data: bytes, where: str):
         raise HILInputError(f"{where}: invalid JSON") from error
 
 
-def load_plan(path: Path) -> list[dict]:
-    """Read and validate one exact 72-row plan emitted by resilience_harness."""
+def load_plan(path: Path, scope: str = "full") -> list[dict]:
+    """Read and validate one exact approved #22 or #23 plan.
+
+    Scope is explicit so a preliminary #22 plan cannot be mistaken for the
+    full #23 campaign. The default preserves the existing full-matrix runner.
+    """
+    if scope not in ("full", "preliminary"):
+        raise HILInputError("plan scope must be explicitly recognized as full or preliminary")
     try:
         raw = path.read_bytes()
     except OSError as error:
@@ -407,30 +426,41 @@ def load_plan(path: Path) -> list[dict]:
         if not isinstance(row, dict):
             raise HILInputError(f"plan line {number}: expected object")
         rows.append(row)
-    expected = resilience_plan("runner-contract")
+    expected = (resilience_preliminary_plan("runner-contract") if scope == "preliminary"
+                else resilience_plan("runner-contract"))
     if len(rows) != len(expected):
-        raise HILInputError("plan must contain the complete 72-attempt matrix")
+        count = 16 if scope == "preliminary" else 72
+        raise HILInputError(f"plan must contain the complete {count}-attempt {scope} matrix")
     identifiers = set()
     for index, (row, contract) in enumerate(zip(rows, expected), 1):
-        for key in ("case_id", "scenario", "repetition", "purpose", "plan_index", "status"):
-            if row.get(key) != contract[key]:
+        if set(row) != set(contract):
+            raise HILInputError(f"plan row {index}: fields differ from the closed matrix schema")
+        # Preserve the contract's insertion order so validation reports the
+        # first differing field deterministically across Python hash seeds.
+        for key in contract:
+            if key == "attempt_id":
+                continue
+            if type(row[key]) is not type(contract[key]) or row[key] != contract[key]:
                 raise HILInputError(f"plan row {index}: matrix differs at {key}")
         try:
-            attempt = str(uuid.UUID(row.get("attempt_id", "")))
+            parsed_attempt = uuid.UUID(row.get("attempt_id", ""))
+            attempt = str(parsed_attempt)
         except (ValueError, TypeError, AttributeError) as error:
             raise HILInputError(f"plan row {index}: invalid attempt_id") from error
-        if row["attempt_id"] != attempt or attempt in identifiers:
-            raise HILInputError(f"plan row {index}: attempt_id is non-canonical or reused")
+        if (row["attempt_id"] != attempt or parsed_attempt.version != 5 or
+                parsed_attempt.variant != uuid.RFC_4122 or attempt in identifiers):
+            raise HILInputError(f"plan row {index}: attempt_id must be a unique canonical UUIDv5")
         identifiers.add(attempt)
     return rows
 
 
 def validate_preflight(value: object, item: dict) -> dict:
-    """Validate a privacy-minimized, operator-read preflight before hardware I/O."""
+    """Validate an offline NVS preflight before hardware I/O."""
     if not isinstance(value, dict):
         raise HILInputError("preflight must be a JSON object")
-    allowed = {"schema", "campaign_id", "profile", "boot_id", "firmware_sha256",
-               "native_state", "module_state"}
+    allowed = {"schema", "campaign_id", "profile", "record_identity", "boot_id",
+               "control_version", "release_artifact_sha256", "native_state", "module_state",
+               "recovery_state"}
     if set(value) != allowed:
         raise HILInputError("preflight fields differ; use the documented privacy-minimized schema")
     if value["schema"] != PREFLIGHT_SCHEMA or value["campaign_id"] != CAMPAIGN_ID:
@@ -438,45 +468,70 @@ def validate_preflight(value: object, item: dict) -> dict:
     scenario = item["scenario"]
     if value["profile"] != PROFILE_FOR_SCENARIO[scenario]:
         raise HILInputError("preflight profile does not match the selected plan row")
+    profile = PROFILE_FOR_SCENARIO[scenario]
+    if value["record_identity"] != UPDATE_RECORD_IDENTITY[profile]:
+        raise HILInputError("preflight update-record identity does not match the selected profile")
+    control_version = value["control_version"]
+    if (isinstance(control_version, bool) or not isinstance(control_version, int) or
+            control_version != CONTROL_VERSION_BY_PROFILE[profile]):
+        raise HILInputError("preflight control version does not match the selected firmware profile")
     boot = value["boot_id"]
     if not isinstance(boot, str) or len(boot) != 16 or any(c not in "0123456789abcdef" for c in boot) or int(boot, 16) == 0:
         raise HILInputError("preflight boot_id must be 16 lowercase hex digits and nonzero")
-    firmware_hash = value["firmware_sha256"]
-    if not isinstance(firmware_hash, str) or len(firmware_hash) != 64 or any(c not in "0123456789abcdef" for c in firmware_hash):
-        raise HILInputError("preflight firmware_sha256 must be lowercase SHA-256")
-    if firmware_hash != EXPECTED_FIRMWARE_SHA256[PROFILE_FOR_SCENARIO[scenario]]:
-        raise HILInputError("preflight firmware hash differs from the registered issue #22 profile build")
+    release_hash = value["release_artifact_sha256"]
+    if (not isinstance(release_hash, str) or len(release_hash) != 64 or
+            any(c not in "0123456789abcdef" for c in release_hash)):
+        raise HILInputError("preflight release_artifact_sha256 must be lowercase SHA-256")
+    expected_release_hash, expected_release_size = EXPECTED_RELEASE_ARTIFACTS[profile]
+    if release_hash != expected_release_hash:
+        raise HILInputError("preflight release artifact hash differs from the registered signed v2 artifact")
 
-    case = item["case_id"]
+    recovery = value["recovery_state"]
+    if (not isinstance(recovery, dict) or
+            set(recovery) != {"previous_attempt_present", "recovery_complete"} or
+            not isinstance(recovery["previous_attempt_present"], bool) or
+            not isinstance(recovery["recovery_complete"], bool)):
+        raise HILInputError("recovery_state must contain only prior-attempt presence and recovery completeness")
+    if recovery["recovery_complete"] is not True:
+        raise HILInputError("previous resilience attempt has not completed recovery")
+    state_fields = {"ledger_present", "accepted_floor", "ledger_active_target_version",
+                    "ledger_active_sequence", "active_slot", "active_payload_size",
+                    "active_payload_sha256", "active_manifest_sha256", "pending"}
+
+    def validate_active_state(state: object, label: str) -> dict:
+        if not isinstance(state, dict) or set(state) != state_fields:
+            raise HILInputError(f"{label} does not match the sanitized ledger-state schema")
+        integers = (state["accepted_floor"], state["ledger_active_target_version"],
+                    state["ledger_active_sequence"], state["active_slot"],
+                    state["active_payload_size"])
+        if (state["ledger_present"] is not True or state["pending"] is not False or
+                any(isinstance(number, bool) or not isinstance(number, int) or number < 0
+                    for number in integers)):
+            raise HILInputError(f"{label} must report a present, non-pending active ledger record")
+        if (state["accepted_floor"], state["ledger_active_target_version"],
+                state["ledger_active_sequence"]) != (2, 2, 2):
+            raise HILInputError(f"{label} requires ledger floor, target version, and sequence 2")
+        if (state["active_slot"] not in ACTIVE_SLOT_VALUES[profile] or
+                state["active_payload_size"] != expected_release_size):
+            raise HILInputError(f"{label} has an invalid active slot or payload size")
+        for field in ("active_payload_sha256", "active_manifest_sha256"):
+            digest = state[field]
+            if (not isinstance(digest, str) or len(digest) != 64 or
+                    any(character not in "0123456789abcdef" for character in digest) or
+                    digest == "0" * 64):
+                raise HILInputError(f"{label} must contain a nonzero lowercase {field} hash")
+        if state["active_payload_sha256"] != release_hash:
+            raise HILInputError(f"{label} active payload hash differs from the registered release artifact")
+        return state
+
     if scenario == "native":
-        state = value["native_state"]
-        if not isinstance(state, dict) or set(state) != {"ledger_present", "accepted_floor", "pending"}:
-            raise HILInputError("native_state must contain only ledger_present, accepted_floor, and pending")
-        floor = state["accepted_floor"]
-        if (not isinstance(state["ledger_present"], bool) or isinstance(floor, bool) or
-                not isinstance(floor, int) or floor < 0 or state["pending"] is not False):
-            raise HILInputError("native state must report ledger presence, non-pending status, and a nonnegative floor")
-        if case in ("ENV-SIG", "ENV-HASH", "ENV-OLD") and state["ledger_present"] is not True:
-            raise HILInputError(f"{case} requires a present native update ledger")
-        if case in ("ENV-SIG", "ENV-HASH") and floor != 2:
-            raise HILInputError(f"{case} requires native accepted_floor exactly 2; observed {floor}")
-        if case == "ENV-OLD" and floor < 1:
-            raise HILInputError("ENV-OLD requires native accepted_floor >= 1; floor 0 is not an old-sequence test")
+        validate_active_state(value["native_state"], "native_state")
         if value["module_state"] is not None:
             raise HILInputError("native preflight must not include modular state")
     else:
         if value["native_state"] is not None:
             raise HILInputError("modular preflight must not include native state")
-        state = value["module_state"]
-        fields = {"ledger_present", "accepted_floor", "active_version", "active_sequence", "pending"}
-        if not isinstance(state, dict) or set(state) != fields:
-            raise HILInputError("module_state does not match the documented minimal schema")
-        integers = (state["accepted_floor"], state["active_version"], state["active_sequence"])
-        if (state["ledger_present"] is not True or state["pending"] is not False or
-                any(isinstance(number, bool) or not isinstance(number, int) or number < 0 for number in integers)):
-            raise HILInputError("module ledger must be present, non-pending, and use nonnegative integer state")
-        if (state["accepted_floor"], state["active_version"], state["active_sequence"]) != (2, 2, 2):
-            raise HILInputError("modular HIL requires accepted_floor=2 and active module version/sequence=2")
+        validate_active_state(value["module_state"], "module_state")
     return value
 
 
@@ -541,11 +596,19 @@ def _http_rows(data: bytes) -> list[dict]:
         path_value = row["path"]
         path_valid = (isinstance(path_value, str) and len(path_value) <= 256 and
                       all(character.isalnum() or character in "._/-" for character in path_value))
+        host = row["host"]
+        host_valid = False
+        if isinstance(host, str) and len(host) <= 280:
+            # The campaign listener moved to the unprivileged user-mode port
+            # 18445. Accept the prior 8445 logs for historical evidence, while
+            # continuing to bind correlation to the two registered campaign
+            # host identities and exact allowed ports.
+            host_valid = host.lower() in {
+                "wasmhome-issue22.test", "wasmhome-issue22.test:8445",
+                "wasmhome-issue22.test:18445", "192.168.0.138",
+                "192.168.0.138:8445", "192.168.0.138:18445"}
         if (not peer_valid or
-                not isinstance(row["host"], str) or
-                row["host"].lower() not in {
-                    "wasmhome-issue22.test", "wasmhome-issue22.test:8445",
-                    "192.168.0.138", "192.168.0.138:8445"} or
+                not host_valid or
                 row["method"] not in ("GET", "HEAD", "POST", "UNKNOWN") or
                 not path_valid or
                 row["tls_protocol"] not in (None, "TLSv1.3") or
@@ -681,7 +744,10 @@ def execute_trial(*, item: dict, preflight: dict, serial_port, udp, output: Path
         pre_seconds, post_seconds, boot_wait_seconds, period_ms, timeout_ms)
     if not 0 <= max_sample_age_ms < 65535:
         raise HILInputError("max_sample_age_ms outside UDP protocol range")
-    scenario_version = 1 if item["scenario"] == "native" else 2
+    profile = PROFILE_FOR_SCENARIO[item["scenario"]]
+    scenario_version = CONTROL_VERSION_BY_PROFILE[profile]
+    if preflight.get("control_version") != scenario_version:
+        raise HILInputError("preflight control version does not match the selected firmware profile")
     peer = (str(ipaddress.IPv4Address(device_ip)), device_port)
     local = (str(ipaddress.IPv4Address(bind_ip)), udp_port)
 
@@ -868,7 +934,7 @@ def execute_trial(*, item: dict, preflight: dict, serial_port, udp, output: Path
         "campaign_id": CAMPAIGN_ID,
         "profile": preflight["profile"],
         "boot_id_preflight": preflight["boot_id"],
-        "firmware_sha256_preflight_attestation": preflight["firmware_sha256"],
+        "release_artifact_sha256_preflight_attestation": preflight["release_artifact_sha256"],
         "started_host_monotonic_ns": start_mono,
         "started_host_unix_ns": start_unix,
         "ended_host_monotonic_ns": ended_mono,
@@ -922,9 +988,9 @@ def correlate_http_snapshots(run_dir: Path, before_path: Path, after_path: Path)
 
 
 def _command_run(args) -> int:
-    plan = load_plan(args.plan)
+    plan = load_plan(args.plan, scope=args.plan_scope)
     if not 1 <= args.slot <= len(plan):
-        raise HILInputError("slot must be in 1..72")
+        raise HILInputError(f"slot must be in 1..{len(plan)} for the selected {args.plan_scope} matrix")
     item = plan[args.slot - 1]
     if args.arm_attempt_id != item["attempt_id"]:
         raise HILInputError("--arm-attempt-id must exactly match the selected plan row UUID")
@@ -950,7 +1016,8 @@ def _command_run(args) -> int:
         raise
     os.chmod(output, 0o700)
     _write_private_bytes(output / "inputs.json", (json.dumps({
-        "schema": "wasmhome-issue22-hil-inputs-v1", "attempt": item,
+        "schema": "wasmhome-issue22-hil-inputs-v1", "plan_scope": args.plan_scope,
+        "attempt": item,
         "preflight_sha256": preflight_hash, "preflight": preflight,
         "serial_port": args.serial_port, "baud": args.baud,
         "device_ip": device_ip, "bind_ip": bind_ip,
@@ -1005,7 +1072,9 @@ def main(argv=None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     run = sub.add_parser("run", help="dispatch and capture one explicitly armed physical attempt")
     run.add_argument("--plan", type=Path, required=True)
-    run.add_argument("--slot", type=int, required=True, help="1-based row in the 72-attempt plan")
+    run.add_argument("--plan-scope", choices=("full", "preliminary"), default="full",
+                     help="must match the generated plan: full #23 matrix or preliminary #22 proof")
+    run.add_argument("--slot", type=int, required=True, help="1-based row in the selected plan")
     run.add_argument("--preflight", type=Path, required=True)
     run.add_argument("--arm-attempt-id", required=True, help="must exactly match the selected plan UUID")
     run.add_argument("--serial-port", required=True, help="explicit device path; never auto-discovered")

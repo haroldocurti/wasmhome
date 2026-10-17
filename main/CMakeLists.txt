@@ -187,6 +187,40 @@ if(CONFIG_WASMHOME_RESILIENCE_TEST_MODE)
     list(APPEND SCENARIO_SOURCE "resilience_test.c" "resilience_test_protocol.c")
 endif()
 
+# Bind the HIL bootstrap configuration to the app image itself. A sidecar
+# manifest alone can claim an endpoint/CA that was never compiled into the
+# firmware, so every opt-in #22 profile embeds a small build marker derived
+# from this build's sdkconfig and CA bytes.
+if(CONFIG_WASMHOME_RESILIENCE_TEST_MODE OR CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
+    if(NOT CONFIG_WASMHOME_SIGNED_UPDATE OR NOT CONFIG_WASMHOME_UPDATE_CA_CERT_PATH OR
+       NOT EXISTS "${CONFIG_WASMHOME_UPDATE_CA_CERT_PATH}")
+        message(FATAL_ERROR "Issue #22 profile provenance requires the signed-update CA bundle")
+    endif()
+    if(NOT CONFIG_WASMHOME_RESILIENCE_FIXTURE_SERVER_IPV4 OR
+       NOT CONFIG_WASMHOME_RESILIENCE_FIXTURE_SERVER_NAME OR
+       NOT CONFIG_WASMHOME_RESILIENCE_FIXTURE_SERVER_PORT EQUAL 18445)
+        message(FATAL_ERROR "Issue #22 profile must compile its user-mode HTTPS endpoint on port 18445")
+    endif()
+    if(EXPERIMENT_SCENARIO STREQUAL "native" AND CONFIG_WASMHOME_RESILIENCE_TEST_MODE)
+        set(ISSUE22_PROFILE_NAME "native")
+        set(ISSUE22_TIMEOUT_MS "${CONFIG_WASMHOME_RESILIENCE_FUNCTIONAL_TIMEOUT_MS}")
+    elseif(EXPERIMENT_SCENARIO STREQUAL "module-interp" AND CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
+        set(ISSUE22_PROFILE_NAME "interp")
+        set(ISSUE22_TIMEOUT_MS "${CONFIG_WASMHOME_MODULE_RESILIENCE_FUNCTIONAL_TIMEOUT_MS}")
+    elseif(EXPERIMENT_SCENARIO STREQUAL "module-aot" AND CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
+        set(ISSUE22_PROFILE_NAME "aot")
+        set(ISSUE22_TIMEOUT_MS "${CONFIG_WASMHOME_MODULE_RESILIENCE_FUNCTIONAL_TIMEOUT_MS}")
+    else()
+        message(FATAL_ERROR "Issue #22 test mode and EXPERIMENT_SCENARIO do not identify one supported profile")
+    endif()
+    file(SHA256 "${CONFIG_WASMHOME_UPDATE_CA_CERT_PATH}" ISSUE22_CA_SHA256)
+    set(ISSUE22_PROVENANCE_FILE "${CMAKE_CURRENT_BINARY_DIR}/issue22-build-provenance.txt")
+    configure_file("${CMAKE_CURRENT_LIST_DIR}/issue22-build-provenance.txt.in"
+        "${ISSUE22_PROVENANCE_FILE}" @ONLY)
+    list(APPEND UPDATE_EMBED_TXTFILES "${ISSUE22_PROVENANCE_FILE}")
+    list(APPEND SCENARIO_SOURCE "issue22_build_provenance.c")
+endif()
+
 if(CONFIG_WASMHOME_RUN_BENCHMARK)
     list(APPEND SCENARIO_REQUIRES "pthread")
 endif()

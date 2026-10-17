@@ -7,10 +7,14 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
+import tools.resilience_fixture_https_server as fixture_server
 from tools.generate_resilience_fixtures import generate
 from tools.signed_artifacts import public_der_from_key, sign_set, verify_envelope
-from tools.resilience_fixture_https_server import load_allowlist, validate_fixture_port
+from tools.resilience_fixture_https_server import (
+    load_allowlist, validate_fixture_port, write_server_pid_receipt,
+)
 
 
 @unittest.skipUnless(shutil.which("openssl"), "OpenSSL CLI is required")
@@ -96,6 +100,48 @@ class ResilienceFixtureTests(unittest.TestCase):
                 ], check=False, capture_output=True, text=True)
                 self.assertEqual(result.returncode, 2)
                 self.assertIn("ports 8443 and 8444 are reserved", result.stderr)
+
+    def test_server_process_receipt_is_atomic_exclusive_and_private(self):
+        directory = self.root / "private-server"
+        directory.mkdir(mode=0o700)
+        directory.chmod(0o700)
+        receipt = directory / "server.pid"
+        pid, starttime = write_server_pid_receipt(receipt)
+        self.assertEqual(pid, os.getpid())
+        self.assertTrue(starttime.isdigit())
+        self.assertEqual(receipt.read_text(), f"{pid} {starttime}\n")
+        self.assertEqual(receipt.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(list(directory.glob(".server.pid.*")), [])
+        with self.assertRaisesRegex(ValueError, "already exists"):
+            write_server_pid_receipt(receipt)
+
+    def test_startup_interruption_after_receipt_leaves_recoverable_identity_before_bind(self):
+        directory = self.root / "private-startup"
+        directory.mkdir(mode=0o700)
+        directory.chmod(0o700)
+        receipt = directory / "server.pid"
+        arguments = ["resilience_fixture_https_server.py",
+            "--fixture-root", str(self.root / "fixtures"),
+            "--trusted-public-key", str(self.trusted_public),
+            "--untrusted-public-key", str(self.untrusted_public),
+            "--certificate", str(self.root / "server.crt"),
+            "--private-key", str(self.root / "server.key"),
+            "--log", str(directory / "http.jsonl"),
+            "--bind", "127.0.0.1", "--port", "18445",
+            "--server-name", "wasmhome-issue22.test",
+            "--server-ip", "192.0.2.22",
+            "--campaign-id", "issues16-18-fixture",
+            "--aot-toolchain-id", "wamr-2.4.5-wasmhome.3",
+            "--pid-file", str(receipt)]
+        with mock.patch.object(sys, "argv", arguments), \
+             mock.patch.object(fixture_server, "FixtureHTTPServer",
+                               side_effect=RuntimeError("simulated interruption before bind")) as bind:
+            with self.assertRaisesRegex(RuntimeError, "before bind"):
+                fixture_server.main()
+        self.assertTrue(bind.called)
+        pid, starttime = map(int, receipt.read_text().split())
+        self.assertEqual(pid, os.getpid())
+        self.assertGreater(starttime, 0)
 
     def test_fixture_matrix_has_well_formed_signatures_and_correct_failure_modes(self):
         output = self.root / "resilience-fixtures"
@@ -235,6 +281,37 @@ class ResilienceFixtureTests(unittest.TestCase):
                 trusted_public_key=self.trusted_public,
                 fixture_campaign_id="issues16-18-fixture",
             )
+
+    def test_combined_allowlist_exposes_only_fixtures_and_signed_sequence_two(self):
+        fixtures = self.root / "combined-fixtures"
+        generate(self.package, self.trusted_public, self.fixture_private,
+                 self.untrusted_private, self.untrusted_public, fixtures,
+                 old_sequence=1, next_sequence=3, module_next_sequence=3,
+                 expected_campaign_id="issue15-fixture",
+                 expected_aot_toolchain_id="wamr-2.4.5-wasmhome.3",
+                 trusted_public_key=self.fixture_public,
+                 fixture_campaign_id="issues16-18-fixture")
+        config = json.loads((self.root / "package-input.json").read_text(encoding="utf-8"))
+        config["campaign_id"] = "issues16-18-fixture"
+        ota_config = self.root / "issue22-package-input.json"
+        ota_config.write_text(json.dumps(config), encoding="utf-8")
+        ota_package = self.root / "issue22-package"
+        sign_set(ota_config, ota_package, self.trusted_private)
+
+        _, campaign, allowlist, _ = load_allowlist(
+            fixtures, fixtures / "verification/trusted-public.der",
+            fixtures / "verification/untrusted-public.der", "issues16-18-fixture",
+            "wamr-2.4.5-wasmhome.3", ota_package_root=ota_package,
+            ota_public_key=self.trusted_public)
+        self.assertEqual(campaign, "issues16-18-fixture")
+        self.assertEqual(len(allowlist), 24)
+        ota_paths = {path for path in allowlist if path.startswith("scenario-")}
+        self.assertEqual(len(ota_paths), 6)
+        self.assertTrue(all("/v2/" in path for path in ota_paths))
+        self.assertEqual({"resilience/ENV-SIG/scenario-1/firmware.bin",
+                          "resilience/ENV-SIG/scenario-1/manifest.cose"} & set(allowlist),
+                         {"resilience/ENV-SIG/scenario-1/firmware.bin",
+                          "resilience/ENV-SIG/scenario-1/manifest.cose"})
 
 
 if __name__ == "__main__":
