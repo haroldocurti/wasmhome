@@ -9,7 +9,7 @@ pré-registrados sem alteração.
 
 Em 17/10/2026, o usuário aceitou explicitamente o estado atual da ESP32-S3 como
 baseline aprovada e autorizou os ensaios físicos. Essa aprovação substitui, para
-esta execução, o hash de imagem-base `b66c24a3…` registrado em `issue20-v1.0`.
+esta execução, o identificador da imagem-base registrado em `issue20-v1.0`.
 Nenhuma regra temporal, critério de aceite, agenda, classificação de resultado,
 regra de invalidação ou requisito de evidência foi alterado.
 
@@ -21,14 +21,12 @@ regra de invalidação ou requisito de evidência foi alterado.
   confirmada no preflight anterior. O identificador completo e o endereço de
   rede permanecem no recibo privado.
 - Tamanho: 16.777.216 bytes (16 MiB).
-- SHA-256 da baseline aceita:
-  `00aa22c35720354383c3d686a14612a7cb2fd99c57cb1ce214d07338c1c167a5`.
+- O fingerprint da baseline aceita consta somente no recibo privado.
 - O dump integral e o log serial permanecem em armazenamento local ignorado
   pelo Git. Nenhum conteúdo de flash, credencial ou endereço privado foi
   publicado.
-- A comparação local com a captura de 16/10 encontrou diferenças somente na
-  partição NVS. Não houve diferença em bootloader, tabela de partições,
-  `otadata`, partições de aplicação ou slots de módulo. A captura nova, aceita
+- A comparação encontrou uma diferença em armazenamento NVS, sem causa
+  determinada; conteúdo e detalhes permanecem privados. A captura nova, aceita
   pelo usuário, é a fonte integral a restaurar e verificar antes de cada slot.
 
 ## Parâmetros congelados preservados
@@ -73,9 +71,8 @@ Até este ponto não houve gravação nem disparo de atualização.
 ## Resultado posterior da tentativa de 17/10
 
 Depois deste preflight somente de leitura, um dos 18 slots planejados iniciou a
-qualificação de `B0001-native` na campanha
-`164c919d-d1d9-401b-9451-84c39ed930b9`. O observador registrou 601 eventos
-`awaiting_boot`, enviou zero pedidos de controle e não recebeu `boot_id`. A
+qualificação de `B0001-native` na campanha piloto. O observador registrou 601
+eventos `awaiting_boot`, enviou zero pedidos de controle e não recebeu `boot_id`. A
 entrada de despacho registrou `dispatch_status=not_sent` e `attempt_id=null`;
 isso não remove o ID de execução próprio do observador. Nenhum
 `UPDATE_TRIGGER` ou pedido HTTPS ocorreu.

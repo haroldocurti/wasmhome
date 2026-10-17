@@ -19,18 +19,27 @@ cenários `native`, `interp` e `aot`:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "profiles": {
     "native": {
+      "bootloader": {"path": "/CAMINHO_PRIVADO/native-bootloader.bin", "sha256": "SHA256_COMPLETO"},
+      "bootloader_config": {"path": "/CAMINHO_PRIVADO/native-bootloader-sdkconfig.h", "sha256": "SHA256_COMPLETO"},
       "partition_table": {"path": "/CAMINHO_PRIVADO/tabela.bin", "sha256": "SHA256_COMPLETO"},
+      "app_config": {"path": "/CAMINHO_PRIVADO/native-app-sdkconfig.h", "sha256": "SHA256_COMPLETO"},
       "app": {"path": "/CAMINHO_PRIVADO/native-v1.bin", "sha256": "SHA256_COMPLETO"}
     },
     "interp": {
+      "bootloader": {"path": "/CAMINHO_PRIVADO/interp-bootloader.bin", "sha256": "SHA256_COMPLETO"},
+      "bootloader_config": {"path": "/CAMINHO_PRIVADO/interp-bootloader-sdkconfig.h", "sha256": "SHA256_COMPLETO"},
       "partition_table": {"path": "/CAMINHO_PRIVADO/tabela.bin", "sha256": "SHA256_COMPLETO"},
+      "app_config": {"path": "/CAMINHO_PRIVADO/interp-app-sdkconfig.h", "sha256": "SHA256_COMPLETO"},
       "app": {"path": "/CAMINHO_PRIVADO/interp-v1.bin", "sha256": "SHA256_COMPLETO"}
     },
     "aot": {
+      "bootloader": {"path": "/CAMINHO_PRIVADO/aot-bootloader.bin", "sha256": "SHA256_COMPLETO"},
+      "bootloader_config": {"path": "/CAMINHO_PRIVADO/aot-bootloader-sdkconfig.h", "sha256": "SHA256_COMPLETO"},
       "partition_table": {"path": "/CAMINHO_PRIVADO/tabela.bin", "sha256": "SHA256_COMPLETO"},
+      "app_config": {"path": "/CAMINHO_PRIVADO/aot-app-sdkconfig.h", "sha256": "SHA256_COMPLETO"},
       "app": {"path": "/CAMINHO_PRIVADO/aot-v1.bin", "sha256": "SHA256_COMPLETO"}
     }
   }
@@ -39,10 +48,45 @@ cenários `native`, `interp` e `aot`:
 
 Antes do planejamento, registrar o SHA-256 dos bytes desse arquivo em
 `metadata.hil_profiles_sha256`. O manifesto `artifacts.json` continua a
-identificar os alvos OTA v2. A tabela e os apps v1 são entradas de preparação
+identificar os alvos OTA v2. Os bootloaders, a tabela, os apps v1 e os dois
+headers de configuração gerados por build são entradas de preparação
 separadas, congeladas pelo hash de `profiles.json`. O orquestrador confere os
 hashes e copia baseline e overlays para snapshots privados antes de acessar a
 serial; mudanças posteriores no arquivo de origem não substituem os snapshots.
+
+Usar o bootloader do mesmo build de cada app v1. `app_config` vem de
+`build/config/sdkconfig.h` e `bootloader_config` vem de
+`build/bootloader/config/sdkconfig.h`; não usar o `sdkconfig` de entrada.
+Ambos são copiados para snapshots `.h` privados, com hash verificado, e
+precisam selecionar ESP32-S3, flash de 16 MiB e tabela em `0x8000`. O
+orquestrador exige rollback igual nos dois headers; no native ele precisa
+estar habilitado. Interp/AOT aceitam ambos habilitados ou ambos desabilitados.
+O parser remove comentários, rejeita condicionais, includes, continuação de
+linhas e diretivas fora do formato gerado pelo IDF antes de avaliar macros.
+Uma configuração ausente, divergente, alterada ou ambígua impede a preparação.
+
+O BIN do bootloader também precisa passar pela validação estrutural local:
+segmentos completos e sem sobreposição, entrada em segmento IRAM, descrição IDF
+válida em DRAM, checksum XOR correto, SHA-256 final correto e nenhum byte extra.
+`image_info` sozinho não é aceito como prova de checksum ou digest.
+
+Antes de congelar o pacote, conservar também no recibo privado a origem e os
+hashes do BIN native v2, de `native-v2/config/sdkconfig.h` e de
+`native-v2/bootloader/config/sdkconfig.h`. Confirmar ESP32-S3, 16 MiB, offset
+`0x8000`, rollback habilitado nos dois headers e que o SHA do BIN é o mesmo
+do payload native no manifesto assinado. Os campos do perfil representam o
+bootstrap v1; a evidência do candidato v2 fica nesse recibo, referenciado e
+congelado pelo manifesto privado do pacote.
+
+Um app com rollback e um bootloader sem rollback deixam o candidato em
+`ESP_OTA_IMG_NEW`, impedindo a reconciliação de saúde. O hash e o cabeçalho
+da imagem não provam essa opção de compilação. Não substituir os headers e
+o recibo por uma alteração no reconciliador para aceitar `NEW`.
+
+Perfis v1 e journals anteriores sem a versão dos perfis não podem preparar
+novos slots. A ação `recover` continua disponível para restaurar a baseline
+de uma operação interrompida. Registrar uma nova campanha com perfis v2;
+preservar os dados e as claims da campanha anterior.
 
 ## Execução
 
@@ -101,9 +145,16 @@ a execução sem preparar o perfil. Em cada slot:
    `restore_required=true`.
 2. Restaurar a baseline integral, ler os 16 MiB e verificar o SHA-256, mantendo
    o chip no carregador até gravar o overlay.
-3. Gravar somente a tabela em `0x8000`, com no máximo `0x1000` bytes, e o app
-   ESP32-S3 em `0x20000`, com no máximo `0x700000` bytes. Conferir o layout
-   completo e o MD5 da tabela; não aceitar partições adicionais ou movidas.
+3. Gravar o bootloader ESP32-S3 em `0x0`, com no máximo `0x8000` bytes, a
+   tabela em `0x8000`, com no máximo `0x1000` bytes, e o app ESP32-S3 em
+   `0x20000`, com no máximo `0x700000` bytes. Conferir os hashes, a imagem
+   inteira do bootloader (segmentos, checksum, digest e descrição), o layout
+   completo e o MD5 da tabela, assim como os dois headers de configuração
+   congelados; não aceitar partições adicionais ou movidas.
+   A gravação mantém a placa no carregador; executar `verify_flash` nos três
+   segmentos e reiniciar somente após a verificação concluir. Falha na
+   gravação ou na verificação entra na restauração integral antes de qualquer
+   disparo do observador.
 4. Chamar `run_slot` uma única vez, com sequência alvo 2 e limites congelados
    de 150/60 s e 100/300/1000 ms. O runner exige UART e lease remotos frescos.
 5. No `finally`, restaurar a baseline integral e conferir o hash de outra
@@ -112,6 +163,9 @@ a execução sem preparar o perfil. Em cada slot:
    tenta essa restauração. Falha de restauração bloqueia o lote.
 
 A restauração integral reproduz os bytes aprovados, incluindo NVS e otadata.
+O bootloader do perfil é transitório e também é substituído pelos bytes
+originais na restauração integral. Sua preparação antecede a captura e não
+faz parte das janelas de atualização medidas.
 Não há edição isolada dessas partições, mudança de Wi-Fi ou escrita em eFuses.
 O orquestrador não passa `--force`, não apaga NVS e não adapta a baseline ao
 conteúdo encontrado na placa.

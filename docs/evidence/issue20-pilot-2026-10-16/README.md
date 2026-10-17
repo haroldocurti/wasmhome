@@ -1,13 +1,22 @@
 # Issue #20 — preparo e estado do piloto físico
 
-## Resultado da sessão de 17/10/2026
+## Resultado atualizado da campanha r5 (17/10/2026)
+
+A campanha concluiu 18/18 slots, com seis tentativas por cenário. O cenário
+native teve 0/6 ativações V2; interp e AOT tiveram 6/6 cada, com medianas de
+6,533 s e 7,401 s. Não houve abort instrumental, os mínimos de telemetria e
+controle estáveis foram cumpridos, e a baseline foi restaurada/verificada após
+cada slot. A rodada usou perfis legados e é diagnóstica; seus aceites não
+qualificam o perfil nativo completo. Consulte os [resultados HIL r5](r5-hil-results-2026-10-17.md).
+
+## Histórico: tentativa inicial anterior à campanha r5
 
 O usuário aprovou a baseline física e autorizou os ensaios. A leitura integral
-pré-escrita de 16 MiB coincidiu byte a byte com a baseline aceita, SHA-256
-`00aa22c35720354383c3d686a14612a7cb2fd99c57cb1ce214d07338c1c167a5`.
+pré-escrita de 16 MiB coincidiu byte a byte com a baseline aceita. O fingerprint
+da imagem permanece no recibo privado.
 
-A campanha `164c919d-d1d9-401b-9451-84c39ed930b9` iniciou a qualificação de
-1 dos 18 slots planejados: `B0001-native`. A janela pré-disparo não recebeu
+Uma campanha piloto anterior iniciou a qualificação de 1 dos 18 slots planejados:
+`B0001-native`. A janela pré-disparo não recebeu
 telemetria ou respostas de controle válidas nem observou um `boot_id`; o
 observador registrou 601 eventos `awaiting_boot` e enviou zero pedidos de
 controle. O registro de despacho ficou com `dispatch_status=not_sent` e
@@ -25,17 +34,16 @@ privado; esta atualização não acrescenta endereços de rede, MAC ou conteúdo
 de flash.
 O resumo sanitizado está em [tentativa HIL de 17/10](hil-attempt-2026-10-17.md).
 
-O bloqueio atual é a ausência de telemetria/controle UDP recebidos pelo
-observador durante a janela pré-disparo. A placa respondeu a ping, mas isso não
-prova o caminho UDP nem explica a ausência dos datagramas. Não se atribui a
-causa a firewall, roteamento ou firmware sem evidência adicional. Não continuar
-os slots desta campanha; após corrigir e confirmar a recepção UDP, criar uma
-campanha nova com identificador próprio.
+Essa tentativa terminou antes do disparo e foi substituída pela campanha r5,
+resumida no início deste arquivo. A placa respondeu a ping, mas isso não prova
+o caminho UDP nem identifica por que faltaram datagramas naquela tentativa. A
+causa não foi atribuída a firewall, roteamento ou firmware.
 
 ## Histórico da sessão de 16/10/2026
 
 Naquela sessão, não houve disparos ou resultados físicos. A leitura integral
-divergiu da imagem-base histórica `b66…`, deixando a gravação bloqueada. Esse
+divergiu da imagem-base histórica então selecionada, deixando a gravação
+bloqueada. Esse
 estado foi substituído pela aprovação explícita da baseline atual em 17/10 e
 pela comparação byte a byte registrada acima.
 
@@ -71,52 +79,33 @@ tentativas do piloto.
   gravação.
 - O operador leu a flash integralmente, sem gravar, em
   `build-hardware/issue20-live-preflight-20261016.bin` (arquivo local ignorado,
-  não incluído no repositório): 16.777.216 bytes, SHA-256
-  `d29c187d0c691c5b874d1ad3a1cda8632144a70e8613a9c9148e76f8c3aa8c78`.
-  A comparação local byte a byte, somente para leitura e sem copiar/publicar
-  os dumps, contra a baseline privada `b66…` encontrou 7.920 bytes diferentes
-  em 138 sequências contíguas, todos na NVS. Por setor: `0xa000`: 3.024 bytes;
-  `0xb000`: 3.944; `0xe000`: 952. Não houve diferenças em bootloader, tabela
-  de partições, setores NVS `0x9000`, `0xc000` e `0xd000`, `otadata`, PHY-init,
-  slots OTA nem áreas sem região nomeada no recibo. O hash integral não
-  coincide com a imagem-base então selecionada `b66…`; a causa da diferença ainda não
-  está determinada. A inspeção semântica offline isolou uma mudança lógica em
-  um registro de calibração PHY; os 31 registros Wi-Fi permaneceram iguais,
-  sem itens adicionados/removidos. Há rotação de página NVS. Não foi encontrado
-  o ledger antirretorno persistente da aplicação nos dois snapshots; o estado
-  eFuse e a causa da atualização da calibração não foram verificados.
-  A hipótese de outra WLAN/ausência de associação é compatível com a falta de
-  resposta no IP histórico, mas não explica por si só a mudança de calibração;
-  consulte a [auditoria de baseline](backup-audit.md).
+  não incluído no repositório): 16 MiB. A comparação somente de leitura
+  identificou uma diferença em armazenamento NVS; o conteúdo e os detalhes
+  permanecem privados, e a causa não foi determinada. Consulte a
+  [auditoria de baseline](backup-audit.md).
 - Os artefatos e capturas integrais de #16–#19 ficam em armazenamento privado.
   O repositório contém resumos/hashes sanitizados, não credenciais ou dumps de
   flash. Os pacotes ativos continuam presos aos campaign IDs de #15/#16–#18 e
   não podem ser atribuídos ao piloto #20.
 
 O parágrafo acima registra o bloqueio observado em 16/10. Em 17/10 a baseline
-foi aprovada e a primeira qualificação de slot foi iniciada, mas terminou antes
-do disparo por falta de UDP; consulte o resultado atualizado no início deste
-arquivo. `boot_id`, firmware/boot ativos, sensor, GPIO5→GPIO6 e janela viva
-qualificada continuam sem confirmação para esta campanha.
+foi aprovada; uma tentativa inicial terminou antes do disparo por falta de UDP,
+e a campanha r5 posterior concluiu os 18 slots. Os resultados atuais estão no
+início deste arquivo. `boot_id`, firmware/boot ativos, sensor, GPIO5→GPIO6 e
+janela viva qualificada não foram confirmados na tentativa inicial.
 
 ### Trabalho de preparação concluído antes do HIL
 
-- A origem de `b66c24a3…` foi auditada somente por leitura: o arquivo privado de
-  16 MiB coincide com seu recibo; a leitura pré-HIL da sessão #16 e sua
-  restauração final repetem o hash `b66…`, com oito regiões verificadas. Isso não é a
-  leitura viva da #20 em 16/10, cujo hash `d29…` divergiu de `b66…` em 7.920
-  bytes de NVS. `4fcc…` pertence a um dump integral de outra sessão; `b00…` é
-  histórico de um backup de aplicação de 1 MiB. A cadeia e os limites estão em
+- A proveniência da imagem-base foi auditada somente por leitura. Capturas de
+  sessões distintas não foram tratadas como equivalentes; os fingerprints e
+  recibos completos permanecem privados. A cadeia e seus limites estão na
   [auditoria da imagem-base](backup-audit.md).
 - O preflight vivo identificou uma ESP32-S3 QFN56 rev. 0.2 com flash de 16 MiB
-  e produziu uma leitura integral; a comparação com `b66…` divergiu em 7.920
-  bytes de NVS. A triagem de metadados atribuiu a divergência lógica a um único
-  registro de calibração PHY, sem alteração dos registros Wi-Fi. O `boot_id`
-  não é persistido na NVS, e nenhum ledger antirretorno da aplicação foi
-  encontrado nos snapshots. Esse era o
-  limite de conhecimento em 16/10; em 17/10 o usuário aprovou a leitura integral
-  de hash `00aa…` como nova baseline. O bloqueio atual é a janela UDP, descrita
-  no resultado da sessão de 17/10.
+  e produziu uma leitura integral. A comparação revelou uma diferença em
+  armazenamento NVS; conteúdo e detalhes permanecem privados, e a causa não foi
+  determinada. Em 17/10 o usuário aprovou a captura integral como nova baseline.
+  A campanha r5 posterior e seus resultados estão registrados no início deste
+  arquivo.
 - Revisados `CONTEXT.md`, checklist, plano de execução, plano detalhado,
   protocolo UDP e resultados/calibração das issues #16–#19.
 - Congelados limites, janelas, preparação, classificação de resultados e
@@ -141,11 +130,11 @@ qualificada continuam sem confirmação para esta campanha.
   pré-disparo. `git diff --check` também passou. Essas verificações são locais e
   não representam teste físico.
 
-## Próximo requisito de evidência
+## Estado atual
 
-A baseline de 17/10 foi aprovada e restaurada após o slot sem disparo. Antes de
-retomar, confirmar a causa da falta de UDP, o `boot_id`, firmware/boot ativos,
-sensor, GPIO5→GPIO6 e uma janela viva válida. Só então criar campanha `pilot`
-com ID novo, artefatos assinados que correspondam ao mesmo campaign ID, logs
-próprios e restauração verificada antes de cada slot. Não atribuir à #20 os
-dados singulares de #16–#18 nem as chamadas de microbenchmark da #19.
+A campanha r5 foi diagnóstica e usou perfis legados; seus resultados não
+qualificam o perfil nativo completo nem contam para os aceites da issue. A
+próxima rodada de aceitação deve usar o perfil schema 2, com bootloader,
+configuração gerada e app do mesmo build, artefatos assinados e restauração
+verificada após cada slot. Não atribuir à #20 os dados singulares de #16–#18
+nem as chamadas de microbenchmark da #19.

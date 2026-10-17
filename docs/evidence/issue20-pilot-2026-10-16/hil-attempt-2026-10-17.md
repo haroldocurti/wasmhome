@@ -1,15 +1,19 @@
-# Tentativa HIL #20 — 17/10/2026
+# Tentativa HIL #20 — qualificação inicial (17/10/2026)
+
+Este registro descreve a tentativa inicial, encerrada antes do disparo. A
+campanha r5 posterior concluiu 18 slots em perfis legados; veja os [resultados
+r5](r5-hil-results-2026-10-17.md). Este arquivo é histórico, não o resultado
+atual do piloto.
 
 ## Baseline e isolamento
 
 - Baseline explicitamente aprovada pelo usuário antes dos ensaios.
-- Leitura integral de 16 MiB antes da primeira escrita: SHA-256
-  `00aa22c35720354383c3d686a14612a7cb2fd99c57cb1ce214d07338c1c167a5`.
+- Leitura integral de 16 MiB antes da primeira escrita; o fingerprint
+  permanece no recibo privado.
 - A comparação com o arquivo da baseline aceita retornou igualdade byte a
   byte (`byte_for_byte_match=true`). O dump e o recibo completo permanecem
   privados.
-- UUID da campanha: `164c919d-d1d9-401b-9451-84c39ed930b9`. A agenda e os
-  limites congelados não foram alterados.
+- A agenda e os limites congelados da campanha não foram alterados.
 
 ## Slot planejado B0001-native
 
@@ -37,12 +41,10 @@
 
 ## Resultado e próximo passo
 
-Nenhum aceite físico foi obtido: zero triggers e zero aceites nos 18 slots do
-plano. Um slot (1/18) chegou à fase de qualificação pré-disparo; os outros 17
-não foram iniciados. A meta mínima continua em 0 de 5 aceites completos por
-cenário (A/B/C). Dumps integrais, UART bruta, logs de transporte e arquivos de
+Nenhum aceite físico foi obtido nesta tentativa: zero triggers e zero aceites.
+Um slot (1/18) chegou à fase de qualificação pré-disparo; os outros 17 não
+foram iniciados. Dumps integrais, UART bruta, logs de transporte e arquivos de
 campanha permanecem privados e não fazem parte do repositório.
 
-O bloqueio é confirmar e corrigir a recepção UDP pré-disparo. Depois de
-demonstrar uma janela qualificada de controles e telemetria, criar outra
-campanha com novo UUID; não reutilizar este slot como ensaio de atualização.
+Naquele momento o bloqueio era confirmar a recepção UDP pré-disparo. A campanha
+r5 foi criada separadamente; não reutilizou este slot como ensaio de atualização.

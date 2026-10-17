@@ -28,6 +28,9 @@ except ImportError:
 
 BASELINE_SHA256 = "00aa22c35720354383c3d686a14612a7cb2fd99c57cb1ce214d07338c1c167a5"
 FLASH_BYTES = 0x1000000
+BOOTLOADER_OFFSET, BOOTLOADER_LIMIT = 0x0, 0x8000
+ESP32S3_DRAM_START, ESP32S3_DRAM_END = 0x3FC88000, 0x3FD00000
+ESP32S3_IRAM_START, ESP32S3_IRAM_END = 0x40370000, 0x403E0000
 TABLE_OFFSET, TABLE_LIMIT = 0x8000, 0x1000
 APP_OFFSET, APP_LIMIT = 0x20000, 0x700000
 DEFAULT_READ_TIMEOUT_SECONDS = 600
@@ -146,6 +149,62 @@ def validate_app(path):
             "application image is not ESP32-S3")
 
 
+def validate_bootloader(path):
+    path = Path(path)
+    require(24 <= path.stat().st_size <= BOOTLOADER_LIMIT,
+            "bootloader exceeds the region before the partition table or has invalid length")
+    data = path.read_bytes()
+    require(len(data) >= 24 and data[0] == 0xe9 and 1 <= data[1] <= 16
+            and data[2] <= 3 and data[3] >> 4 == 4
+            and data[3] & 0x0f in {0, 1, 2, 0x0f}
+            and int.from_bytes(data[12:14], "little") == 9,
+            "bootloader image is not ESP32-S3/16 MiB")
+    require(data[23] == 1, "bootloader must include its SHA-256 image digest")
+
+    entrypoint = struct.unpack_from("<I", data, 4)[0]
+    offset, checksum = 24, 0xef
+    segments = []
+    for _ in range(data[1]):
+        require(offset + 8 <= len(data), "truncated bootloader segment header")
+        address, size = struct.unpack_from("<II", data, offset)
+        offset += 8
+        require(size > 0 and size <= BOOTLOADER_LIMIT and offset + size <= len(data),
+                "truncated or oversized bootloader segment")
+        end = address + size
+        require(address > 0 and end <= 0x1_0000_0000,
+                "invalid bootloader segment address range")
+        require(all(end <= other_start or address >= other_end
+                    for other_start, other_end in segments),
+                "overlapping bootloader segments")
+        segments.append((address, end))
+        for byte in data[offset:offset + size]:
+            checksum ^= byte
+        if _ == 0:
+            descriptor = data[offset:offset + min(size, 80)]
+            require(ESP32S3_DRAM_START <= address and end <= ESP32S3_DRAM_END,
+                    "bootloader description is outside ESP32-S3 DRAM")
+        offset += size
+
+    require(ESP32S3_IRAM_START <= entrypoint < ESP32S3_IRAM_END
+            and any(start <= entrypoint < end for start, end in segments),
+            "bootloader entrypoint is outside ESP32-S3 IRAM segments")
+    require(len(descriptor) == 80 and descriptor[0] == 80
+            and descriptor[1:4] == b"\0" * 3 and descriptor[64:80] == b"\0" * 16,
+            "bootloader description is invalid")
+    idf_version = descriptor[8:40].split(b"\0", 1)[0]
+    require(idf_version and all(0x20 <= byte <= 0x7e for byte in idf_version),
+            "bootloader description has no valid IDF version")
+
+    checksum_offset = (offset // 16 + 1) * 16 - 1
+    require(checksum_offset < len(data) and data[offset:checksum_offset] == b"\0" * (checksum_offset - offset),
+            "invalid bootloader checksum padding")
+    require(data[checksum_offset] == checksum, "bootloader checksum mismatch")
+    digest_offset = checksum_offset + 1
+    require(digest_offset + 32 == len(data), "bootloader digest is missing or trailing data is present")
+    require(hashlib.sha256(data[:digest_offset]).digest() == data[digest_offset:],
+            "bootloader SHA-256 digest mismatch")
+
+
 def checked_file(row):
     require(isinstance(row, dict) and set(row) == {"path", "sha256"}, "invalid profile artifact")
     path = Path(row["path"])
@@ -155,16 +214,113 @@ def checked_file(row):
     return path
 
 
+def validate_generated_config(path):
+    """Read frozen build output, never the editable input sdkconfig."""
+    require(Path(path).stat().st_size <= 1024 * 1024, "generated config is too large")
+    required = {"CONFIG_IDF_TARGET", "CONFIG_IDF_TARGET_ESP32S3",
+                "CONFIG_ESPTOOLPY_FLASHSIZE", "CONFIG_ESPTOOLPY_FLASHSIZE_16MB",
+                "CONFIG_PARTITION_TABLE_OFFSET", "CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE"}
+    definitions = {}
+    source = Path(path).read_text(encoding="utf-8")
+    lines, in_block_comment = [], False
+    for original in source.splitlines():
+        line, clean, index, quote, escaped = original, [], 0, None, False
+        while index < len(line):
+            char = line[index]
+            following = line[index:index + 2]
+            if in_block_comment:
+                if following == "*/":
+                    in_block_comment = False
+                    index += 2
+                else:
+                    index += 1
+            elif quote:
+                clean.append(char)
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == quote:
+                    quote = None
+                index += 1
+            elif following == "/*":
+                in_block_comment = True
+                index += 2
+            elif following == "//":
+                break
+            elif char in {'"', "'"}:
+                quote = char
+                clean.append(char)
+                index += 1
+            else:
+                clean.append(char)
+                index += 1
+        require(quote is None and not "".join(clean).rstrip().endswith("\\"),
+                "generated config contains a continued or unterminated directive")
+        lines.append("".join(clean).strip())
+    require(not in_block_comment, "generated config contains an unterminated block comment")
+
+    for line in lines:
+        if not line:
+            continue
+        directive = re.match(r"#\s*(\w+)", line)
+        if not directive:
+            require(line.startswith("/*") or line.startswith("//"),
+                    "generated config contains unexpected source text")
+            continue
+        name = directive[1]
+        require(name in {"define", "undef", "pragma"},
+                "generated config contains conditional or unsupported directives")
+        if name == "pragma":
+            require(line == "#pragma once", "generated config has an unsupported pragma")
+            continue
+        match = re.fullmatch(r"#\s*(define|undef)\s+(CONFIG_\w+)(?:\s+(.+?))?\s*", line)
+        require(match is not None, "generated config has a malformed definition")
+        if match and match[2] in required:
+            require(match[2] not in definitions, "duplicate generated config definition")
+            if match[1] == "undef":
+                require(match[2] == "CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE",
+                        "required generated config value is undefined")
+                definitions[match[2]] = "0"
+            else:
+                require(match[3] is not None, "generated config value is missing")
+                definitions[match[2]] = match[3].strip()
+    require(definitions.get("CONFIG_IDF_TARGET") == '"esp32s3"'
+            and definitions.get("CONFIG_IDF_TARGET_ESP32S3") == "1",
+            "generated config target must be ESP32-S3")
+    require(definitions.get("CONFIG_ESPTOOLPY_FLASHSIZE") == '"16MB"'
+            and definitions.get("CONFIG_ESPTOOLPY_FLASHSIZE_16MB") == "1",
+            "generated config must select 16 MiB flash")
+    require(definitions.get("CONFIG_PARTITION_TABLE_OFFSET") == "0x8000",
+            "generated config partition table offset differs from the frozen layout")
+    rollback = definitions.get("CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE", "0")
+    require(rollback in {"0", "1"}, "invalid rollback definition in generated config")
+    return rollback == "1"
+
+
+def validate_profile(profile, *, scenario):
+    fields = {"bootloader", "partition_table", "app", "app_config", "bootloader_config"}
+    require(isinstance(profile, dict) and set(profile) == fields,
+            "invalid profile fields; bootloader, partition_table, app, app_config and bootloader_config are required")
+    files = {kind: checked_file(row) for kind, row in profile.items()}
+    validate_bootloader(files["bootloader"])
+    validate_table(files["partition_table"])
+    validate_app(files["app"])
+    app_rollback = validate_generated_config(files["app_config"])
+    bootloader_rollback = validate_generated_config(files["bootloader_config"])
+    require(app_rollback == bootloader_rollback, "app/bootloader rollback configuration mismatch")
+    require(scenario != "native" or app_rollback, "native profile requires rollback enabled in app and bootloader")
+    return files
+
+
 def load_profiles(path):
     value = campaign._read_json(Path(path), "HIL profiles")
-    require(set(value) == {"schema_version", "profiles"} and value["schema_version"] == 1,
+    require(set(value) == {"schema_version", "profiles"} and value["schema_version"] == 2,
             "unsupported HIL profiles schema")
     require(isinstance(value["profiles"], dict) and set(value["profiles"]) == set(campaign.SCENARIOS),
             "profiles must contain exactly native/interp/aot")
-    for profile in value["profiles"].values():
-        require(isinstance(profile, dict) and set(profile) == {"partition_table", "app"}, "invalid profile fields")
-        validate_table(checked_file(profile["partition_table"]))
-        validate_app(checked_file(profile["app"]))
+    for scenario, profile in value["profiles"].items():
+        validate_profile(profile, scenario=scenario)
     return value
 
 
@@ -201,11 +357,16 @@ class Board:
         require(destination.stat().st_size == FLASH_BYTES, "full flash readback is incomplete")
         return digest(destination)
 
-    def overlay(self, profile):
-        table, app = checked_file(profile["partition_table"]), checked_file(profile["app"])
-        validate_table(table)
-        validate_app(app)
-        self.command("write_flash", hex(TABLE_OFFSET), table, hex(APP_OFFSET), app, after="hard_reset")
+    def overlay(self, profile, *, scenario):
+        files = validate_profile(profile, scenario=scenario)
+        bootloader, table, app = (files[kind] for kind in ("bootloader", "partition_table", "app"))
+        segments = (hex(BOOTLOADER_OFFSET), bootloader, hex(TABLE_OFFSET), table, hex(APP_OFFSET), app)
+        # Never boot a partially prepared profile. The parent transaction has
+        # already persisted restore_required and restores the complete baseline
+        # even if either flash command fails.
+        self.command("write_flash", *segments)
+        self.command("verify_flash", *segments)
+        self.command("run", after="hard_reset")
 
     def restore(self, baseline, destination, *, boot=True):
         require(baseline.stat().st_size == FLASH_BYTES and digest(baseline) == BASELINE_SHA256,
@@ -245,10 +406,12 @@ def _new_journal(options, root):
     baseline = _snapshot(baseline, snapshots / "baseline.bin", BASELINE_SHA256)
     for name, profile in profiles["profiles"].items():
         for kind, row in profile.items():
-            row["path"] = str(_snapshot(row["path"], snapshots / f"{name}-{kind}.bin", row["sha256"]))
+            suffix = ".h" if kind.endswith("_config") else ".bin"
+            row["path"] = str(_snapshot(row["path"], snapshots / f"{name}-{kind}{suffix}", row["sha256"]))
     return {"schema_version": 1, "campaign_id": value["campaign_id"], "git_commit": value["git_commit"],
             "state": "ready", "restore_required": False, "next_index": 0, "slots": schedule["slots"],
-            "baseline": str(baseline), "profiles": profiles["profiles"], "options": vars(options), "events": []}
+            "baseline": str(baseline), "profiles_schema_version": profiles["schema_version"],
+            "profiles": profiles["profiles"], "options": vars(options), "events": []}
 
 
 def _invoke_slot(options, slot):
@@ -308,6 +471,8 @@ def execute(options, *, board_factory=Board, invoke_slot=_invoke_slot):
             return {"state": journal["state"], "slot_retry_permitted": False}
         require(journal["state"] in {"ready", "complete"} and not journal["restore_required"],
                 "interrupted/failed journal: recover only; never repeat a claimed slot")
+        require(journal.get("profiles_schema_version") == 2,
+                "legacy preparation profiles: register a new campaign with bootloaders; recover remains available")
         current, schedule, _ = campaign._load_campaign(Path(options.campaign_root))
         campaign._validate_repository(current)
         require(current["campaign_id"] == journal["campaign_id"] and schedule["slots"] == journal["slots"],
@@ -321,6 +486,8 @@ def execute(options, *, board_factory=Board, invoke_slot=_invoke_slot):
         require({k: v for k, v in journal["options"].items() if k not in mutable}
                 == {k: v for k, v in vars(options).items() if k not in mutable},
                 "HIL configuration changed; start a separately registered campaign")
+        for scenario, profile in journal["profiles"].items():
+            validate_profile(profile, scenario=scenario)
         for index in range(journal["next_index"], min(len(journal["slots"]), journal["next_index"] + options.max_slots)):
             slot = journal["slots"][index]
             require(index == journal["next_index"], "slot ordering mismatch")
@@ -337,7 +504,7 @@ def execute(options, *, board_factory=Board, invoke_slot=_invoke_slot):
             try:
                 # Restore is explicit even if the initial read already matched.
                 board.restore(Path(journal["baseline"]), receipt / f"{slot['slot_id']}-prepared-readback.bin", boot=False)
-                board.overlay(journal["profiles"][slot["scenario"]])
+                board.overlay(journal["profiles"][slot["scenario"]], scenario=slot["scenario"])
                 journal["state"] = "capture_claimed"
                 write_private(journal_path, journal)
                 invoke_slot(options, slot)
