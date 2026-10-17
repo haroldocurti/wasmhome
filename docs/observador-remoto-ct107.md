@@ -11,9 +11,10 @@ abrir UDP/3333 no firewall do laptop. Este backend não instala pacotes, muda
 firewall, inicia containers ou altera firmware, baseline e chaves autorizadas.
 
 O acesso SSH estrito já foi conferido no CT como `wasmhome` (UID 1000), sem
-`sudo`. Os testes locais do runner não acessam serviços nem hardware. A
-integração física e a recuperação após falhas ainda precisam de validação
-antes de uma campanha válida.
+`sudo`. A chave dedicada e o arquivo `known_hosts` estão provisionados nos
+caminhos locais abaixo para uso unattended pelo runner. Os testes locais do
+runner não acessam serviços nem hardware. A integração física e a recuperação
+após falhas ainda precisam de validação antes de uma campanha válida.
 
 ## Identidade provisionada e preflight
 
@@ -127,11 +128,13 @@ no preparo já aprovado da bancada.
    A chave privada COSE permanece fora do CT. A chave TLS deve ter modo 0600,
    e o certificado deve satisfazer o DNS SAN `wasmhome-bench.test`, a CA
    compilada e a validade temporal. Conservar a sincronização SNTP do ESP.
-5. Iniciar uma cópia do servidor aprovado em uma sessão normal de `wasmhome`,
-   em porta não privilegiada, com log exclusivo da nova campanha. Os serviços
-   existentes em 8443/8444 (UID 999) não devem ser parados, reconfigurados ou
-   substituídos. O preparo observou 8446 livre; reconfirmar antes de iniciar.
-   Exemplo no CT, substituindo os caminhos e as identidades pelos valores reais:
+5. Estagiar o pacote, certificado e chave TLS sob o home de `wasmhome`. Iniciar
+   uma instância separada do servidor aprovado em uma sessão normal desse
+   usuário, na porta não privilegiada 8446, com log exclusivo da nova campanha.
+   Os listeners existentes em 8443/8444 são serviços do sistema, pertencem ao
+   UID 999 e devem permanecer intactos. O preparo observou 8446 livre;
+   reconfirmar antes de iniciar. Exemplo no CT, usando caminhos de arquivos
+   staged sob o home de `wasmhome`:
 
    ```bash
    umask 077
@@ -252,29 +255,33 @@ preserva evidências e não repete o slot. A mesma regra vale depois do trigger:
 uma pausa UART longa pode encerrar a observação antes do fim do pós-window, e
 esse slot exige adjudicação, sem novo trigger automático.
 
-No backend remoto, a confirmação enviada ao CT incorpora a idade medida do
-último byte e uma margem de transporte SSH de 500 ms. Por isso a renovação é
-recusada preventivamente quando essa idade chega a 1,5 s; o limite efetivo
-continua abaixo dos 2 s, inclusive durante o trânsito da confirmação.
+No backend remoto, cada `start` e renovação começa com um desafio único criado
+no CT e datado pelo relógio monotônico do CT. Só depois de receber esse desafio
+o laptop amostra a idade do último byte UART e envia o valor junto com o token
+de uso único. O CT mede o RTT do desafio no próprio relógio monotônico e exige
+`idade_uart + RTT < 2 s`; relógios monotônicos de máquinas diferentes nunca
+são subtraídos. Desafios expirados, substituídos ou já consumidos são
+recusados. Essa sequência garante que a amostra serial usada para autorizar o
+trigger ocorreu depois do timestamp do CT.
 
-O worker roda separado da conexão SSH, mas só continua enquanto o laptop
-renova uma confirmação com limite máximo de **3 segundos**, também limitada
-pelo frescor UART informado e uma margem conservadora de 500 ms para transporte
-SSH. O cliente verifica a thread e a idade dos bytes antes de iniciar e antes
-de cada renovação. Erro serial cancela a confirmação; a primeira falha SSH
-impede qualquer renovação posterior, inclusive após reconexão. O observador
-confere a confirmação a cada ciclo e novamente antes do trigger. No backend
-local, consulta diretamente o estado da captura serial. Uma falha de captura
-gera `instrument_abort` e preserva resumo e dados disponíveis.
+A validade da lease também começa no timestamp do desafio: o prazo termina no
+menor entre `desafio + 3 s` e `desafio + 2 s - idade_uart`. Assim, a lease
+expira de forma conservadora, sem margem fixa para SSH e sem estender o prazo a
+partir da aceitação tardia do pedido. O cliente verifica a saúde serial e a
+thread antes de iniciar e antes de cada renovação. Uma falha de saúde cancela a
+lease; depois da primeira falha SSH o cliente não renova, inclusive após
+reconexão. O observador confere a lease a cada ciclo e novamente antes do
+trigger. No backend local, consulta diretamente o estado da captura serial.
+Uma falha de captura gera `instrument_abort` e preserva resumo e dados
+disponíveis.
 
-Essa comunicação distribuída possui um limite: uma falha recém-ocorrida pode
-ainda não ter chegado ao CT enquanto a última confirmação estiver válida.
-O período máximo de validade é 3 s, acrescido de eventual atraso do processo
-até a próxima execução da verificação. Não alegar que a saúde da UART e o
-envio UDP sejam atômicos entre máquinas. Uma falha após envio não desfaz o
-trigger e nunca autoriza repetição automática. Falhas instrumentais continuam
-exigindo a classificação prevista no protocolo; timeout de rede sozinho não
-prova falha instrumental.
+Mesmo com esse limite, saúde UART e envio UDP não são atômicos entre máquinas:
+uma falha recém-ocorrida pode ainda não ter chegado ao CT enquanto a última
+lease estiver válida. O prazo da lease fica limitado pelo timestamp do desafio
+e pelo limite de frescor, além do atraso do worker até a próxima verificação.
+Uma falha após o envio não desfaz o trigger e nunca autoriza repetição
+automática. Falhas instrumentais continuam exigindo a classificação prevista
+no protocolo; timeout de rede sozinho não prova falha instrumental.
 
 O worker só publica o manifesto depois de fechar observações, resumo e logs
 do servidor. O cliente confere tamanho/SHA-256 dos arquivos e o hash que vincula

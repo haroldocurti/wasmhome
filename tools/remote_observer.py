@@ -27,7 +27,6 @@ SOURCES = ("remote_observer.py", "external_observer.py",
            "observation_protocol_v1.py", "update_campaign.py")
 LEASE_NS = 3_000_000_000
 SERIAL_MAX_SILENCE_NS = 2_000_000_000
-SERIAL_SAMPLE_MARGIN_NS = 500_000_000
 CHUNK_BYTES = 256 * 1024
 TERMINAL = {"complete", "aborted", "failed"}
 BOOTSTRAP = """import base64,hashlib,json,sys
@@ -239,18 +238,76 @@ def _process_identity(pid):
         return None
 
 
-def _lease(directory, reason=None, serial_age_ns=None):
-    now_ns = time.monotonic_ns()
+def _lease_deadline(challenge_created_ns, serial_age_ns, now_ns):
+    """Validate challenge RTT and return a CT-clock-only conservative deadline."""
+    _require(type(challenge_created_ns) is int and challenge_created_ns >= 0,
+             "invalid remote challenge timestamp")
+    _require(type(now_ns) is int and now_ns >= challenge_created_ns,
+             "remote challenge timestamp is from the future")
+    _require(type(serial_age_ns) is int and 0 <= serial_age_ns < SERIAL_MAX_SILENCE_NS,
+             "a fresh UART byte timestamp is required to renew the observer lease")
+    challenge_rtt_ns = now_ns - challenge_created_ns
+    _require(serial_age_ns + challenge_rtt_ns < SERIAL_MAX_SILENCE_NS,
+             "UART evidence plus remote challenge RTT is expired")
+
+    # Anchor expiry at the CT timestamp from before the laptop sampled UART.
+    # This intentionally expires earlier than a deadline based on acceptance time.
+    serial_fresh_until_ns = challenge_created_ns + SERIAL_MAX_SILENCE_NS - serial_age_ns
+    expires_ns = min(challenge_created_ns + LEASE_NS, serial_fresh_until_ns)
+    _require(now_ns < expires_ns, "remote challenge expired before lease acceptance")
+    return serial_fresh_until_ns, expires_ns
+
+
+def _lease(directory, reason=None, *, challenge_created_ns=None,
+           serial_age_ns=None, now_ns=None):
+    now_ns = time.monotonic_ns() if now_ns is None else now_ns
     lease = {"expires_ns": now_ns + LEASE_NS, "cancel_reason": reason,
              "host_boot_id": clock_domain("observer_ct107")["host_boot_id"]}
     if reason is None:
-        _require(type(serial_age_ns) is int and 0 <= serial_age_ns < SERIAL_MAX_SILENCE_NS,
-                 "a fresh UART byte timestamp is required to renew the observer lease")
-        remaining_ns = SERIAL_MAX_SILENCE_NS - serial_age_ns - SERIAL_SAMPLE_MARGIN_NS
-        _require(remaining_ns > 0, "UART evidence is too old to renew the observer lease")
-        lease["serial_fresh_until_ns"] = now_ns + remaining_ns
-        lease["expires_ns"] = min(lease["expires_ns"], lease["serial_fresh_until_ns"])
+        serial_fresh_until_ns, expires_ns = _lease_deadline(
+            challenge_created_ns, serial_age_ns, now_ns)
+        lease["serial_fresh_until_ns"] = serial_fresh_until_ns
+        lease["expires_ns"] = expires_ns
     _write(directory / "lease.json", lease)
+
+
+def _issue_challenge(directory):
+    """Persist a single-use CT monotonic timestamp before UART is sampled."""
+    challenge_path = directory / "challenge.json"
+    previous_id = None
+    if challenge_path.exists():
+        previous_id = _read(challenge_path).get("challenge_id")
+    challenge_id = str(uuid.uuid4())
+    while challenge_id == previous_id:
+        challenge_id = str(uuid.uuid4())
+    host_boot_id = clock_domain("observer_ct107")["host_boot_id"]
+    _require(isinstance(host_boot_id, str) and host_boot_id,
+             "CT boot ID is unavailable; remote challenge cannot be trusted")
+    challenge = {"challenge_id": challenge_id,
+                 "created_ns": time.monotonic_ns(),
+                 "host_boot_id": host_boot_id,
+                 "consumed": False}
+    _write(challenge_path, challenge)
+    return challenge
+
+
+def _consume_challenge(directory, challenge_id, serial_age_ns, *, now_ns=None):
+    challenge = _read(directory / "challenge.json")
+    _require(isinstance(challenge_id, str)
+             and challenge_id == challenge.get("challenge_id"),
+             "remote challenge is missing, superseded, or mismatched")
+    _require(challenge.get("consumed") is False,
+             "remote challenge was already consumed")
+    now_ns = time.monotonic_ns() if now_ns is None else now_ns
+    current_boot_id = clock_domain("observer_ct107")["host_boot_id"]
+    _require(isinstance(current_boot_id, str) and current_boot_id
+             and challenge.get("host_boot_id") == current_boot_id,
+             "remote challenge belongs to a previous CT boot")
+    _lease_deadline(challenge.get("created_ns"), serial_age_ns, now_ns)
+    challenge["consumed"] = True
+    challenge["consumed_ns"] = now_ns
+    _write(directory / "challenge.json", challenge)
+    return challenge["created_ns"], now_ns
 
 
 def _guard(directory):
@@ -320,16 +377,29 @@ def _remote_rpc(request):
     with (directory / "control.lock").open("a+b") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         status = _read(directory / "status.json")
-        if action == "start":
+        issued_challenge = None
+        if action == "challenge":
+            _require(status["state"] in {"prepared", "launching", "running"},
+                     "session is not active for a UART challenge")
+            _require(not (directory / "cancel.claim").exists(),
+                     "session cancellation is permanent")
+            if status["state"] != "prepared":
+                reason = _guard(directory)
+                _require(not reason, reason or "observer lease is invalid")
+            issued_challenge = _issue_challenge(directory)
+        elif action == "start":
+            age = request.get("serial_age_ns")
+            created_ns, accepted_ns = _consume_challenge(
+                directory, request.get("challenge_id"), age)
             if not (directory / "start.claim").exists():
+                _require(not (directory / "cancel.claim").exists(),
+                         "session cancellation is permanent")
                 _require(status["state"] == "prepared", "session is not prepared")
-                age = request.get("serial_age_ns")
-                _require(type(age) is int and 0 <= age < SERIAL_MAX_SILENCE_NS - SERIAL_SAMPLE_MARGIN_NS,
-                         "start requires a recent UART byte from the laptop")
-                _write(directory / "start.claim", {"claimed_ns": time.monotonic_ns()}, exclusive=True)
+                _lease(directory, challenge_created_ns=created_ns,
+                       serial_age_ns=age, now_ns=time.monotonic_ns())
+                _write(directory / "start.claim", {"claimed_ns": accepted_ns}, exclusive=True)
                 status.update(state="launching")
                 _write(directory / "status.json", status)
-                _lease(directory, serial_age_ns=age)
                 with (directory / "worker.log").open("xb") as log:
                     process = subprocess.Popen([sys.executable, str(directory / "remote_observer.py"),
                                                 "worker", str(directory)], cwd=directory,
@@ -340,12 +410,16 @@ def _remote_rpc(request):
         elif action == "heartbeat":
             if status["state"] not in TERMINAL:
                 _require(not (directory / "cancel.claim").exists(), "session cancellation is permanent")
+                age = request.get("serial_age_ns")
+                created_ns, _accepted_ns = _consume_challenge(
+                    directory, request.get("challenge_id"), age)
                 reason = _guard(directory)
                 if reason:
                     _write(directory / "cancel.claim", {"reason": reason}, exclusive=True)
                     _lease(directory, reason)
                 else:
-                    _lease(directory, serial_age_ns=request.get("serial_age_ns"))
+                    _lease(directory, challenge_created_ns=created_ns,
+                           serial_age_ns=age, now_ns=time.monotonic_ns())
         elif action == "cancel":
             if not (directory / "cancel.claim").exists():
                 _write(directory / "cancel.claim", {"reason": request.get("reason", "laptop_cancelled")}, exclusive=True)
@@ -364,10 +438,12 @@ def _remote_rpc(request):
                 chunk = stream.read(CHUNK_BYTES)
             return {"schema": SCHEMA, "session_id": request["session_id"],
                     "offset": offset, "data": base64.b64encode(chunk).decode()}
-        elif action not in {"prepare", "start", "status", "heartbeat", "cancel"}:
+        elif action not in {"prepare", "start", "status", "heartbeat", "cancel", "challenge"}:
             raise RemoteObserverError("unknown remote action")
         status = _read(directory / "status.json")
         response = {"schema": SCHEMA, "session_id": request["session_id"], "status": status}
+        if issued_challenge is not None:
+            response["challenge_id"] = issued_challenge["challenge_id"]
         if status["state"] in TERMINAL:
             manifest_path = directory / "manifest.json"
             _require(_file_info(manifest_path) == status["manifest"], "sealed manifest changed")
@@ -488,9 +564,22 @@ def run_remote_observer(output, observer, options, *, context, health_check,
 
     def current_serial_age_ns():
         age_ns = serial_age_check()
-        _require(type(age_ns) is int and 0 <= age_ns < SERIAL_MAX_SILENCE_NS - SERIAL_SAMPLE_MARGIN_NS,
+        _require(type(age_ns) is int and 0 <= age_ns < SERIAL_MAX_SILENCE_NS,
                  "UART byte evidence is too old to safely start or renew the remote observer")
         return age_ns
+
+    def challenge_id(response):
+        value = response.get("challenge_id")
+        _require(isinstance(value, str) and str(uuid.UUID(value)) == value,
+                 "CT107 returned an invalid UART challenge")
+        return value
+
+    def cancel_prestart(reason):
+        # A cancellation claim makes the prepared session permanently unstartable.
+        try:
+            _rpc(options, session_id, "cancel", reason=str(reason))
+        except RemoteObserverError:
+            pass
 
     if server_log is not None:
         _require(Path(server_log).is_absolute(), "--remote-server-log requires an absolute CT107 path")
@@ -519,29 +608,45 @@ def run_remote_observer(output, observer, options, *, context, health_check,
     _write(output / "remote-session.json", record, exclusive=True)
     failure = health_check()
     _require(not failure, str(failure))
-    current_serial_age_ns()
     response = _rpc(options, session_id, "prepare", config=config,
                     sources={name: base64.b64encode(raw).decode() for name, raw in sources.items()})
     _write(output / "remote-status.json", response["status"])
     failure = health_check()
-    _require(not failure, str(failure))
-    serial_age_ns = current_serial_age_ns()
+    if failure:
+        cancel_prestart(failure)
+        raise RemoteObserverError(str(failure))
+    try:
+        # CT persists a fresh monotonic challenge first. Only then do we sample
+        # UART, so the server can include the full challenge RTT in freshness.
+        challenge_response = _rpc(options, session_id, "challenge")
+        start_challenge_id = challenge_id(challenge_response)
+        failure = health_check()
+        _require(not failure, str(failure))
+        serial_age_ns = current_serial_age_ns()
+    except RemoteObserverError as exc:
+        cancel_prestart(exc)
+        raise
     # Persist the claim locally BEFORE the single start RPC. Loss of its reply
     # leaves the execution uncertain, and recovery never sends start.
     _write(output / "remote-start-claim.json", {"session_id": session_id,
                                                "laptop_monotonic_ns": time.monotonic_ns()}, exclusive=True)
     transport_failure = None
     try:
-        response = _rpc(options, session_id, "start", serial_age_ns=serial_age_ns)
+        response = _rpc(options, session_id, "start", challenge_id=start_challenge_id,
+                        serial_age_ns=serial_age_ns)
     except RemoteObserverError as exc:
         transport_failure = str(exc)
     deadline = time.monotonic() + 330
     last_success = time.monotonic()
     while time.monotonic() < deadline:
         failure = health_check()
+        challenge = None
         serial_age_ns = None
         if not failure and transport_failure is None:
             try:
+                challenge = challenge_id(_rpc(options, session_id, "challenge"))
+                failure = health_check()
+                _require(not failure, str(failure))
                 serial_age_ns = current_serial_age_ns()
             except RemoteObserverError as exc:
                 failure = str(exc)
@@ -549,7 +654,8 @@ def run_remote_observer(output, observer, options, *, context, health_check,
             transport_failure = str(failure)
         action = "cancel" if failure else "status" if transport_failure else "heartbeat"
         values = ({"reason": str(failure)} if failure else
-                  {"serial_age_ns": serial_age_ns} if action == "heartbeat" else {})
+                  {"challenge_id": challenge, "serial_age_ns": serial_age_ns}
+                  if action == "heartbeat" else {})
         try:
             response = _rpc(options, session_id, action, **values)
             last_success = time.monotonic()
