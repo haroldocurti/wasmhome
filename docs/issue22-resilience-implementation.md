@@ -99,8 +99,8 @@ firmwares compilados são:
 
 | Perfil | SHA-256 do firmware |
 |---|---|
-| `module-interp` | `8839b1517a6771915fdbcbe658560bc9bfa17f5dfb1b49febf01dea9099dece4` |
-| `module-aot` | `797a30d3254795de3448abbe4b6f264927ec70ff75d9cb246e4b88906deb93ab` |
+| `module-interp` | `6239f6ff95720af0d6aa3bae9e663f933631981f789101d21d3d3f202d70e0ac` |
+| `module-aot` | `0c90662f6b52aef0225b334428590b428ff37cd5527092c97868191d13f72212` |
 
 O vínculo entre esse `wamrc` e o runtime WAMR `.3` está registrado em
 [`docs/evidence/issue22-wamrc-build-provenance.json`](evidence/issue22-wamrc-build-provenance.json).
