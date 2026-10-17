@@ -39,7 +39,8 @@ TABLE_OFFSET, TABLE_BYTES = 0x8000, 0x1000
 LOCK_DIR = Path.home() / ".local/state/wasmhome-hil"
 LOCK_FILE = LOCK_DIR / "hardware.lock"
 DEFAULT_TIMEOUT_SCHEMA = "wasmhome-issue20-frozen-timeout-v1"
-PROFILE_SCHEMA = "wasmhome-issue22-bootstrap-profiles-v1"
+PROFILE_SCHEMA = "wasmhome-issue22-bootstrap-profiles-v2"
+BOOTLOADER_OFFSET, BOOTLOADER_BYTES = 0x0, TABLE_OFFSET
 JOURNAL_SCHEMA = "wasmhome-issue22-hil-orchestrator-v1"
 PORT = 18445
 MAX_REMOTE_LOG_BYTES = 64 * 1024 * 1024
@@ -254,8 +255,8 @@ def _artifact_row(row: object, label: str, *, max_bytes: int) -> tuple[Path, str
 
 
 def _embedded_issue22_build_marker(data: bytes) -> dict:
-    start_tag = b"WASMHOME_ISSUE22_BUILD_V1\n"
-    end_tag = b"\nEND_WASMHOME_ISSUE22_BUILD_V1"
+    start_tag = b"WASMHOME_ISSUE22_BUILD_V2\n"
+    end_tag = b"\nEND_WASMHOME_ISSUE22_BUILD_V2"
     require(data.count(start_tag) == 1 and data.count(end_tag) == 1,
             "bootstrap app must embed exactly one CMake-generated #22 provenance marker")
     start = data.index(start_tag) + len(start_tag)
@@ -271,13 +272,17 @@ def _embedded_issue22_build_marker(data: bytes) -> dict:
         require(key not in marker, "embedded #22 provenance marker repeats a field")
         marker[key] = value
     require(set(marker) == {"profile", "functional_timeout_ms", "server_ipv4",
-                            "server_port", "server_name", "ca_sha256"},
+                            "server_port", "server_name", "ca_sha256",
+                            "sdkconfig_sha256", "app_rollback_enabled"},
             "embedded #22 provenance fields differ")
     try:
         marker["functional_timeout_ms"] = int(marker["functional_timeout_ms"], 10)
         marker["server_port"] = int(marker["server_port"], 10)
     except ValueError as error:
         raise OrchestratorError("embedded #22 timeout/port is invalid") from error
+    require(marker["app_rollback_enabled"] in {"0", "1"}
+            and re.fullmatch(r"[0-9a-f]{64}", marker["sdkconfig_sha256"]),
+            "embedded #22 provenance must attest its sdkconfig rollback mode")
     require(isinstance(marker["server_ipv4"], str)
             and isinstance(marker["server_name"], str)
             and re.fullmatch(r"[0-9a-f]{64}", marker["ca_sha256"]),
@@ -303,8 +308,46 @@ def validate_profile_manifest(path: Path, timeout_ms: int, server_ip: str,
             "profile manifest must contain native/interp/aot bootstrap apps")
     snapshots = {}
     for name, profile in profiles.items():
-        require(isinstance(profile, dict) and set(profile) == {"v1_app"},
+        require(isinstance(profile, dict) and set(profile) == {"v1_app", "bootloader", "sdkconfig", "bootloader_config"},
                 f"{name} bootstrap profile fields differ")
+        config, config_digest = _artifact_row(profile["sdkconfig"], f"{name} build sdkconfig",
+                                              max_bytes=1024 * 1024)
+        config_lines = config.read_text(encoding="utf-8").splitlines()
+        rollback_key = "CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE"
+        rollback_lines = [line for line in config_lines if line.startswith(rollback_key + "=")
+                          or line == f"# {rollback_key} is not set"]
+        require(rollback_lines in ([f"{rollback_key}=y"], [f"# {rollback_key} is not set"]),
+                f"{name} sdkconfig must specify one rollback mode")
+        rollback_enabled = rollback_lines == [f"{rollback_key}=y"]
+        require(name != "native" or rollback_enabled,
+                "native sdkconfig must enable rollback on the registered S3 layout")
+        for setting in ('CONFIG_IDF_TARGET="esp32s3"',
+                        "CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y",
+                        "CONFIG_PARTITION_TABLE_OFFSET=0x8000"):
+            key = setting.split("=", 1)[0]
+            require([line for line in config_lines if line.startswith(key + "=")
+                     or line == f"# {key} is not set"] == [setting],
+                    f"{name} sdkconfig must use the registered S3 layout")
+        boot_config, boot_config_digest = _artifact_row(profile["bootloader_config"],
+            f"{name} bootloader generated config", max_bytes=1024 * 1024)
+        boot_config_lines = boot_config.read_text(encoding="utf-8").splitlines()
+        boot_rollback_lines = [line for line in boot_config_lines
+                               if line.startswith(f"#define {rollback_key} ")]
+        require(boot_rollback_lines == ([f"#define {rollback_key} 1"] if rollback_enabled else []),
+                f"{name} bootloader config rollback mode differs from the app sdkconfig")
+        for setting in ("#define CONFIG_IDF_TARGET_ESP32S3 1",
+                        "#define CONFIG_ESPTOOLPY_FLASHSIZE_16MB 1",
+                        "#define CONFIG_PARTITION_TABLE_OFFSET 0x8000"):
+            key = setting.split()[1]
+            require([line for line in boot_config_lines if line.startswith(f"#define {key} ")]
+                    == [setting], f"{name} bootloader config must use the registered S3 layout")
+        bootloader, bootloader_digest = _artifact_row(profile["bootloader"],
+            f"{name} matching bootloader", max_bytes=BOOTLOADER_BYTES - 1)
+        bootloader_data = bootloader.read_bytes()
+        require(len(bootloader_data) >= 24 and bootloader_data[0] == 0xE9
+                and 1 <= bootloader_data[1] <= 16
+                and int.from_bytes(bootloader_data[12:14], "little") == 9,
+                f"{name} bootstrap bootloader is not an ESP32-S3 image")
         app, digest = _artifact_row(profile["v1_app"], f"{name} v1 bootstrap app",
                                     max_bytes=OTA_SLOT_BYTES)
         app_bytes = app.read_bytes()
@@ -316,13 +359,19 @@ def validate_profile_manifest(path: Path, timeout_ms: int, server_ip: str,
         require(marker == {"profile": name, "functional_timeout_ms": timeout_ms,
                            "server_ipv4": server_ip, "server_port": server_port,
                            "server_name": server_name,
-                           "ca_sha256": sha256_file(ca_path)},
+                           "ca_sha256": sha256_file(ca_path),
+                           "sdkconfig_sha256": config_digest,
+                           "app_rollback_enabled": "1" if rollback_enabled else "0"},
                 f"{name} BIN-embedded #22 config differs from its profile manifest/timeout/endpoint/CA")
         ca_bytes = Path(ca_path).read_bytes()
         require(0 < len(ca_bytes) <= 65536 and ca_bytes in app_bytes,
                 f"{name} bootstrap BIN does not contain the manifest's exact HTTPS CA bytes")
         snapshots[name] = {"path": str(app), "sha256": digest, "bytes": app.stat().st_size,
-                           "build_provenance": marker}
+                           "build_provenance": marker,
+                           "bootloader": {"path": str(bootloader), "sha256": bootloader_digest,
+                                          "bytes": len(bootloader_data)},
+                           "sdkconfig": {"path": str(config), "sha256": config_digest},
+                           "bootloader_config": {"path": str(boot_config), "sha256": boot_config_digest}}
     require(isinstance(value.get("source_commit"), str)
             and re.fullmatch(r"[0-9a-f]{40,64}", value["source_commit"]),
             "profile build manifest must identify its source commit")
@@ -756,15 +805,26 @@ class Board:
         require(destination.stat().st_size == size, "esptool readback size differs")
         return output
 
-    def overlay_profile(self, app: Path) -> None:
+    def overlay_profile(self, app: Path, bootloader: Path) -> None:
         require(app.is_file() and not app.is_symlink()
                 and 24 <= app.stat().st_size <= OTA_SLOT_BYTES,
                 "profile bootstrap app is invalid")
+        require(bootloader.is_file() and not bootloader.is_symlink()
+                and 24 <= bootloader.stat().st_size < BOOTLOADER_BYTES,
+                "profile bootloader is invalid")
+        bootloader_hash = sha256_file(bootloader)
+        # The accepted baseline's bootloader has rollback disabled. Use the
+        # matching bootloader from this profile build until full restoration.
         # Identical v1 app copies to both OTA slots make startup independent of
         # prior OTA metadata. The signed sequence-2 transition itself remains
         # the only update operation; no NVS offset is passed to write_flash.
-        self.command("write_flash", hex(OTA_OFFSETS[0]), str(app),
+        self.command("write_flash", hex(BOOTLOADER_OFFSET), str(bootloader),
+                     hex(OTA_OFFSETS[0]), str(app),
                      hex(OTA_OFFSETS[1]), str(app), timeout=300)
+        readback = self.operation / f"bootloader-overlay-{uuid.uuid4().hex}.bin"
+        self.read(BOOTLOADER_OFFSET, bootloader.stat().st_size, readback)
+        require(sha256_file(readback) == bootloader_hash,
+                "profile bootloader readback hash differs; refusing reset")
 
     def run(self) -> None:
         self.command("run", after="hard_reset", timeout=30)
@@ -991,7 +1051,7 @@ def _prepare_profile(options, board: Board, row: dict, profile_data: dict,
     app_path = Path(profile_data["profiles"][row["scenario"]]["path"])
     board.restore(baseline, baseline_hash, operation / f"{row['plan_index']:02d}-restore-before.bin")
     # Ensure every row begins from the same v1 app profile and exact NVS baseline.
-    board.overlay_profile(app_path)
+    board.overlay_profile(app_path, Path(profile_data["profiles"][row["scenario"]]["bootloader"]["path"]))
     board.run()
     provision_id = str(uuid.uuid5(uuid.UUID(row["attempt_id"]), "signed-sequence-2-provision"))
     provision_dir = _private_output(operation, "ota-provisioning")
@@ -1133,7 +1193,13 @@ def _clone_inputs(options, root: Path, profile_data: dict) -> dict:
         source = Path(profile["path"])
         target = snapshots / f"{name}-v1-app.bin"
         _ensure_snapshot_artifact(source, target, profile["sha256"])
-        profiles[name] = {**profile, "path": str(target)}
+        auxiliary = {}
+        for kind, suffix in (("bootloader", "bin"), ("sdkconfig", "txt"), ("bootloader_config", "h")):
+            artifact = profile[kind]
+            artifact_target = snapshots / f"{name}-{kind}.{suffix}"
+            _ensure_snapshot_artifact(Path(artifact["path"]), artifact_target, artifact["sha256"])
+            auxiliary[kind] = {**artifact, "path": str(artifact_target)}
+        profiles[name] = {**profile, "path": str(target), **auxiliary}
     return {**profile_data, "profiles": profiles}
 
 

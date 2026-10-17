@@ -63,14 +63,23 @@ class Issue22OrchestratorTests(unittest.TestCase):
         ca.write_bytes(ca_bytes)
         ca_hash = hashlib.sha256(ca_bytes).hexdigest()
 
-        def write_manifest(native_port=18445):
+        def write_manifest(native_port=18445, native_rollback=True, module_rollback=True):
             profiles = {}
             for name in ("native", "interp", "aot"):
                 port = native_port if name == "native" else 18445
-                marker = ("WASMHOME_ISSUE22_BUILD_V1\n"
+                config = self.root / f"{name}-sdkconfig"
+                rollback = native_rollback if name == "native" else module_rollback
+                config.write_text(('CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y\n' if rollback else
+                                   '# CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE is not set\n') +
+                                  'CONFIG_IDF_TARGET="esp32s3"\n'
+                                  'CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y\n'
+                                  'CONFIG_PARTITION_TABLE_OFFSET=0x8000\n')
+                config_hash = hashlib.sha256(config.read_bytes()).hexdigest()
+                marker = ("WASMHOME_ISSUE22_BUILD_V2\n"
                     f"profile={name}\nfunctional_timeout_ms=450\nserver_ipv4=192.0.2.8\n"
                     f"server_port={port}\nserver_name=wasmhome-issue22.test\nca_sha256={ca_hash}\n"
-                    "END_WASMHOME_ISSUE22_BUILD_V1")
+                    f"sdkconfig_sha256={config_hash}\napp_rollback_enabled={1 if rollback else 0}\n"
+                    "END_WASMHOME_ISSUE22_BUILD_V2")
                 header = bytearray(24)
                 header[0] = 0xE9
                 header[1] = 1
@@ -78,8 +87,20 @@ class Issue22OrchestratorTests(unittest.TestCase):
                 app = self.root / f"{name}.bin"
                 app_bytes = bytes(header) + marker.encode() + ca_bytes
                 app.write_bytes(app_bytes)
-                profiles[name] = {"v1_app": {"path": str(app),
-                    "sha256": hashlib.sha256(app_bytes).hexdigest()}}
+                bootloader = self.root / f"{name}-bootloader.bin"
+                bootloader.write_bytes(bytes(header) + b"synthetic bootloader")
+                boot_config = self.root / f"{name}-bootloader-sdkconfig.h"
+                boot_config.write_text(("#define CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE 1\n" if rollback else "") +
+                    "#define CONFIG_IDF_TARGET_ESP32S3 1\n"
+                    "#define CONFIG_ESPTOOLPY_FLASHSIZE_16MB 1\n"
+                    "#define CONFIG_PARTITION_TABLE_OFFSET 0x8000\n")
+                profiles[name] = {
+                    "v1_app": {"path": str(app), "sha256": hashlib.sha256(app_bytes).hexdigest()},
+                    "bootloader": {"path": str(bootloader),
+                        "sha256": hashlib.sha256(bootloader.read_bytes()).hexdigest()},
+                    "sdkconfig": {"path": str(config), "sha256": config_hash},
+                    "bootloader_config": {"path": str(boot_config),
+                        "sha256": hashlib.sha256(boot_config.read_bytes()).hexdigest()}}
             manifest = self.root / "profiles.json"
             manifest.write_text(json.dumps({
                 "schema": orchestrator.PROFILE_SCHEMA,
@@ -97,10 +118,64 @@ class Issue22OrchestratorTests(unittest.TestCase):
             18445, "wasmhome-issue22.test", ca)
         self.assertEqual(value["profiles"]["native"]["build_provenance"]["server_port"], 18445)
 
+        module_without_app_rollback = write_manifest(module_rollback=False)
+        compatible = orchestrator.validate_profile_manifest(module_without_app_rollback, 450,
+            "192.0.2.8", 18445, "wasmhome-issue22.test", ca)
+        self.assertEqual(compatible["profiles"]["interp"]["build_provenance"]["app_rollback_enabled"], "0")
+
         stale = write_manifest(native_port=8445)
         with self.assertRaisesRegex(orchestrator.OrchestratorError, "BIN-embedded"):
             orchestrator.validate_profile_manifest(stale, 450, "192.0.2.8",
                 18445, "wasmhome-issue22.test", ca)
+
+        rollback_disabled = write_manifest(native_rollback=False)
+        with self.assertRaisesRegex(orchestrator.OrchestratorError, "must enable rollback"):
+            orchestrator.validate_profile_manifest(rollback_disabled, 450, "192.0.2.8",
+                18445, "wasmhome-issue22.test", ca)
+
+        manifest = write_manifest()
+        data = json.loads(manifest.read_text())
+        record = data["profiles"]["native"]["bootloader_config"]
+        Path(record["path"]).write_text("#define CONFIG_IDF_TARGET_ESP32S3 1\n")
+        record["sha256"] = hashlib.sha256(Path(record["path"]).read_bytes()).hexdigest()
+        manifest.write_text(json.dumps(data))
+        with self.assertRaisesRegex(orchestrator.OrchestratorError, "bootloader config rollback mode differs"):
+            orchestrator.validate_profile_manifest(manifest, 450, "192.0.2.8",
+                18445, "wasmhome-issue22.test", ca)
+
+        manifest = write_manifest()
+        data = json.loads(manifest.read_text())
+        data["profiles"]["native"].pop("bootloader")
+        manifest.write_text(json.dumps(data))
+        with self.assertRaisesRegex(orchestrator.OrchestratorError, "fields differ"):
+            orchestrator.validate_profile_manifest(manifest, 450, "192.0.2.8",
+                18445, "wasmhome-issue22.test", ca)
+
+    def test_overlay_installs_bootloader_before_apps_and_verifies_before_reset(self):
+        app = self.root / "app.bin"
+        bootloader = self.root / "bootloader.bin"
+        app.write_bytes(b"A" * 24)
+        bootloader.write_bytes(b"B" * 24)
+        board = orchestrator.Board(object(), self.root)
+
+        def readback(_offset, _size, path, **_kwargs):
+            path.write_bytes(bootloader.read_bytes())
+
+        with mock.patch.object(board, "command") as command, \
+             mock.patch.object(board, "read", side_effect=readback) as read:
+            board.overlay_profile(app, bootloader)
+        self.assertEqual(command.call_args.args, ("write_flash", "0x0", str(bootloader),
+            hex(orchestrator.OTA_OFFSETS[0]), str(app), hex(orchestrator.OTA_OFFSETS[1]), str(app)))
+        self.assertEqual(read.call_args.args[:2], (0, 24))
+
+        def wrong_readback(_offset, _size, path, **_kwargs):
+            path.write_bytes(b"C" * 24)
+
+        with mock.patch.object(board, "command") as command, \
+             mock.patch.object(board, "read", side_effect=wrong_readback):
+            with self.assertRaisesRegex(orchestrator.OrchestratorError, "refusing reset"):
+                board.overlay_profile(app, bootloader)
+        self.assertEqual(command.call_count, 1)
 
     def test_scp_translates_ssh_port_to_uppercase_p(self):
         identity = self.root / "identity"

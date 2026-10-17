@@ -403,3 +403,17 @@ aceitação de artefato nem recuperação funcional.
   linhas da #23. Só depois da revisão do resultado preliminar pode começar a
   matriz #23. Builds locais não contam como tentativas aceitas nem como células
   HIL.
+
+## Bootloader compatibility gate (2026-10-17)
+
+The accepted full-flash baseline has app rollback disabled in its bootloader.
+The #22 coordinator now requires profile schema v2 with same-build app,
+matching bootloader, sdkconfig and bootloader generated config, all
+hashed and snapshotted. Native requires rollback enabled; interp/AOT may keep
+it disabled when both configs and marker agree. The CMake V2 marker binds the
+app to its sdkconfig.
+Each row temporarily overlays the selected bootloader and verifies its bytes
+before reset, then restores/verifies the entire accepted 16 MiB image in the
+existing finally/recovery path. `ESP_OTA_IMG_NEW` remains rejected by the
+signed-update reconciler. Earlier V1 app images and manifests must be rebuilt;
+see `issue22-hil-orchestrator.md` for the private generation sequence.
