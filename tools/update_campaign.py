@@ -475,6 +475,7 @@ def _start_serial_capture(port: str, baud: int, output: Path):
             serial_device.open()
             with output.open("xb") as stream:
                 stream.write(_json_bytes({"kind": "serial_open", "host_monotonic_ns": time.monotonic_ns(),
+                                          "clock_domain": _host_clock_domain("serial_laptop"),
                                           "port_alias": Path(port).name, "baud": baud}))
                 stream.flush()
                 ready.set()
@@ -498,14 +499,36 @@ def _start_serial_capture(port: str, baud: int, output: Path):
                     pass
 
     worker = threading.Thread(target=capture, name="campaign-serial-capture", daemon=True)
+    worker.capture_state = state
     state["thread"] = worker
     worker.start()
     if not ready.wait(5.0):
         stop.set()
+        worker.join(timeout=2.0)
         raise CampaignError("serial capture did not become ready")
     if state["error"] is not None:
+        worker.join(timeout=2.0)
         raise CampaignError(f"serial capture failed before dispatch: {state['error']}")
     return stop, worker
+
+
+def _host_clock_domain(name: str) -> dict:
+    try:
+        host_boot_id = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+    except OSError:
+        host_boot_id = None
+    return {"name": name, "hostname": socket.gethostname(),
+            "host_boot_id": host_boot_id, "clock": "monotonic_ns"}
+
+
+def _serial_capture_failure(worker) -> str | None:
+    state = getattr(worker, "capture_state", None)
+    if isinstance(state, dict):
+        if state.get("error") is not None:
+            return f"serial_capture_failed: {state['error']}"
+        if not worker.is_alive():
+            return "serial_capture_stopped_before_observer_finished"
+    return None
 
 
 def _observer_attempt_id(observations: Path, summary: dict) -> str | None:
@@ -883,7 +906,8 @@ def run_slot(campaign_root: Path, slot_id: str, *, device_ip: str, serial_port: 
              bind_ip: str = "0.0.0.0", udp_port: int = 3333, device_port: int = 3333,
              serial_baud: int = 115200, server_log: Path | None = None,
              period_ms: float = 100, timeout_ms: float = 300,
-             max_sample_age_ms: int = 1000) -> dict:
+             max_sample_age_ms: int = 1000, remote_options: dict | None = None,
+             remote_server_log: Path | None = None) -> dict:
     campaign, schedule, _ = _load_campaign(campaign_root)
     _validate_repository(campaign)
     slot = _slot_row(schedule, slot_id)
@@ -898,6 +922,13 @@ def run_slot(campaign_root: Path, slot_id: str, *, device_ip: str, serial_port: 
              "invalid UDP port")
     root = campaign_root.resolve()
     issue20 = campaign.get("protocol_revision") == ISSUE20_PROTOCOL_REVISION
+    _require(remote_server_log is None or remote_options is not None,
+             "--remote-server-log requires the remote observer backend")
+    if remote_options is not None:
+        _require(issue20, "the remote backend requires the frozen issue20-v1.0 protocol")
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from remote_observer import validate_options, _validate_observer
+        remote_options = validate_options(dict(remote_options))
     if issue20:
         campaign_metadata = campaign.get("metadata")
         _require(isinstance(campaign_metadata, dict)
@@ -916,44 +947,85 @@ def run_slot(campaign_root: Path, slot_id: str, *, device_ip: str, serial_port: 
                  and max_sample_age_ms == ISSUE20_MAX_SAMPLE_AGE_MS,
                  f"{ISSUE20_PROTOCOL_REVISION} requires period/timeout/max-age "
                  f"{ISSUE20_PERIOD_MS}/{ISSUE20_TIMEOUT_MS}/{ISSUE20_MAX_SAMPLE_AGE_MS} ms")
+    observer_options = dict(
+        device_ip=device_ip, seconds=seconds, bind_ip=bind_ip,
+        port=udp_port, device_port=device_port, period_ms=period_ms,
+        timeout_ms=timeout_ms, initial_version=1, trigger_after=trigger_after,
+        target_sequence=target_sequence, scenario=SCENARIO_CODES[slot["scenario"]],
+        max_sample_age_ms=max_sample_age_ms,
+        update_deadline_ms=ISSUE20_UPDATE_DEADLINE_MS if issue20 else None,
+        post_window_ms=ISSUE20_POST_WINDOW_MS if issue20 else None,
+        stable_window_ms=ISSUE20_STABLE_WINDOW_MS if issue20 else None,
+        minimum_stable_controls=ISSUE20_MIN_STABLE_CONTROLS if issue20 else 0,
+        minimum_stable_telemetry=ISSUE20_MIN_STABLE_TELEMETRY if issue20 else 0)
+    if remote_options is not None:
+        _validate_observer(observer_options)
+        _require(remote_server_log is None or remote_server_log.is_absolute(),
+                 "--remote-server-log must be an absolute CT107 path")
     output = root / "raw" / "slots" / slot_id
     _require(not output.exists(), f"slot output already exists; no retry is allowed: {output}")
     server_log_source = None
-    if server_log is not None:
+    if server_log is not None and remote_server_log is None:
         server_log_source = server_log if server_log.is_absolute() else root / server_log
         server_log_source = Path(os.path.abspath(server_log_source))
         _require(os.path.abspath(server_log_source) != os.path.abspath(output / "server.jsonl"),
                  "server log source cannot be the slot output file")
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.mkdir()
+    output.mkdir(mode=0o700)
 
     server_log_initial = _server_log_snapshot(server_log_source)
     observer_summary = None
+    remote_result = None
+    serial_error = None
+    server_log_capture = None
     try:
         stop, worker = _start_serial_capture(serial_port, serial_baud, output / "device.jsonl")
         try:
             # Import lazily so plan/preflight/analyze never import serial, bind UDP, or resolve a device.
             sys.path.insert(0, str(Path(__file__).resolve().parent))
             from external_observer import run as observer_run
-            observer_summary = observer_run(
-                device_ip=device_ip, output=output, seconds=seconds, bind_ip=bind_ip,
-                port=udp_port, device_port=device_port, period_ms=period_ms,
-                timeout_ms=timeout_ms, initial_version=1, trigger_after=trigger_after,
-                target_sequence=target_sequence, scenario=SCENARIO_CODES[slot["scenario"]],
-                max_sample_age_ms=max_sample_age_ms,
-                update_deadline_ms=ISSUE20_UPDATE_DEADLINE_MS if issue20 else None,
-                post_window_ms=ISSUE20_POST_WINDOW_MS if issue20 else None,
-                stable_window_ms=ISSUE20_STABLE_WINDOW_MS if issue20 else None,
-                minimum_stable_controls=ISSUE20_MIN_STABLE_CONTROLS if issue20 else 0,
-                minimum_stable_telemetry=ISSUE20_MIN_STABLE_TELEMETRY if issue20 else 0)
+            if remote_options is None:
+                observer_summary = observer_run(
+                    output=output, **observer_options,
+                    health_check=lambda: _serial_capture_failure(worker),
+                    clock_domain=_host_clock_domain("observer_local"))
+            else:
+                from remote_observer import run_remote_observer
+                remote_result = run_remote_observer(
+                    output, observer_options, remote_options,
+                    context={"campaign_id": campaign["campaign_id"], "slot_id": slot_id,
+                             "session_id": campaign.get("metadata", {}).get("session_id"),
+                             "git_commit": campaign["git_commit"],
+                             "runner_sha256": campaign["script_sha256"]},
+                    health_check=lambda: _serial_capture_failure(worker), server_log=remote_server_log)
+                observer_summary = remote_result.get("observer_summary")
+                _require(isinstance(observer_summary, dict),
+                         "remote observer failed before producing a summary; preserve the sealed evidence and review")
+                if remote_server_log is not None:
+                    server_log_capture = remote_result.get("server_log_capture")
+            serial_error = _serial_capture_failure(worker)
         finally:
             stop.set()
             worker.join(timeout=2.0)
             _require(not worker.is_alive(), "serial capture thread did not stop cleanly")
+            state = getattr(worker, "capture_state", None)
+            if isinstance(state, dict) and state.get("error") is not None:
+                serial_error = f"serial_capture_failed: {state['error']}"
 
-        server_log_capture = (_capture_server_log_delta(
-            server_log_source, server_log_initial, output / "server.jsonl")
-            if server_log_source is not None else None)
+        if server_log_source is not None:
+            server_log_capture = _capture_server_log_delta(
+                server_log_source, server_log_initial, output / "server.jsonl")
+    except BaseException as exc:
+        # An uncertain remote launch or partial capture must not disappear or
+        # become a synthetic not_sent result. Existing output prevents retries.
+        _write_json(output / "terminal-error.json", {
+            "kind": "capture_failed", "error": f"{type(exc).__name__}: {exc}",
+            "automatic_retry_permitted": False,
+            "clock_domain": _host_clock_domain("serial_laptop"),
+            "raw_files": {path.name: {"sha256": _sha256_file(path), "size_bytes": path.stat().st_size}
+                          for path in sorted(output.iterdir()) if path.is_file() and not path.is_symlink()
+                          and path.name != "terminal-error.json"}}, exclusive=True)
+        raise
     finally:
         _close_server_log_snapshot(server_log_initial)
 
@@ -1006,6 +1078,14 @@ def run_slot(campaign_root: Path, slot_id: str, *, device_ip: str, serial_port: 
         "protocol_revision": campaign["protocol_revision"],
         "campaign_type": campaign.get("metadata", {}).get("campaign_type"),
         "observer_run_id": str(uuid.uuid4()),
+        "execution": {"observer_backend": "ssh" if remote_options is not None else "local",
+                      "remote_state": remote_result.get("state") if remote_result else None,
+                      "transport_error": remote_result.get("transport_error") if remote_result else None,
+                      "serial_error": serial_error,
+                      "instrument_aborted": observer_summary.get("instrument_aborted", False)},
+        "clock_domains": {"observer": observer_summary.get("clock_domain"),
+                          "serial": _host_clock_domain("serial_laptop"),
+                          "policy": "never subtract timestamps from different host clock domains"},
         # Every scheduled run has a dispatch record, including the case where
         # boot never appeared and the observer therefore sent no trigger.
         "dispatches": [dispatch],
@@ -1105,6 +1185,11 @@ def run_slot(campaign_root: Path, slot_id: str, *, device_ip: str, serial_port: 
         if "review_required" not in server_log_record:
             server_log_record["review_required"] = False
     raw_file_names = {"observations.jsonl", "summary.json", "device.jsonl"}
+    if remote_options is not None:
+        raw_file_names.update(name for name in (
+            "remote-session.json", "remote-start-claim.json", "remote-status.json",
+            "remote-manifest.json", "remote-result.json", "remote-transport-error.json")
+                              if (output / name).is_file())
     if server_log_capture is not None:
         raw_file_names.update(segment["file"] for segment in server_log_capture["segments"])
         if server_log_capture.get("best_effort_capture", {}).get("file"):
@@ -1398,6 +1483,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--server-log", type=Path, default=DEFAULT_SERVER_LOG,
                        help="HTTP request JSONL relative to campaign root "
                        "(default: server/http-events.jsonl)")
+    p_run.add_argument("--remote-observer", metavar="wasmhome@HOST",
+                       help="run the observer as the normal CT107 user over strict-key SSH")
+    p_run.add_argument("--remote-known-hosts", type=Path)
+    p_run.add_argument("--remote-identity", type=Path)
+    p_run.add_argument("--remote-ssh-port", type=int, default=22)
+    p_run.add_argument("--remote-root", default=".local/share/wasmhome-hil")
+    p_run.add_argument("--remote-session-id", help="unique UUID; an existing session can never restart")
+    p_run.add_argument("--remote-server-log", type=Path,
+                       help="absolute HTTPS JSONL path on CT107; otherwise --server-log stays local")
 
     p_analyze = sub.add_parser("analyze", help="validate archived package and rebuild derived summaries")
     p_analyze.add_argument("campaign_root", type=Path)
@@ -1419,16 +1513,29 @@ def main(argv: list[str] | None = None) -> int:
                                network_port=args.network_port, probe_network=args.probe_network,
                                network_timeout=args.network_timeout)
         elif args.command == "run-slot":
+            remote_options = None
+            if args.remote_observer is not None:
+                _require(args.remote_known_hosts is not None and args.remote_identity is not None,
+                         "--remote-observer requires --remote-known-hosts and --remote-identity")
+                remote_options = {"target": args.remote_observer,
+                                  "known_hosts": str(args.remote_known_hosts),
+                                  "identity": str(args.remote_identity), "ssh_port": args.remote_ssh_port,
+                                  "root": args.remote_root, "session_id": args.remote_session_id}
+            else:
+                _require(args.remote_known_hosts is None and args.remote_identity is None
+                         and args.remote_session_id is None and args.remote_server_log is None,
+                         "remote options require --remote-observer")
             result = run_slot(args.campaign_root, args.slot_id, device_ip=args.device_ip,
                               serial_port=args.serial_port, seconds=args.seconds,
                               trigger_after=args.trigger_after, target_sequence=args.target_sequence,
                               bind_ip=args.bind_ip, udp_port=args.udp_port, device_port=args.device_port,
                               serial_baud=args.serial_baud, server_log=args.server_log,
                               period_ms=args.period_ms, timeout_ms=args.timeout_ms,
-                              max_sample_age_ms=args.max_sample_age_ms)
+                              max_sample_age_ms=args.max_sample_age_ms,
+                              remote_options=remote_options, remote_server_log=args.remote_server_log)
         else:
             result = analyze(args.campaign_root)
-    except (CampaignError, OSError, subprocess.CalledProcessError) as exc:
+    except (ValueError, OSError, subprocess.CalledProcessError) as exc:
         parser.exit(2, f"error: {exc}\n")
     print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False))
     return 0

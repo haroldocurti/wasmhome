@@ -1,0 +1,306 @@
+# Observador da #20 no CT107, sem privilégios administrativos
+
+O laptop conserva flash, restauração da baseline e captura UART. O CT107 executa
+o observador UDP como `wasmhome`, com Python padrão, e pode hospedar o servidor
+HTTPS existente. O laptop inicia conexões SSH de saída; a telemetria da placa
+passa diretamente ao CT107. Não é necessário abrir UDP/3333 no firewall do
+laptop. Este backend não instala pacotes, muda firewall, inicia containers ou
+altera firmware, baseline e chaves autorizadas.
+
+Esta implementação foi preparada sem executar testes, SSH, serviços ou acesso
+à placa. A integração física e a recuperação após falhas ainda precisam de
+validação autorizada antes de uma campanha válida.
+
+## Identidades e preparação única
+
+O endpoint LAN confirmado nesta sessão é `192.168.0.138/24`, hostname
+`wasmhome-bench`, usuário `wasmhome`, UID 1000, Python 3.13.5 e SSH/22.
+Reconfirmar esses valores antes de cada nova sessão. O endereço
+`100.89.142.40`, informado para Proxmox/Tailscale, **não é** o endereço do
+observador a compilar no ESP. A opção `--bind-ip` precisa ser fornecida
+explicitamente com o IPv4 LAN do CT107; o worker rejeita endereço indefinido,
+loopback, multicast e a faixa de overlay `100.64.0.0/10`. O IP do ESP é outro
+valor, obtido do inventário/captura já existente ou da concessão DHCP.
+
+O runtime usa somente `wasmhome`. Essa conta ainda precisa receber **uma chave
+SSH dedicada uma única vez**: a chave local disponível na investigação não
+correspondia ao `authorized_keys` do usuário e o acesso direto foi recusado.
+O backend não consegue provisionar sua própria primeira credencial. O operador
+deve instalar a chave pública por um canal já autenticado da própria conta ou
+pela console apropriada, sem trocar permissões do sistema. Nenhuma alteração
+de `authorized_keys` foi feita por esta implementação.
+
+No laptop, criar uma chave exclusiva **sem passphrase**, necessária para a
+execução unattended porque o cliente usa `BatchMode=yes` e `IdentityAgent=none`:
+
+```bash
+ssh-keygen -t ed25519 -N '' -f /CAMINHO_PRIVADO/ct107-hil -C wasmhome-hil
+chmod 600 /CAMINHO_PRIVADO/ct107-hil
+```
+
+Proteger também seu diretório com modo 0700. Instalar apenas sua linha pública no arquivo do usuário
+`wasmhome`; a opção `restrict` na linha de `authorized_keys` limita recursos
+SSH desnecessários, mantendo execução de comandos sem terminal.
+
+Preservar a chave pública do **servidor CT107**, conferida por um canal
+independente, em um arquivo `known_hosts` dedicado. A fingerprint ED25519 já
+foi conferida via Proxmox durante a investigação; conservar esse recibo.
+Não usar aceitação automática da primeira chave nem confundir a chave do CT
+com a chave do Proxmox. Alteração posterior precisa ser reconciliada. O cliente
+exige `StrictHostKeyChecking=yes`, um arquivo explícito de hosts conhecidos e
+uma identidade explícita; não usa senha, agente SSH ou hosts globais.
+
+O diretório padrão remoto é `~/.local/share/wasmhome-hil`, privado, modo 0700,
+pertencente a `wasmhome`. Outro caminho pode ser escolhido com `--remote-root`,
+mas precisa permanecer dentro do home do usuário e sem links simbólicos. A
+conta deve ter espaço para logs e os arquivos da sessão. Python 3.10+ e um
+Linux com `/proc`/`fcntl` são necessários no CT; para HTTPS, também OpenSSL.
+O laptop precisa das dependências de captura serial já usadas pelo runner.
+
+## Verificação anterior, somente leitura
+
+Depois do provisionamento da chave, executar esta conferência separadamente.
+Ela consulta identidade, endereços, rota e espaço; não abre serial, não envia
+pacotes UDP à placa e não inicia o observador ou o servidor. A conexão SSH é
+uma ação de rede explícita e não foi executada nesta entrega.
+
+```bash
+HIL_KEY=/CAMINHO_PRIVADO/ct107-hil
+HIL_KNOWN_HOSTS=/CAMINHO_PRIVADO/ct107-known_hosts
+HIL_DEVICE_IP=IPV4_LAN_CONFIRMADO_DO_ESP
+HIL_SSH=(-T -o BatchMode=yes -o StrictHostKeyChecking=yes
+  -o "UserKnownHostsFile=$HIL_KNOWN_HOSTS" -o GlobalKnownHostsFile=/dev/null
+  -o IdentitiesOnly=yes -o IdentityAgent=none -i "$HIL_KEY")
+ssh "${HIL_SSH[@]}" wasmhome@192.168.0.138 "python3 - '$HIL_DEVICE_IP'" <<'PY'
+import ipaddress, json, os, pathlib, pwd, shutil, socket, subprocess, sys
+device = str(ipaddress.IPv4Address(sys.argv[1]))
+assert os.geteuid() == 1000
+assert pwd.getpwuid(os.geteuid()).pw_name == 'wasmhome'
+assert socket.gethostname() == 'wasmhome-bench'
+addresses = json.loads(subprocess.check_output(['ip', '-4', '-j', 'address', 'show']))
+assert any(a.get('local') == '192.168.0.138'
+           for link in addresses for a in link.get('addr_info', []))
+route = json.loads(subprocess.check_output(['ip', '-4', '-j', 'route', 'get', device]))
+print(json.dumps({'uid': os.geteuid(), 'host': socket.gethostname(),
+                  'python': sys.version, 'addresses': addresses, 'route_to_esp': route,
+                  'home_free_bytes': shutil.disk_usage(pathlib.Path.home()).free}, indent=2))
+PY
+```
+
+Uma rota existente não comprova recepção UDP. A prova funcional continua sendo
+telemetria e controles recebidos do boot correto. Se o CT ou a rede também
+bloquearem esse tráfego, o worker não contorna essa restrição: a qualificação
+falha e o trigger fica bloqueado.
+
+## Firmware, HTTPS e uma campanha nova
+
+Mudança de rede ou host observador encerra a sessão anterior. Criar novos
+`campaign_id` e `session_id`, preservar os slots antigos e manter a baseline
+integral aprovada. O runner **não** restaura a flash, grava overlays, muda
+sdkconfig, compila, assina pacotes ou inicia HTTPS; essas etapas continuam
+no preparo já aprovado da bancada.
+
+1. Escolher e registrar o novo UUID de campanha antes de preparar os artefatos.
+   Usar a revisão `issue20-v1.0`, `campaign_type="pilot"`, N=6 e uma semente
+   nova. Os limites de medição permanecem congelados.
+2. Nos sdkconfig privados dos perfis A/B/C, configurar:
+
+   ```text
+   CONFIG_WASMHOME_OBSERVER_IPV4="192.168.0.138"
+   CONFIG_WASMHOME_UDP_PORT=3333
+   CONFIG_WASMHOME_UPDATE_SERVER_IPV4="192.168.0.138"
+   CONFIG_WASMHOME_UPDATE_SERVER_NAME="wasmhome-bench.test"
+   CONFIG_WASMHOME_UPDATE_SERVER_PORT=8444
+   CONFIG_WASMHOME_UPDATE_CAMPAIGN_ID="UUID_NOVO_DA_CAMPANHA"
+   ```
+
+   Preservar a CA, chave pública COSE, identidade AOT, mapa de partições,
+   política antirretorno e os demais valores aprovados. Não incluir chaves
+   privadas no firmware. O endpoint UDP é compilado: o firmware só recebe
+   controles originados desse mesmo IPv4 e porta. A configuração exige
+   **rebuild e boot do novo firmware**; não é uma troca dinâmica do observador.
+3. Recompilar os firmwares v1 necessários e o firmware nativo v2. A OTA nativa
+   instala outra aplicação completa, portanto v2 também deve apontar para o
+   CT. Gerar novamente envelopes/pacote assinados para a nova campanha, com
+   os hashes efetivos; nunca editar um payload depois da assinatura. Os
+   módulos só podem conservar seus bytes se a própria entrada de build não
+   mudou; seus manifests ainda precisam corresponder à campanha/versão.
+4. Transferir ao home de `wasmhome` o pacote imutável, certificado e chave TLS,
+   chave pública COSE e os scripts `artifact_https_server.py` e
+   `signed_artifacts.py` da revisão registrada. Conferir seus hashes. O
+   observador sincroniza seus próprios quatro scripts automaticamente; ele
+   não transfere o pacote HTTPS, a chave TLS ou a chave privada de assinatura.
+   A chave privada COSE permanece fora do CT. A chave TLS deve ter modo 0600,
+   e o certificado deve satisfazer o DNS SAN `wasmhome-bench.test`, a CA
+   compilada e a validade temporal. Conservar a sincronização SNTP do ESP.
+5. Iniciar o servidor existente em uma sessão normal de `wasmhome`, em porta
+   não privilegiada, com log exclusivo da nova campanha. Exemplo no CT,
+   substituindo os caminhos e as identidades pelos valores reais:
+
+   ```bash
+   umask 077
+   python3 /home/wasmhome/HIL/tools/artifact_https_server.py \
+     --bind 192.168.0.138 --port 8444 \
+     --server-ip 192.168.0.138 --server-name wasmhome-bench.test \
+     --package /home/wasmhome/HIL/package \
+     --certificate /home/wasmhome/HIL/tls/server.pem \
+     --private-key /home/wasmhome/HIL/tls/server.key \
+     --signing-public-key /home/wasmhome/HIL/package/signing-public.der \
+     --expected-campaign-id UUID_NOVO_DA_CAMPANHA \
+     --expected-aot-toolchain-id wamr-2.4.5-wasmhome.3 \
+     --log /home/wasmhome/HIL/http-events.jsonl
+   ```
+
+   Reservar a porta para esta campanha; não encerrar serviços anteriores para
+   obter a porta sem identificar sua finalidade. Se a porta estiver ocupada,
+   escolher outra porta não privilegiada no preparo e recompilar todos os
+   endpoints correspondentes. Não substituir HTTPS por `http.server` nem
+   desligar validação de certificado.
+6. Criar o manifesto privado `artifacts.json` no formato já aceito pelo
+   `update_campaign.py plan`: `schema_version=1` e lista `artifacts`, contendo
+   `artifact_id`, `scenario` (`native`, `interp`, `aot`), caminho efetivo e
+   SHA-256 para cada entrada. Incluir os novos arquivos realmente preparados;
+   não reutilizar hashes ou paths de builds antigos. O planejamento normaliza
+   caminhos e confere os hashes e a cobertura dos três cenários.
+
+Exemplo reproduzível para registrar os novos metadados e criar o plano, depois
+de preencher o manifesto dos artefatos preparados. Os arquivos abaixo são
+privados. Ajustar o ambiente e a identificação da bancada antes da coleta.
+
+```bash
+HIL_PREP=/CAMINHO_PRIVADO/issue20-nova-sessao
+HIL_ARTIFACTS="$HIL_PREP/artifacts.json"
+HIL_SEED=issue20-ct107-nova-sessao-r1
+HIL_DEVICE_IP=IPV4_LAN_CONFIRMADO_DO_ESP
+HIL_CAMPAIGN_ID=UUID_NOVO_JA_COMPILADO_E_ASSINADO
+python3 - "$HIL_PREP" "$HIL_DEVICE_IP" "$HIL_CAMPAIGN_ID" <<'PY'
+import ipaddress, json, pathlib, sys, uuid
+root = pathlib.Path(sys.argv[1])
+device = str(ipaddress.IPv4Address(sys.argv[2]))
+root.mkdir(mode=0o700, parents=True, exist_ok=True)
+campaign_id = str(uuid.UUID(sys.argv[3]))
+metadata = {'protocol_revision': 'issue20-v1.0', 'campaign_type': 'pilot',
+            'campaign_id': campaign_id, 'session_id': str(uuid.uuid4()),
+            'bench': {'observer_host': 'wasmhome-bench', 'observer_ipv4': '192.168.0.138',
+                      'https_ipv4': '192.168.0.138', 'https_port': 8444,
+                      'device_ipv4': device, 'serial_port': '/dev/ttyACM0'},
+            'environment': {}}
+with (root / 'metadata.json').open('x') as stream:
+    json.dump(metadata, stream, indent=2)
+    stream.write('\n')
+print(campaign_id)
+PY
+HIL_CAMPAIGN_ROOT="$HIL_PREP/campaign"
+python3 tools/update_campaign.py plan --output "$HIL_CAMPAIGN_ROOT" \
+  --metadata "$HIL_PREP/metadata.json" --artifacts "$HIL_ARTIFACTS" \
+  --n 6 --seed "$HIL_SEED"
+python3 tools/update_campaign.py preflight "$HIL_CAMPAIGN_ROOT" \
+  --output-dir "$HIL_PREP/preflight" --minimum-free-bytes 1073741824
+```
+
+O `preflight` acima é offline; não usar `--probe-serial` ou `--probe-network`
+para essa conferência. Antes do slot real, seguir o protocolo de identidade,
+baseline, restauração e overlay aprovado. A baseline aceita não é substituída
+pelo novo firmware de aplicação.
+
+**Executar somente quando o preparo físico estiver aprovado:** o comando abaixo
+abre a serial uma vez e inicia o único slot indicado. Conferir o primeiro slot
+na agenda efetivamente gerada e substituir `HIL_SLOT_ID` pelo valor dessa
+agenda; o exemplo não reordena slots. `HIL_TARGET_SEQUENCE` deve ser a sequência
+positiva realmente assinada para v2 e compatível com o piso restaurado.
+
+```bash
+HIL_SLOT_ID=SLOT_ID_DA_AGENDA
+HIL_TARGET_SEQUENCE=SEQUENCIA_V2_DO_PACOTE_ASSINADO
+python3 tools/update_campaign.py run-slot "$HIL_CAMPAIGN_ROOT" "$HIL_SLOT_ID" \
+  --device-ip "$HIL_DEVICE_IP" --serial-port /dev/ttyACM0 \
+  --bind-ip 192.168.0.138 --udp-port 3333 --device-port 3333 \
+  --seconds 150 --trigger-after 60 --target-sequence "$HIL_TARGET_SEQUENCE" \
+  --period-ms 100 --timeout-ms 300 --max-sample-age-ms 1000 \
+  --remote-observer wasmhome@192.168.0.138 \
+  --remote-known-hosts "$HIL_KNOWN_HOSTS" --remote-identity "$HIL_KEY" \
+  --remote-server-log /home/wasmhome/HIL/http-events.jsonl
+```
+
+`--remote-server-log` refere-se ao CT e recebe os mesmos controles de
+continuidade/rotação já existentes no runner. Sem essa opção, `--server-log`
+continua sendo um arquivo no laptop. O worker não gera eventos HTTP fictícios;
+ausência ou vazio são classificados conforme trigger enviado e evidência.
+
+## Sessões, cancelamento e recuperação
+
+O runner copia `remote_observer.py`, `external_observer.py`, o codec e
+`update_campaign.py`, com todos os parâmetros da API `run()`. A CLI antiga do
+observador, isoladamente, não expressa as janelas completas da #20 e não deve
+substituir o backend. O worker recusa outros parâmetros: 60 s anteriores,
+30 controles/30 telemetrias válidas, mesmo boot, 100/300/1.000 ms,
+60 s de prazo e 30 s posteriores. A qualificação ocorre no CT imediatamente
+antes do único trigger.
+
+Cada slot recebe UUID remoto próprio. `start.claim` é persistido antes do
+lançamento; qualquer repetição retorna o estado existente e nunca cria outro
+worker. O diretório local do slot também impede reexecução. Uma preparação
+interrompida deixa uma pasta recusada para nova preparação; não a apagar para
+repetir um estado potencialmente ambíguo.
+
+O worker roda separado da conexão SSH, mas só continua enquanto o laptop
+renova uma confirmação de saúde de **3 segundos**. O cliente verifica a thread
+serial antes de iniciar e antes de cada renovação. Erro serial cancela a
+confirmação; a primeira falha SSH impede qualquer renovação posterior,
+inclusive após reconexão. O observador confere a confirmação a cada ciclo e
+novamente antes do trigger. No backend local, consulta diretamente o estado
+da captura serial. Uma falha de captura gera `instrument_abort` e preserva
+resumo e dados disponíveis.
+
+Essa comunicação distribuída possui um limite: uma falha recém-ocorrida pode
+ainda não ter chegado ao CT enquanto a última confirmação estiver válida.
+O período máximo de validade é 3 s, acrescido de eventual atraso do processo
+até a próxima execução da verificação. Não alegar que a saúde da UART e o
+envio UDP sejam atômicos entre máquinas. Uma falha após envio não desfaz o
+trigger e nunca autoriza repetição automática. Falhas instrumentais continuam
+exigindo a classificação prevista no protocolo; timeout de rede sozinho não
+prova falha instrumental.
+
+O worker só publica o manifesto depois de fechar observações, resumo e logs
+do servidor. O cliente confere tamanho/SHA-256 dos arquivos e o hash que vincula
+configuração e snapshots de código, baixa em blocos para staging e incorpora
+cada arquivo sem sobrescrever evidência existente. A captura UART permanece
+aberta até acabar a supervisão/coleta. Nenhuma evidência remota é apagada.
+
+Após perda do cliente, usar o snapshot local de código e o recibo exclusivo do
+slot. Os comandos abaixo fazem somente consulta/recuperação; não abrem serial,
+não renovam a confirmação e não iniciam workers:
+
+```bash
+HIL_SLOT_DIR="$HIL_CAMPAIGN_ROOT/raw/slots/$HIL_SLOT_ID"
+python3 "$HIL_SLOT_DIR/remote-code/remote_observer.py" status \
+  "$HIL_SLOT_DIR/remote-session.json"
+python3 "$HIL_SLOT_DIR/remote-code/remote_observer.py" recover \
+  "$HIL_SLOT_DIR/remote-session.json"
+```
+
+Se o worker ainda não encerrou, a recuperação recusa copiar arquivos abertos.
+Se o processo morreu, o CT reiniciou ou o disco falhou antes de selar os
+arquivos, manter o estado como não resolvido e preservar a pasta para
+investigação; este primeiro corte não reconstitui automaticamente um manifesto
+de processo morto. `recover` não inventa `slot.json`, resultado de despacho ou
+resultado experimental. Uma falha normal do runner deixa
+`terminal-error.json` com recibo dos arquivos disponíveis; um encerramento
+abrupto pode impedir esse recibo e exige conferir os dados já persistidos.
+
+## Relógios e proveniência
+
+`observations.jsonl` e `summary.json` usam `observer_ct107`, com hostname e ID
+de boot do host. A primeira entrada da UART declara `serial_laptop`; o slot
+registra ambos os domínios. O firmware conserva seus próprios timestamps por
+boot. Correlacionar os fluxos por `boot_id`, `attempt_id` e sequência; nunca
+subtrair monotônicos de hosts diferentes. Tempos de SSH e download de logs
+não entram na latência da atualização.
+
+As novas opções e a correção da captura serial alteram o SHA-256 de
+`tools/update_campaign.py`. Um plano existente fixa `git_commit` e
+`script_sha256` e será recusado depois dessa mudança. Criar o plano novo após
+estabilizar a revisão e os artefatos; qualquer commit posterior muda a revisão
+e também exige outro plano. Preservar o snapshot `remote-code` e seus hashes
+para recuperação, mesmo que a árvore de desenvolvimento avance. Esta etapa
+não fez commit, push, rebuild, reboot ou atualização da placa.

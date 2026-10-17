@@ -366,7 +366,7 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
         trigger_after=None, target_sequence=None, scenario=1, interface_index=None,
         max_sample_age_ms=1000, update_deadline_ms=None, post_window_ms=None,
         stable_window_ms=None, minimum_stable_controls=0,
-        minimum_stable_telemetry=0):
+        minimum_stable_telemetry=0, health_check=None, clock_domain=None):
     period_ns = round(period_ms * 1_000_000)
     timeout_ns = round(timeout_ms * 1_000_000)
     values = [seconds, period_ms, timeout_ms]
@@ -408,6 +408,7 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
         end = start + round(seconds * 1e9)
         next_send = start
         observer.record("session_start", start, seconds=seconds, period_ns=period_ns,
+                        clock_domain=clock_domain or {"name": "observer_local", "clock": "monotonic_ns"},
                         timeout_ns=timeout_ns, initial_version=initial_version,
                         max_sample_age_ms=max_sample_age_ms,
                         update_deadline_ms=update_deadline_ms,
@@ -420,6 +421,10 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
         try:
             while True:
                 now = time.monotonic_ns()
+                failure = health_check() if health_check is not None else None
+                if failure:
+                    observer.event("instrument_abort", now, reason=str(failure))
+                    break
                 observer.expire(now)
                 if (observer.first_boot_seen_ns is not None
                         and observer.stable_window_ns is not None
@@ -450,8 +455,18 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
                         and observer.pre_window is None and now >= trigger_eligible):
                     qualification = observer.qualify_pre_window(now, start)
                     if qualification["passed"]:
+                        # Check again at the dispatch boundary, including after
+                        # writing the qualification evidence to disk.
+                        failure = health_check() if health_check is not None else None
+                        if failure:
+                            observer.event("instrument_abort", time.monotonic_ns(), reason=str(failure))
+                            break
                         observer.send_trigger(udp, now, target_sequence, scenario)
                     elif observer.stable_window_ns is None:
+                        failure = health_check() if health_check is not None else None
+                        if failure:
+                            observer.event("instrument_abort", time.monotonic_ns(), reason=str(failure))
+                            break
                         observer.send_trigger(udp, now, target_sequence, scenario)
                 wait_ns = min(drain_end, next_send if now < capture_end else drain_end) - time.monotonic_ns()
                 readable, _, _ = select.select([udp], [], [], max(0, min(wait_ns / 1e9, 0.01)))
@@ -466,6 +481,8 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
             observer.event("interrupted", time.monotonic_ns())
         observer.expire(time.monotonic_ns())
         result = observer.summary()
+        result["clock_domain"] = clock_domain or {"name": "observer_local", "clock": "monotonic_ns"}
+        result["instrument_aborted"] = bool(observer.counters.get("instrument_abort"))
         result["observation_start_ns"] = start
         result["observation_end_ns"] = time.monotonic_ns()
         result["control_tail_censored_ns"] = (None if not observer.success_times else
