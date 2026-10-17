@@ -1,11 +1,41 @@
-# Issue #20 — preparo e bloqueio do piloto físico
+# Issue #20 — preparo e estado do piloto físico
 
-## Resultado desta sessão
+## Resultado da sessão de 17/10/2026
 
-**Nenhuma atualização física foi executada nesta sessão.** Não há disparos,
-aceites, capturas UART/UDP nem resultados físicos de piloto. Portanto, o
-requisito de cinco atualizações completas aceitas em cada cenário permanece
-sem evidência: A `0/5`, B `0/5`, C `0/5`.
+O usuário aprovou a baseline física e autorizou os ensaios. A leitura integral
+pré-escrita de 16 MiB coincidiu byte a byte com a baseline aceita, SHA-256
+`00aa22c35720354383c3d686a14612a7cb2fd99c57cb1ce214d07338c1c167a5`.
+
+A campanha `164c919d-d1d9-401b-9451-84c39ed930b9` iniciou o slot planejado
+`B0001-native`, mas a qualificação pré-disparo falhou: não chegaram ao
+observador as amostras UDP de telemetria e controle necessárias para uma janela
+estável. O runner encerrou com `dispatch_status=not_sent`, sem `attempt_id`;
+nenhum `UPDATE_TRIGGER` foi enviado e nenhum pedido HTTPS foi observado. O
+slot não produziu aceite ou resultado de atualização. As cinco atualizações
+completas aceitas continuam sem evidência: A `0/5`, B `0/5`, C `0/5`.
+
+Durante a preparação do slot, foram gravados somente o firmware de aplicação
+e a tabela de partições; o log do esptool confirmou os hashes gravados. Ao
+final, a imagem integral aceita foi restaurada no endereço zero e a verificação
+automática do esptool terminou com `Hash of data verified.` O dump, logs brutos,
+capturas seriais e registros completos da campanha permanecem em armazenamento
+privado; esta atualização não acrescenta endereços de rede, MAC ou conteúdo
+de flash.
+O resumo sanitizado está em [tentativa HIL de 17/10](hil-attempt-2026-10-17.md).
+
+O bloqueio atual é a ausência de telemetria/controle UDP recebidos pelo
+observador durante a janela pré-disparo. A placa respondeu a ping, mas isso não
+prova o caminho UDP nem explica a ausência dos datagramas. Não se atribui a
+causa a firewall, roteamento ou firmware sem evidência adicional. Não continuar
+os slots desta campanha; após corrigir e confirmar a recepção UDP, criar uma
+campanha nova com identificador próprio.
+
+## Histórico da sessão de 16/10/2026
+
+Naquela sessão, não houve disparos ou resultados físicos. A leitura integral
+divergiu da imagem-base histórica `b66…`, deixando a gravação bloqueada. Esse
+estado foi substituído pela aprovação explícita da baseline atual em 17/10 e
+pela comparação byte a byte registrada acima.
 
 A revisão congelada em [protocolo-campanha-issue20-v1.0.md](../../protocolo-campanha-issue20-v1.0.md)
 e a [agenda candidata](pilot-schedule.json) são documentos de preparação; não
@@ -13,7 +43,9 @@ devem ser interpretados como resultado de hardware. A calibração #19 examinada
 contém uma atualização física aceita por cenário e não substitui as cinco
 tentativas do piloto.
 
-## Checagem de acesso e estado da bancada
+## Registro técnico da sessão de 16/10 (histórico)
+
+### Checagem de acesso e estado da bancada
 
 - `/dev/ttyACM0` existia para um adaptador USB QinHeng (`1A86:55D3`, driver
   `cdc_acm`). O identificador confirma o adaptador serial conhecido
@@ -58,14 +90,13 @@ tentativas do piloto.
   flash. Os pacotes ativos continuam presos aos campaign IDs de #15/#16–#18 e
   não podem ser atribuídos ao piloto #20.
 
-O preflight de identidade, tamanho e leitura integral ocorreu, mas falhou na
-igualdade com a imagem-base `b66…`. Não houve flash, disparo UDP nem alteração
-do servidor; os comandos de identificação causaram o hard reset descrito acima.
-O `boot_id`, firmware ativo, sensor, GPIO5→GPIO6 e uma janela viva de
-telemetria/controle ainda não foram confirmados. A campanha continua bloqueada
-antes do primeiro slot e permanece em A `0/5`, B `0/5`, C `0/5`.
+O parágrafo acima registra o bloqueio observado em 16/10. Em 17/10 a baseline
+foi aprovada e a primeira qualificação de slot foi iniciada, mas terminou antes
+do disparo por falta de UDP; consulte o resultado atualizado no início deste
+arquivo. `boot_id`, firmware/boot ativos, sensor, GPIO5→GPIO6 e janela viva
+qualificada continuam sem confirmação para esta campanha.
 
-## Trabalho possível concluído
+### Trabalho de preparação concluído antes do HIL
 
 - A origem de `b66c24a3…` foi auditada somente por leitura: o arquivo privado de
   16 MiB coincide com seu recibo; a leitura pré-HIL e a restauração final da #16
@@ -105,11 +136,9 @@ antes do primeiro slot e permanece em A `0/5`, B `0/5`, C `0/5`.
 
 ## Próximo requisito de evidência
 
-Antes de qualquer gravação, explicar/reconciliar as diferenças atuais da NVS e
-aprovar a imagem-base que corresponda ao estado físico; não escolher
-automaticamente `b66…` nem outro snapshot histórico. Em seguida, confirmar
-`boot_id`, firmware ativo, sensor, GPIO5→GPIO6 e uma janela viva válida. Só
-depois executar uma campanha `pilot` com ID novo, artefatos assinados que
-correspondam ao mesmo campaign ID, logs próprios e restauração verificada antes
-de cada slot. Não atribuir à #20 os dados singulares de #16–#18 nem as chamadas
-de microbenchmark da #19.
+A baseline de 17/10 foi aprovada e restaurada após o slot sem disparo. Antes de
+retomar, confirmar a causa da falta de UDP, o `boot_id`, firmware/boot ativos,
+sensor, GPIO5→GPIO6 e uma janela viva válida. Só então criar campanha `pilot`
+com ID novo, artefatos assinados que correspondam ao mesmo campaign ID, logs
+próprios e restauração verificada antes de cada slot. Não atribuir à #20 os
+dados singulares de #16–#18 nem as chamadas de microbenchmark da #19.

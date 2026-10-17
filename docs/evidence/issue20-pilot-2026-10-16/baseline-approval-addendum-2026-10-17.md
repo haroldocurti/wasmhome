@@ -67,3 +67,14 @@ classificada como falha instrumental nem como resultado de tentativa: não houve
 tentativa. O preflight será refeito com o firmware temporário de serviço A/B/C,
 usando observador e endpoint de artefatos isolados. Nenhuma gravação nem
 disparo de atualização ocorreu até este ponto.
+
+## Resultado posterior da tentativa de 17/10
+
+Depois deste preflight somente de leitura, foi executada a tentativa
+`B0001-native` da campanha `164c919d-d1d9-401b-9451-84c39ed930b9`. A janela
+pré-disparo não recebeu UDP válido suficiente e o runner terminou com
+`dispatch_status=not_sent`; nenhum `UPDATE_TRIGGER` ou pedido HTTPS ocorreu.
+Foram gravados apenas o firmware de aplicação e a tabela de partições para
+essa preparação. A imagem integral aceita foi restaurada e o esptool concluiu
+`Hash of data verified.` A ausência de telemetria/controle observados permanece
+sem causa determinada. Detalhes sanitizados: [tentativa HIL](hil-attempt-2026-10-17.md).
