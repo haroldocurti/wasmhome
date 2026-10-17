@@ -267,6 +267,19 @@ static uint64_t highest_control_sample_id;
 static uint8_t resilience_attempt_id[16];
 static bool resilience_attempt_valid;
 
+static void
+clear_resilience_attempt_id_internal(const uint8_t attempt_id[16])
+{
+    if (!attempt_id || !manager_lock) return;
+    xSemaphoreTake(manager_lock, portMAX_DELAY);
+    if (resilience_attempt_valid &&
+        memcmp(resilience_attempt_id, attempt_id, sizeof(resilience_attempt_id)) == 0) {
+        memset(resilience_attempt_id, 0, sizeof(resilience_attempt_id));
+        resilience_attempt_valid = false;
+    }
+    xSemaphoreGive(manager_lock);
+}
+
 #if defined(WASMHOME_SCENARIO_MODULE_INTERP)
 extern const unsigned char resilience_control_traps_wasm[];
 extern const unsigned int resilience_control_traps_wasm_len;
@@ -2382,6 +2395,31 @@ restore_resilience_control(module_slot_t *old_slot, module_slot_t *fixture_slot)
     return restored;
 }
 
+static bool
+recover_resilience_without_fixture(const resilience_command_t *command,
+                                   module_slot_t *old_slot,
+                                   module_slot_t *fixture_slot,
+                                   const char *reason)
+{
+    const bool restored = restore_resilience_control(old_slot, fixture_slot);
+    if (restored) slot_release(fixture_slot);
+    const esp_err_t health_err = restored
+        ? candidate_control_health_check(old_slot) : ESP_ERR_INVALID_STATE;
+    bool recovery_recorded;
+    if (health_err == ESP_OK) {
+        recovery_recorded = emit_resilience_event(
+            command, "control_recovery_completed", false, false, 0,
+            reason, old_slot);
+    } else {
+        recovery_recorded = emit_resilience_event(
+            command, "control_recovery_failed", false, false,
+            health_err, reason, old_slot);
+    }
+    if (!recovery_recorded)
+        clear_resilience_attempt_id_internal(command->attempt_id);
+    return health_err == ESP_OK && recovery_recorded;
+}
+
 static esp_err_t
 run_resilience_case_on_worker(resilience_command_t *command)
 {
@@ -2405,14 +2443,20 @@ run_resilience_case_on_worker(resilience_command_t *command)
 
     const wh_module_image_t *image = resilience_fixture_image();
     if (!image || !image->bytes || image->size == 0 ||
-        image->size > CONFIG_WASMHOME_MODULE_MAX_ARTIFACT_BYTES)
+        image->size > CONFIG_WASMHOME_MODULE_MAX_ARTIFACT_BYTES) {
+        clear_resilience_attempt_id_internal(command->attempt_id);
         return ESP_ERR_INVALID_SIZE;
+    }
     esp_err_t err = slot_load(fixture_slot, WH_MODULE_ROLE_CONTROL,
                               image, true, NULL, NULL);
-    if (err != ESP_OK) return err;
+    if (err != ESP_OK) {
+        clear_resilience_attempt_id_internal(command->attempt_id);
+        return err;
+    }
     if (!fixture_slot->resilience_zero_fn || !fixture_slot->resilience_oob_fn ||
         !fixture_slot->resilience_div0_fn) {
         slot_release(fixture_slot);
+        clear_resilience_attempt_id_internal(command->attempt_id);
         return ESP_ERR_INVALID_ARG;
     }
     fixture_slot->state = WH_MODULE_SLOT_READY;
@@ -2422,6 +2466,7 @@ run_resilience_case_on_worker(resilience_command_t *command)
         atomic_load_explicit(&old_slot->in_flight, memory_order_acquire)) {
         xSemaphoreGive(manager_lock);
         slot_release(fixture_slot);
+        clear_resilience_attempt_id_internal(command->attempt_id);
         return ESP_ERR_INVALID_STATE;
     }
     old_slot->state = WH_MODULE_SLOT_DRAINING;
@@ -2434,8 +2479,8 @@ run_resilience_case_on_worker(resilience_command_t *command)
      * callback permits the Wasm instruction to execute. */
     if (!emit_resilience_event(command, "fault_accepted", false, false, 0,
                                NULL, fixture_slot)) {
-        if (restore_resilience_control(old_slot, fixture_slot))
-            slot_release(fixture_slot);
+        (void)recover_resilience_without_fixture(command, old_slot, fixture_slot,
+            "fault_accepted_serial_ack_failed_fixture_not_run");
         return ESP_FAIL;
     }
 
@@ -2459,14 +2504,14 @@ run_resilience_case_on_worker(resilience_command_t *command)
         break;
     default:
         /* The closed selector was checked before loading the fixture. */
-        (void)restore_resilience_control(old_slot, fixture_slot);
-        slot_release(fixture_slot);
+        (void)recover_resilience_without_fixture(command, old_slot, fixture_slot,
+            "fixture_case_selection_failed_before_execution");
         return ESP_ERR_INVALID_ARG;
     }
 
     if (xSemaphoreGive(api_lock) != pdTRUE) {
-        if (restore_resilience_control(old_slot, fixture_slot))
-            slot_release(fixture_slot);
+        (void)recover_resilience_without_fixture(command, old_slot, fixture_slot,
+            "api_lock_release_failed_fixture_not_run");
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -2626,6 +2671,16 @@ tx_worker_entry(void *argument)
             found = xQueueReceive(telemetry_output_queue, &item,
                                   pdMS_TO_TICKS(20)) == pdTRUE;
         if (found) {
+#if defined(CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
+            if (item.type == WH_TELEMETRY) {
+                xSemaphoreTake(manager_lock, portMAX_DELAY);
+                if (resilience_attempt_valid)
+                    memcpy(item.attempt, resilience_attempt_id, sizeof(item.attempt));
+                else
+                    memset(item.attempt, 0, sizeof(item.attempt));
+                xSemaphoreGive(manager_lock);
+            }
+#endif
             esp_err_t result = wh_observation_send(item.type, item.attempt,
                                                    item.body, item.body_size);
 #if defined(CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
@@ -3132,6 +3187,14 @@ wh_module_manager_set_resilience_attempt_id(const uint8_t attempt_id[16])
     xSemaphoreGive(manager_lock);
     manager_public_leave();
     return ESP_OK;
+}
+
+void
+wh_module_manager_clear_resilience_attempt_id(const uint8_t attempt_id[16])
+{
+    if (!attempt_id || !manager_public_enter()) return;
+    clear_resilience_attempt_id_internal(attempt_id);
+    manager_public_leave();
 }
 #endif
 

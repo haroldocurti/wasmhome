@@ -159,19 +159,27 @@ wh_module_slot_store_abort(void)
        after any erase attempt, including a failed first erase, then read back
        every byte so a failed invalidation cannot be mistaken for success. */
     if (writer.writing && writer.erase_attempted && writer.partition) {
-        err = esp_partition_erase_range(writer.partition, 0,
-                                        writer.partition->size);
+        const esp_err_t erase_err = esp_partition_erase_range(
+            writer.partition, 0, writer.partition->size);
+        esp_err_t verify_err = ESP_OK;
         uint8_t verify[WH_MODULE_SLOT_READBACK_CHUNK];
-        for (uint32_t offset = 0; err == ESP_OK &&
-             offset < writer.partition->size;) {
+        for (uint32_t offset = 0; offset < writer.partition->size;) {
             size_t amount = writer.partition->size - offset;
             if (amount > sizeof(verify)) amount = sizeof(verify);
-            err = esp_partition_read(writer.partition, offset, verify, amount);
-            for (size_t i = 0; err == ESP_OK && i < amount; ++i)
-                if (verify[i] != 0xff) err = ESP_ERR_INVALID_CRC;
+            const esp_err_t read_err = esp_partition_read(
+                writer.partition, offset, verify, amount);
+            if (read_err != ESP_OK) {
+                if (verify_err == ESP_OK) verify_err = read_err;
+            } else {
+                for (size_t i = 0; i < amount; ++i) {
+                    if (verify[i] != 0xff && verify_err == ESP_OK)
+                        verify_err = ESP_ERR_INVALID_CRC;
+                }
+            }
             offset += (uint32_t)amount;
         }
         memset(verify, 0, sizeof(verify));
+        err = erase_err != ESP_OK ? erase_err : verify_err;
     }
     writer = (slot_writer_t){0};
     return err;

@@ -25,6 +25,7 @@ typedef uint32_t esp_ota_handle_t;
 #define ESP_ERR_INVALID_ARG 2
 #define ESP_ERR_INVALID_STATE 3
 #define ESP_ERR_IO 4
+#define ESP_ERR_INVALID_CRC 5
 #define NATIVE_OTA_ERASE_SIZE 4096u
 #define NATIVE_OTA_HASH_CHUNK_BYTES 1024u
 
@@ -49,6 +50,7 @@ static bool fail_erase;
 static bool fail_read;
 static esp_err_t ota_abort_result;
 static unsigned erase_calls;
+static unsigned read_calls;
 
 static const esp_partition_t *esp_ota_get_running_partition(void)
 {
@@ -72,6 +74,7 @@ static esp_err_t esp_partition_erase_range(const esp_partition_t *partition,
 static esp_err_t esp_partition_read(const esp_partition_t *partition,
                                      uint32_t offset, void *out, size_t size)
 {
+    ++read_calls;
     if (fail_read) return ESP_FAIL;
     if (offset > partition->size || size > partition->size - offset)
         return ESP_ERR_INVALID_ARG;
@@ -118,8 +121,10 @@ int main(void)
         .partition = &inactive_partition, .written = 1,
     };
     fail_erase = true;
+    unsigned reads_before_failed_erase = read_calls;
     assert(sink_abort(&context) == ESP_FAIL);
     assert(!context.invalidated && erase_calls == 2);
+    assert(read_calls > reads_before_failed_erase); /* full slot readback follows erase error */
     fail_erase = false;
 
     context = (native_ota_sink_context_t){
@@ -170,6 +175,44 @@ class NativeOtaSinkAbortHostTests(unittest.TestCase):
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             result = subprocess.run([str(executable)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_fixture_approval_requires_successful_sink_and_ledger_cleanup(self):
+        compiler = shutil.which("cc") or shutil.which("gcc") or shutil.which("clang")
+        if compiler is None:
+            self.skipTest("A host C compiler is required for the OTA cleanup shim test")
+        source = (ROOT / "main/native_ota.c").read_text(encoding="utf-8")
+        helper = extract_function(source, "static bool resilience_fixture_approved(")
+        prelude = "#include <stdbool.h>\ntypedef int esp_err_t;\n#define ESP_OK 0\n"
+        main = r'''
+#include <assert.h>
+int main(void)
+{
+    assert(resilience_fixture_approved(true, true, true, ESP_OK));
+    assert(!resilience_fixture_approved(true, true, true, 7));
+    assert(!resilience_fixture_approved(false, true, true, ESP_OK));
+    assert(!resilience_fixture_approved(true, false, true, ESP_OK));
+    assert(!resilience_fixture_approved(true, true, false, ESP_OK));
+    return 0;
+}
+'''
+        harness = "\n".join((prelude, helper, main))
+        with tempfile.TemporaryDirectory(prefix="wasmhome-native-ota-cleanup-") as temp_name:
+            temp = pathlib.Path(temp_name)
+            source_path = temp / "cleanup.c"
+            executable = temp / "cleanup"
+            source_path.write_text(textwrap.dedent(harness), encoding="utf-8")
+            build = subprocess.run(
+                [compiler, "-std=c11", "-Wall", "-Wextra", "-Werror", "-pedantic",
+                 str(source_path), "-o", str(executable)],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
+            result = subprocess.run([str(executable)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        fixture = extract_function(source, "static void perform_resilience_fixture(")
+        self.assertIn("&manifest, &failure, &stage, &cleanup_status", fixture)
+        self.assertIn("state_preserved, payload_verified, cleanup_status", fixture)
 
 
 if __name__ == "__main__":

@@ -264,7 +264,7 @@ class Observer:
 def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
         device_port=3333, period_ms=100, timeout_ms=300, initial_version=1,
         trigger_after=None, target_sequence=None, scenario=1, interface_index=None,
-        max_sample_age_ms=1000):
+        max_sample_age_ms=1000, attempt_id=None):
     period_ns = round(period_ms * 1_000_000)
     timeout_ns = round(timeout_ms * 1_000_000)
     if (not all(math.isfinite(v) and v > 0 for v in (seconds, period_ms, timeout_ms))
@@ -276,6 +276,15 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
         raise ValueError("target sequence requires a trigger and must fit positive uint64")
     if scenario not in (1, 2, 3) or not 0 <= port <= 65535 or not 1 <= device_port <= 65535 or not 0 <= max_sample_age_ms < 65535:
         raise ValueError("invalid scenario, UDP port or sample freshness limit")
+    if attempt_id is not None:
+        try:
+            parsed_attempt_id = attempt_id if isinstance(attempt_id, uuid.UUID) else uuid.UUID(attempt_id)
+        except (ValueError, TypeError, AttributeError) as error:
+            raise ValueError("attempt_id must be a canonical UUID") from error
+        if str(parsed_attempt_id) != str(attempt_id):
+            raise ValueError("attempt_id must be a canonical lowercase UUID")
+    else:
+        parsed_attempt_id = None
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     with (output / "observations.jsonl").open("x", encoding="utf-8") as log, (output / "summary.json").open("x", encoding="utf-8") as summary_log, socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp:
@@ -286,6 +295,7 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
         udp.bind((bind_ip, port))
         udp.setblocking(False)
         observer = Observer(log, (socket.gethostbyname(device_ip), device_port), period_ns, timeout_ns, initial_version,
+                            attempt_id=parsed_attempt_id,
                             max_sample_age_ms=max_sample_age_ms)
         start = time.monotonic_ns()
         end = start + round(seconds * 1e9)
@@ -294,6 +304,7 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
         observer.record("session_start", start, seconds=seconds, period_ns=period_ns,
                         timeout_ns=timeout_ns, initial_version=initial_version,
                         max_sample_age_ms=max_sample_age_ms,
+                        attempt_id=str(observer.attempt_id),
                         local=list(udp.getsockname()), peer=list(observer.peer),
                         trigger_after=trigger_after, target_sequence=target_sequence, scenario=scenario)
         try:
@@ -353,6 +364,7 @@ def main():
     parser.add_argument("--scenario", type=int, choices=(1, 2, 3), default=1)
     parser.add_argument("--interface-index", type=int)
     parser.add_argument("--max-sample-age-ms", type=int, default=1000)
+    parser.add_argument("--attempt-id", help="optional canonical attempt UUID for resilience correlation")
     args = parser.parse_args()
     try:
         result = run(**vars(args))

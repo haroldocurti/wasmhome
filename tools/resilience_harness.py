@@ -32,6 +32,10 @@ EXPECTED_REJECTIONS = {
     "ENV-HASH": ("HASH_MISMATCH", "payload_hash"),
     "ENV-OLD": ("SEQUENCE_NOT_NEWER", "envelope_sequence"),
 }
+EXPECTED_TRAPS = {
+    "WASM-OOB": "out of bounds memory access",
+    "WASM-DIV0": "integer divide by zero",
+}
 PLAN_NAMESPACE = uuid.UUID("1c806daf-7861-45d3-90e4-44c22d7084fc")
 
 
@@ -310,10 +314,17 @@ def correlate(serial_events: list[dict], udp_records: list[dict],
             records = indexed_udp.get((group["attempt_id"], boot), [])
             group["udp_by_boot"][boot] = records
         group["udp_record_count"] = sum(map(len, group["udp_by_boot"].values()))
+        attempt_udp_records = [record for records in group["udp_by_boot"].values()
+                               for record in records]
+        attempt_udp_records.extend(
+            record for record in udp_records
+            if record.get("kind") == "session_start" and
+            record.get("attempt_id") == group["attempt_id"])
         # Preserve capture order: device monotonic clocks reset at reboot and
         # must never be sorted across boot IDs.
         group["classification"] = classify_attempt(
-            group["serial_events"], expected_case=group["case_id"])
+            group["serial_events"], expected_case=group["case_id"],
+            udp_records=attempt_udp_records)
         if "correlation_error" in group:
             group["classification"] = {
                 "status": "invalid_correlation",
@@ -329,17 +340,312 @@ def correlate(serial_events: list[dict], udp_records: list[dict],
         "attempts": list(attempts.values()),
         "unmatched_udp_records": [
             record for record in udp_records
-            if _udp_correlation(record) not in {
+            if (record.get("kind") != "session_start" and
+                _udp_correlation(record) not in {
                 (attempt, boot)
                 for attempt, group in attempts.items()
                 for boot in group["boots"]
-            }
+                })
         ],
         "clock_rule": "device monotonic_us and host_monotonic_ns remain separate; never subtract them",
     }
 
 
-def classify_attempt(events: list[dict], *, expected_case: str | None = None) -> dict:
+def _observer_control_requests(udp_records: list[dict], attempt_id: str,
+                               boot_id: str) -> tuple[dict, int | None]:
+    """Return controls that the observer successfully sent and the session deadline."""
+    sessions = [record for record in udp_records
+                if record.get("kind") == "session_start" and
+                record.get("attempt_id") == attempt_id]
+    timeout_ns = None
+    if sessions:
+        timeout = sessions[0].get("timeout_ns")
+        if isinstance(timeout, int) and not isinstance(timeout, bool) and timeout > 0:
+            timeout_ns = timeout
+    successful_sends = {}
+    for record in udp_records:
+        sent_ns = record.get("host_monotonic_ns")
+        raw_hex = record.get("hex")
+        if (record.get("kind") != "send" or not isinstance(raw_hex, str) or
+                not isinstance(sent_ns, int) or isinstance(sent_ns, bool) or sent_ns < 0):
+            continue
+        successful_sends.setdefault(raw_hex, sent_ns)
+    control_requests = {}
+    for record in udp_records:
+        if record.get("kind") != "send_intent" or record.get("hex") not in successful_sends:
+            continue
+        packet = record.get("packet")
+        if not isinstance(packet, dict) or packet.get("message_type") != "CONTROL_REQUEST":
+            continue
+        record_attempt, record_boot = _udp_correlation(record)
+        body = packet.get("body")
+        if (record_attempt == attempt_id and record_boot == boot_id and
+                isinstance(body, dict) and
+                isinstance(body.get("sample_id"), int) and
+                not isinstance(body.get("sample_id"), bool) and
+                isinstance(body.get("input_temperature_mC"), int) and
+                not isinstance(body.get("input_temperature_mC"), bool)):
+            control_requests[body["sample_id"]] = {
+                "temperature_mC": body["input_temperature_mC"],
+                "sent_ns": successful_sends[record["hex"]],
+                "boot_id": record_boot,
+            }
+    return control_requests, timeout_ns
+
+
+def _observer_packet_observations(udp_records: list[dict], attempt_id: str,
+                                  boot_id: str, message_type: str) -> list[dict]:
+    """Return semantically valid observer service receipts, never TX intent."""
+    sessions = [record for record in udp_records
+                if record.get("kind") == "session_start" and
+                record.get("attempt_id") == attempt_id]
+    freshness_limit_ms = 1000
+    initial_version = None
+    if sessions:
+        age = sessions[0].get("max_sample_age_ms")
+        version = sessions[0].get("initial_version")
+        if isinstance(age, int) and not isinstance(age, bool) and 0 <= age < 65535:
+            freshness_limit_ms = age
+        if version in (1, 2):
+            initial_version = version
+    control_requests, timeout_ns = _observer_control_requests(
+        udp_records, attempt_id, boot_id)
+
+    observations = []
+    seen_sequences = set()
+    decoded_records = sorted(
+        (record for record in udp_records if record.get("kind") == "decoded"),
+        key=lambda record: (record.get("host_monotonic_ns")
+                            if isinstance(record.get("host_monotonic_ns"), int)
+                            and not isinstance(record.get("host_monotonic_ns"), bool)
+                            else -1))
+    for record in decoded_records:
+        packet = record.get("packet")
+        if not isinstance(packet, dict) or packet.get("message_type") != message_type:
+            continue
+        record_attempt, record_boot = _udp_correlation(record)
+        host_time = record.get("host_monotonic_ns")
+        if (record_attempt == attempt_id and record_boot == boot_id and
+                isinstance(host_time, int) and not isinstance(host_time, bool) and
+                host_time >= 0):
+            sequence = packet.get("sequence")
+            if (not isinstance(sequence, int) or isinstance(sequence, bool) or
+                    not 0 < sequence < 1 << 64 or sequence in seen_sequences):
+                continue
+            # The observer writes `decoded` before its duplicate/sequence checks.
+            # Count only the first copy of a sequence, even when the first copy
+            # is semantically invalid and a later duplicate looks valid.
+            seen_sequences.add(sequence)
+            body = packet.get("body")
+            if not isinstance(body, dict):
+                continue
+            if message_type == "TELEMETRY":
+                sensor_status = body.get("sensor_status")
+                if (isinstance(sensor_status, int) and
+                        not isinstance(sensor_status, bool) and sensor_status == 0 and
+                        isinstance(body.get("age_ms"), int) and
+                        not isinstance(body.get("age_ms"), bool) and
+                        body["age_ms"] <= freshness_limit_ms):
+                    observations.append({"host_monotonic_ns": host_time,
+                                         "sequence": sequence})
+            elif message_type == "CONTROL_RESULT":
+                sample_id = body.get("sample_id")
+                request = control_requests.get(sample_id)
+                version = body.get("module_version")
+                status = body.get("status")
+                requested_gpio = body.get("requested_gpio")
+                observed_gpio = body.get("observed_gpio")
+                if (not isinstance(sample_id, int) or isinstance(sample_id, bool) or
+                        request is None or not isinstance(version, int) or
+                        isinstance(version, bool) or version not in (1, 2) or
+                        (initial_version is not None and version != initial_version)):
+                    continue
+                expected_gpio = int(request["temperature_mC"] >
+                                    (25000 if version == 1 else 30000))
+                latency_ns = host_time - request["sent_ns"]
+                if (isinstance(status, int) and not isinstance(status, bool) and
+                        status == 0 and
+                        isinstance(requested_gpio, int) and
+                        not isinstance(requested_gpio, bool) and
+                        requested_gpio == expected_gpio and
+                        isinstance(observed_gpio, int) and
+                        not isinstance(observed_gpio, bool) and
+                        observed_gpio == expected_gpio and
+                        isinstance(timeout_ns, int) and
+                        0 <= latency_ns <= timeout_ns):
+                    observations.append({"host_monotonic_ns": host_time,
+                                         "request_sent_ns": request["sent_ns"],
+                                         "sample_id": sample_id,
+                                         "sequence": sequence})
+    return sorted(observations, key=lambda item: item["host_monotonic_ns"])
+
+
+def _observer_packet_times(udp_records: list[dict], attempt_id: str,
+                           boot_id: str, message_type: str) -> list[int]:
+    return [item["host_monotonic_ns"] for item in _observer_packet_observations(
+        udp_records, attempt_id, boot_id, message_type)]
+
+
+def _observer_recovery(udp_records: list[dict], accepted: dict,
+                       completed: dict, *, health_anchor: dict | None = None,
+                       window_ns: int = 30_000_000_000) -> dict:
+    """Measure acceptance-to-recovery using the first correct observer response."""
+    attempt_id = accepted.get("attempt_id")
+    boot_id = _normalize_boot(completed.get("boot_id"))
+    start_ns = accepted.get("host_monotonic_ns")
+    end_ns = completed.get("host_monotonic_ns")
+    if (not isinstance(attempt_id, str) or boot_id is None or
+            not isinstance(start_ns, int) or isinstance(start_ns, bool) or start_ns < 0 or
+            not isinstance(end_ns, int) or isinstance(end_ns, bool) or end_ns < start_ns):
+        return {"telemetry_udp_received": False,
+                "control_udp_received": False,
+                "control_udp_after_health_check": False,
+                "recovery_within_30s": False,
+                "recovery_endpoint_host_monotonic_ns": None}
+    telemetry = [item for item in _observer_packet_observations(
+        udp_records, attempt_id, boot_id, "TELEMETRY")
+        if start_ns <= item["host_monotonic_ns"]]
+    all_control_observations = _observer_packet_observations(
+        udp_records, attempt_id, boot_id, "CONTROL_RESULT")
+    controls = [item for item in all_control_observations
+                if start_ns <= item["host_monotonic_ns"]]
+    telemetry_times = [item["host_monotonic_ns"] for item in telemetry]
+    control_times = [item["host_monotonic_ns"] for item in controls]
+    telemetry_received = bool(telemetry_times)
+    control_received = bool(control_times)
+    health_ns = (health_anchor.get("host_monotonic_ns")
+                 if health_anchor else start_ns)
+    if health_anchor is None:
+        control_after_health = controls
+    elif isinstance(health_ns, int) and not isinstance(health_ns, bool):
+        control_after_health = [item for item in controls
+                               if health_ns <= item["host_monotonic_ns"]]
+    else:
+        control_after_health = []
+    endpoint_ns = (control_after_health[0]["host_monotonic_ns"]
+                   if control_after_health else None)
+    telemetry_through_endpoint = (endpoint_ns is not None and
+        any(start_ns <= timestamp <= endpoint_ns for timestamp in telemetry_times))
+    requests, timeout_ns = _observer_control_requests(udp_records, attempt_id, boot_id)
+    timely_results = {item["sample_id"]: item["host_monotonic_ns"]
+                      for item in all_control_observations}
+    checked_requests = [
+        (sample_id, request) for sample_id, request in requests.items()
+        if endpoint_ns is not None and isinstance(timeout_ns, int) and
+        request["boot_id"] == boot_id and request["sent_ns"] <= endpoint_ns and
+        request["sent_ns"] + timeout_ns >= start_ns]
+    overdue_requests = []
+    for sample_id, request in checked_requests:
+        response_ns = timely_results.get(sample_id)
+        if response_ns is not None and response_ns < start_ns:
+            continue
+        deadline_ns = request["sent_ns"] + timeout_ns
+        if (deadline_ns <= endpoint_ns and
+                (response_ns is None or response_ns < start_ns or
+                 response_ns > min(endpoint_ns, deadline_ns))):
+            overdue_requests.append(sample_id)
+    control_deadlines = (isinstance(timeout_ns, int) and
+                         len(overdue_requests) == 0)
+    recovery_within = (telemetry_through_endpoint and
+                       endpoint_ns - start_ns <= window_ns
+                       if endpoint_ns is not None else False)
+    return {"telemetry_udp_received": telemetry_received,
+            "control_udp_received": control_received,
+            "control_udp_after_health_check": bool(control_after_health),
+            "control_requests_within_deadline": control_deadlines,
+            "control_requests_checked": len(checked_requests),
+            "control_requests_overdue": len(overdue_requests),
+            "recovery_within_30s": recovery_within,
+            "recovery_endpoint_host_monotonic_ns": endpoint_ns}
+
+
+def _observer_gap_series(udp_records: list[dict], attempt_id: str, boot_id: str,
+                         start_ns: int, end_ns: int, max_gap_ns: int) -> dict:
+    """Bound every observed telemetry interval, including acceptance/recovery edges."""
+    times = [timestamp for timestamp in _observer_packet_times(
+        udp_records, attempt_id, boot_id, "TELEMETRY")
+        if start_ns <= timestamp <= end_ns]
+    if not times or end_ns < start_ns:
+        return {"telemetry_gap_series_within_candidate": False,
+                "telemetry_observer_packet_count": len(times),
+                "telemetry_observer_max_gap_ms": None}
+    gaps = [times[0] - start_ns]
+    gaps.extend(later - earlier for earlier, later in zip(times, times[1:]))
+    gaps.append(end_ns - times[-1])
+    return {"telemetry_gap_series_within_candidate": all(
+                0 <= gap <= max_gap_ns for gap in gaps),
+            "telemetry_observer_packet_count": len(times),
+            "telemetry_observer_max_gap_ms": max(gaps) / 1_000_000}
+
+
+def _observer_recovery_passes(observer: dict) -> bool:
+    return all(observer.get(key) is True for key in (
+        "telemetry_udp_received", "control_udp_received",
+        "control_udp_after_health_check", "control_requests_within_deadline",
+        "recovery_within_30s"))
+
+
+def _observer_nat_interruption(udp_records: list[dict], accepted: dict,
+                               marker: dict, boot_observed: dict) -> dict:
+    """Prove both old-boot services stopped at abort and resumed on the new boot."""
+    attempt_id = accepted.get("attempt_id")
+    old_boot = _normalize_boot(accepted.get("boot_id"))
+    new_boot = _normalize_boot(boot_observed.get("boot_id"))
+    start_ns = accepted.get("host_monotonic_ns")
+    marker_ns = marker.get("host_monotonic_ns")
+    telemetry_new = _observer_packet_times(
+        udp_records, attempt_id, new_boot, "TELEMETRY") if new_boot else []
+    control_new = _observer_packet_times(
+        udp_records, attempt_id, new_boot, "CONTROL_RESULT") if new_boot else []
+    valid = (isinstance(attempt_id, str) and old_boot is not None and
+             new_boot is not None and old_boot != new_boot and
+             isinstance(start_ns, int) and not isinstance(start_ns, bool) and
+             isinstance(marker_ns, int) and not isinstance(marker_ns, bool) and
+             start_ns <= marker_ns)
+    if not valid:
+        return {"telemetry_interruption_proven": False,
+                "control_interruption_proven": False,
+                "telemetry_outage_ms": None, "control_outage_ms": None}
+
+    telemetry_old = _observer_packet_times(
+        udp_records, attempt_id, old_boot, "TELEMETRY")
+    control_old = _observer_packet_times(
+        udp_records, attempt_id, old_boot, "CONTROL_RESULT")
+
+    def outage_proven(old_times: list[int], new_times: list[int]) -> tuple[bool, int | None]:
+        old_before = [timestamp for timestamp in old_times
+                      if start_ns <= timestamp < marker_ns]
+        new_after = [timestamp for timestamp in new_times if timestamp > marker_ns]
+        if not old_before or not new_after:
+            return False, None
+        first_new = min(new_after)
+        old_during_gap = any(marker_ns <= timestamp <= first_new for timestamp in old_times)
+        return (not old_during_gap, first_new - marker_ns if not old_during_gap else None)
+
+    telemetry_proven, telemetry_gap = outage_proven(telemetry_old, telemetry_new)
+    control_proven, control_gap = outage_proven(control_old, control_new)
+    return {"telemetry_interruption_proven": telemetry_proven,
+            "control_interruption_proven": control_proven,
+            "telemetry_outage_ms": (telemetry_gap / 1_000_000
+                                     if telemetry_gap is not None else None),
+            "control_outage_ms": (control_gap / 1_000_000
+                                   if control_gap is not None else None)}
+
+
+def _passed_status(passed: bool, accepted: dict) -> str:
+    if not passed:
+        return "accepted_incomplete"
+    return ("passed" if accepted.get("functional_timeout_frozen") is True
+            else "candidate_passed")
+
+
+def _timeout_status(accepted: dict) -> str:
+    return ("frozen" if accepted.get("functional_timeout_frozen") is True
+            else "candidate_only")
+
+
+def classify_attempt(events: list[dict], *, expected_case: str | None = None,
+                     udp_records: list[dict] | None = None) -> dict:
     """Classify only explicit evidence; no confirmation never becomes rejection."""
     if not events:
         return {"status": "unconfirmed", "reason": None}
@@ -361,6 +667,11 @@ def classify_attempt(events: list[dict], *, expected_case: str | None = None) ->
                 "request_preserved": any(event.get("event") == "fault_request" for event in events)}
     acceptance_index = events.index(accepted)
     post_acceptance = events[acceptance_index + 1:]
+    execution_failure = next((event for event in post_acceptance
+                              if event.get("event") == "fault_execution_failed"), None)
+    if execution_failure is not None:
+        return {"status": "observed_failure",
+                "reason": execution_failure.get("stage") or "fault_execution_failed"}
     if case_id in EXPECTED_REJECTIONS:
         expected_reason, expected_stage = EXPECTED_REJECTIONS[case_id]
         rejection = next((event for event in post_acceptance
@@ -386,30 +697,115 @@ def classify_attempt(events: list[dict], *, expected_case: str | None = None) ->
                           rejection.get("payload_invalidated") is True)
         elif case_id == "ENV-SIG":
             invariants = invariants and rejection.get("payload_written") is False
-        return {"status": "passed" if invariants else "accepted_incomplete",
-                "reason": rejection.get("reason"), "stage": rejection.get("stage")}
+        recovery = next((event for event in post_acceptance
+                         if event.get("event") == "control_recovery_completed"), None)
+        slot_restored = next((event for event in post_acceptance
+                              if event.get("event") == "control_slot_restored"), None)
+        if recovery is None or slot_restored is None:
+            return {"status": "accepted_incomplete",
+                    "reason": rejection.get("reason"), "stage": rejection.get("stage")}
+        observer = _observer_recovery(udp_records or [], accepted, recovery,
+                                      health_anchor=slot_restored)
+        candidate_ms = accepted.get("functional_timeout_ms_candidate")
+        boot_id = _normalize_boot(recovery.get("boot_id"))
+        acceptance_ns = accepted.get("host_monotonic_ns")
+        recovery_ns = observer.get("recovery_endpoint_host_monotonic_ns")
+        if (isinstance(candidate_ms, int) and not isinstance(candidate_ms, bool) and
+                isinstance(acceptance_ns, int) and not isinstance(acceptance_ns, bool) and
+                isinstance(recovery_ns, int) and not isinstance(recovery_ns, bool) and
+                boot_id is not None):
+            gap_evidence = _observer_gap_series(
+                udp_records or [], accepted["attempt_id"], boot_id, acceptance_ns,
+                recovery_ns, candidate_ms * 1_000_000)
+        else:
+            gap_evidence = {"telemetry_gap_series_within_candidate": False,
+                            "telemetry_observer_packet_count": 0,
+                            "telemetry_observer_max_gap_ms": None}
+        passed = (invariants and _observer_recovery_passes(observer) and
+                  gap_evidence["telemetry_gap_series_within_candidate"])
+        return {"status": _passed_status(passed, accepted),
+                "functional_timeout_status": _timeout_status(accepted),
+                "reason": rejection.get("reason"), "stage": rejection.get("stage"),
+                **observer, **gap_evidence}
     if case_id.startswith("WASM-") and case_id != "WASM-ZERO":
         trap = next((event for event in post_acceptance if event.get("event") == "wasm_trap"), None)
         if trap is None:
             return {"status": "accepted_incomplete", "reason": None}
+        expected_exception = EXPECTED_TRAPS.get(case_id)
+        trap_matches = (
+            expected_exception is not None and
+            trap.get("call_ok") is False and
+            trap.get("timed_out") is False and
+            isinstance(trap.get("exception_raw"), str) and
+            expected_exception in trap["exception_raw"]
+        )
+        if not trap_matches:
+            return {"status": "observed_failure",
+                    "reason": trap.get("exception_raw") or
+                    ("unexpected timeout" if trap.get("timed_out") else
+                     "unexpected Wasm trap result")}
         recovery = next((event for event in post_acceptance
                          if event.get("event") == "control_recovery_completed"), None)
-        if recovery is None:
+        slot_restored = next((event for event in post_acceptance
+                              if event.get("event") == "control_slot_restored"), None)
+        if recovery is None or slot_restored is None:
             return {"status": "accepted_incomplete", "reason": trap.get("exception_raw"),
                     "recovered": False}
-        passed = (trap.get("call_ok") is False and
+        candidate_ms = trap.get("functional_timeout_ms_candidate")
+        observer = _observer_recovery(udp_records or [], accepted, recovery,
+                                      health_anchor=slot_restored)
+        acceptance_ns = accepted.get("host_monotonic_ns")
+        recovery_ns = observer.get("recovery_endpoint_host_monotonic_ns")
+        boot_id = _normalize_boot(trap.get("boot_id"))
+        if (isinstance(candidate_ms, int) and not isinstance(candidate_ms, bool) and
+                isinstance(acceptance_ns, int) and not isinstance(acceptance_ns, bool) and
+                isinstance(recovery_ns, int) and not isinstance(recovery_ns, bool) and
+                boot_id is not None):
+            gap_evidence = _observer_gap_series(
+                udp_records or [], trap["attempt_id"], boot_id, acceptance_ns,
+                recovery_ns, candidate_ms * 1_000_000)
+        else:
+            gap_evidence = {
+                "telemetry_gap_series_within_candidate": False,
+                "telemetry_observer_packet_count": 0,
+                "telemetry_observer_max_gap_ms": None,
+            }
+        telemetry_within_candidate = gap_evidence[
+            "telemetry_gap_series_within_candidate"]
+        passed = (trap_matches and
                   trap.get("boot_id") == accepted.get("boot_id") and
                   recovery.get("telemetry_within_timeout") is True and
                   recovery.get("control_recovery_within_30s") is True and
+                  telemetry_within_candidate and
+                  _observer_recovery_passes(observer) and
                   recovery.get("control_slot_recovered") is True)
-        return {"status": "passed" if passed else "accepted_incomplete",
-                "reason": trap.get("exception_raw"), "recovered": True}
+        return {"status": _passed_status(passed, accepted),
+                "functional_timeout_status": _timeout_status(accepted),
+                "reason": trap.get("exception_raw"), "recovered": True,
+                "telemetry_within_timeout_observed": telemetry_within_candidate,
+                "control_recovery_within_30s_observed": observer["recovery_within_30s"],
+                **observer, **gap_evidence}
     if case_id == "WASM-ZERO":
         control = next((event for event in post_acceptance if event.get("event") == "wasm_control"), None)
         if control is None:
             return {"status": "accepted_incomplete", "reason": None}
-        passed = control.get("call_ok") is True and control.get("return_value") == 0x12345678
-        return {"status": "passed" if passed else "observed_failure", "reason": None}
+        recovery = next((event for event in post_acceptance
+                         if event.get("event") == "control_recovery_completed"), None)
+        slot_restored = next((event for event in post_acceptance
+                              if event.get("event") == "control_slot_restored"), None)
+        if recovery is None or slot_restored is None:
+            return {"status": "accepted_incomplete", "reason": None}
+        observer = _observer_recovery(udp_records or [], accepted, recovery,
+                                      health_anchor=slot_restored)
+        control_ok = (control.get("call_ok") is True and
+                      control.get("return_value") == 0x12345678)
+        if not control_ok:
+            return {"status": "observed_failure", "reason": None}
+        passed = (recovery.get("control_slot_recovered") is True and
+                  _observer_recovery_passes(observer))
+        return {"status": _passed_status(passed, accepted),
+                "functional_timeout_status": _timeout_status(accepted),
+                "reason": None, **observer}
     if case_id == "NAT-ABORT":
         marker = next((event for event in post_acceptance
                        if event.get("event") == "abort_marker"), None)
@@ -429,12 +825,17 @@ def classify_attempt(events: list[dict], *, expected_case: str | None = None) ->
                 boot.get("reset_reason") != "ESP_RST_PANIC"):
             return {"status": "observed_failure", "reason": boot.get("reset_reason"),
                     "recovered": recovery is not None}
-        passed = (recovery is not None and
-                  recovery.get("telemetry_udp_received") is True and
-                  recovery.get("control_udp_received") is True and
-                  recovery.get("recovery_within_30s") is True)
-        return {"status": "passed" if passed else "accepted_incomplete",
-                "reason": None, "recovered": recovery is not None}
+        observer = (_observer_recovery(udp_records or [], accepted, recovery)
+                    if recovery is not None else {})
+        interruption = _observer_nat_interruption(
+            udp_records or [], accepted, marker, boot)
+        passed = (recovery is not None and _observer_recovery_passes(observer) and
+                  interruption["telemetry_interruption_proven"] and
+                  interruption["control_interruption_proven"])
+        return {"status": _passed_status(passed, accepted),
+                "functional_timeout_status": _timeout_status(accepted),
+                "reason": None, "recovered": recovery is not None,
+                **observer, **interruption}
     return {"status": "accepted_incomplete", "reason": None}
 
 

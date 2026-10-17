@@ -34,8 +34,11 @@ typedef struct {
     uint64_t accepted_boot_id;
     uint64_t recovery_boot_id;
     uint8_t attempt_id[16];
-    uint8_t reserved[8];
+    uint8_t reserved[7];
+    uint8_t accepted_acknowledged;
 } resilience_pending_t;
+_Static_assert(sizeof(resilience_pending_t) == 48,
+               "native resilience NVS record layout must remain v1-compatible");
 
 static const char *TAG = "resilience_test";
 static SemaphoreHandle_t state_lock;
@@ -123,6 +126,7 @@ static esp_err_t load_pending(resilience_pending_t *value, bool *found)
         value->version != RESILIENCE_PENDING_VERSION ||
         value->case_code < RESILIENCE_CASE_NAT_ABORT ||
         value->case_code > RESILIENCE_CASE_ENV_OLD ||
+        value->accepted_acknowledged > 1 ||
         value->accepted_boot_id == 0 || !bytes_nonzero(value->attempt_id,
                                                         sizeof(value->attempt_id)))
         return ESP_ERR_INVALID_STATE;
@@ -147,12 +151,12 @@ static const char *reset_reason_name(esp_reset_reason_t reason)
     }
 }
 
-static void emit_event(const char *event, const resilience_pending_t *value,
+static bool emit_event(const char *event, const resilience_pending_t *value,
                        const char *fields)
 {
     char attempt[37];
     format_uuid(value->attempt_id, attempt);
-    printf("WASMHOME_RESILIENCE,{\"schema\":\"wasmhome-resilience-v1\","
+    const int written = printf("WASMHOME_RESILIENCE,{\"schema\":\"wasmhome-resilience-v1\","
            "\"event\":\"%s\",\"attempt_id\":\"%s\",\"case_id\":\"%s\","
            "\"scenario\":\"native\",\"boot_id\":\"%016" PRIx64 "\","
            "\"monotonic_us\":%" PRId64 ","
@@ -161,7 +165,7 @@ static void emit_event(const char *event, const resilience_pending_t *value,
            event, attempt, case_name(value->case_code), wh_platform_boot_id(), esp_timer_get_time(),
            CONFIG_WASMHOME_RESILIENCE_FUNCTIONAL_TIMEOUT_MS,
            fields ? fields : "");
-    fflush(stdout);
+    return written > 0 && fflush(stdout) == 0;
 }
 
 static void emit_rejected(const wh_resilience_fault_request_t *request, const char *reason)
@@ -234,12 +238,73 @@ static void emit_boot_and_recovery(void)
     emit_event("control_recovery_started", &pending, fields);
 }
 
+static bool acknowledge_pending_attempt(const uint8_t attempt_id[16])
+{
+    if (!attempt_id || !state_lock ||
+        xSemaphoreTake(state_lock, portMAX_DELAY) != pdTRUE) return false;
+    bool acknowledged = false;
+    if (pending_valid && pending.accepted_boot_id == wh_platform_boot_id() &&
+        memcmp(pending.attempt_id, attempt_id, sizeof(pending.attempt_id)) == 0) {
+        resilience_pending_t next = pending;
+        next.accepted_acknowledged = 1;
+        const esp_err_t err = persist_pending(&next);
+        if (err == ESP_OK) {
+            pending = next;
+            acknowledged = true;
+        } else {
+            ESP_LOGE(TAG, "cannot persist accepted-ack state: %s",
+                     esp_err_to_name(err));
+        }
+    }
+    xSemaphoreGive(state_lock);
+    return acknowledged;
+}
+
+static bool disarm_unacknowledged_attempt(const uint8_t attempt_id[16])
+{
+    if (!attempt_id || !state_lock ||
+        xSemaphoreTake(state_lock, portMAX_DELAY) != pdTRUE) return false;
+    bool disarmed = false;
+    resilience_pending_t recovery = {0};
+    if (pending_valid && pending.accepted_boot_id == wh_platform_boot_id() &&
+        memcmp(pending.attempt_id, attempt_id, sizeof(pending.attempt_id)) == 0) {
+        resilience_pending_t next = pending;
+        next.accepted_acknowledged = 0;
+        next.recovery_boot_id = wh_platform_boot_id();
+        next.recovery_mask = 0;
+        const esp_err_t err = persist_pending(&next);
+        if (err == ESP_OK) {
+            pending = next;
+            recovery = next;
+            disarmed = true;
+        } else {
+            ESP_LOGE(TAG, "cannot disarm unacknowledged attempt: %s",
+                     esp_err_to_name(err));
+        }
+    }
+    xSemaphoreGive(state_lock);
+    if (disarmed)
+        (void)emit_event("control_recovery_started", &recovery, NULL);
+    return disarmed;
+}
+
 static void handle_fault_request(const wh_resilience_fault_request_t *request)
 {
     const uint8_t request_case_code = case_code_from_name(request->case_id);
     if (!request_case_code) {
         emit_rejected(request, "case_not_supported_by_this_firmware");
         return;
+    }
+    if (request_case_code != RESILIENCE_CASE_NAT_ABORT) {
+        const esp_err_t preflight_err =
+            wh_native_ota_resilience_preflight(request->case_id);
+        if (preflight_err != ESP_OK) {
+            emit_rejected(request, request_case_code == RESILIENCE_CASE_ENV_OLD &&
+                preflight_err == ESP_ERR_INVALID_VERSION
+                    ? "env_old_requires_nvs_floor_at_least_one"
+                    : "fixture_preflight_failed");
+            return;
+        }
     }
 
     if (xSemaphoreTake(state_lock, portMAX_DELAY) != pdTRUE) return;
@@ -283,7 +348,20 @@ static void handle_fault_request(const wh_resilience_fault_request_t *request)
         return;
     }
 
-    emit_event("fault_accepted", &pending, NULL);
+    if (!emit_event("fault_accepted", &next, NULL)) {
+        ESP_LOGE(TAG, "fault acceptance serial ack failed; fixture remains disarmed");
+        (void)disarm_unacknowledged_attempt(request->attempt_id);
+        (void)emit_event("fault_execution_failed", &next,
+                         ",\"reason\":\"fault_accepted_serial_ack_failed\"");
+        return;
+    }
+    if (!acknowledge_pending_attempt(request->attempt_id)) {
+        ESP_LOGE(TAG, "fault ack was emitted but its armed state did not persist");
+        (void)disarm_unacknowledged_attempt(request->attempt_id);
+        (void)emit_event("fault_execution_failed", &next,
+                         ",\"reason\":\"fault_ack_state_persistence_failed\"");
+        return;
+    }
     if (request_case_code != RESILIENCE_CASE_NAT_ABORT) {
         err = wh_native_ota_run_resilience_fixture(request->case_id,
                                                    request->attempt_id);
@@ -416,7 +494,7 @@ void wh_resilience_test_note_service_result(bool telemetry, bool correct)
         (void)snprintf(fields, sizeof(fields),
             ",\"active_version\":%s,\"accepted_sequence\":%s,"
             "\"update_state_status\":\"%s\","
-            "\"firmware_udp_tx\":true,\"control_udp_tx\":true",
+            "\"telemetry_udp_tx\":true,\"control_udp_tx\":true",
             active_version, accepted_sequence,
             state_err == ESP_OK ? "available" : "unavailable");
         emit_event("control_recovery_completed", &next, fields);
@@ -429,6 +507,7 @@ void wh_resilience_test_note_control_request(const uint8_t attempt_id[16],
     if (!attempt_id || !state_lock ||
         xSemaphoreTake(state_lock, portMAX_DELAY) != pdTRUE) return;
     if (pending_valid && pending.case_code == RESILIENCE_CASE_NAT_ABORT &&
+        pending.accepted_acknowledged &&
         pending.accepted_boot_id == wh_platform_boot_id() &&
         pending.recovery_boot_id == 0 &&
         memcmp(attempt_id, pending.attempt_id, sizeof(pending.attempt_id)) == 0) {
@@ -436,10 +515,17 @@ void wh_resilience_test_note_control_request(const uint8_t attempt_id[16],
         xSemaphoreGive(state_lock);
         char attempt[37];
         format_uuid(accepted.attempt_id, attempt);
-        printf("resilience:controlled_abort attempt_id=%s case_id=NAT-ABORT "
-               "boot_id=%016" PRIx64 " monotonic_us=%" PRId64 "\n",
-               attempt, wh_platform_boot_id(), esp_timer_get_time());
-        fflush(stdout);
+        const int written = printf(
+            "resilience:controlled_abort attempt_id=%s case_id=NAT-ABORT "
+            "boot_id=%016" PRIx64 " monotonic_us=%" PRId64 "\n",
+            attempt, wh_platform_boot_id(), esp_timer_get_time());
+        if (written <= 0 || fflush(stdout) != 0) {
+            ESP_LOGE(TAG, "NAT abort marker did not flush; panic injection cancelled");
+            (void)disarm_unacknowledged_attempt(accepted.attempt_id);
+            (void)emit_event("fault_execution_failed", &accepted,
+                ",\"reason\":\"abort_marker_serial_write_failed\"");
+            return;
+        }
         esp_system_abort("resilience:controlled_abort");
         return;
     }
@@ -456,7 +542,10 @@ void wh_resilience_test_telemetry_attempt(uint8_t attempt_id[16])
 {
     memset(attempt_id, 0, 16);
     if (!state_lock || xSemaphoreTake(state_lock, portMAX_DELAY) != pdTRUE) return;
-    if (pending_valid) memcpy(attempt_id, pending.attempt_id, 16);
+    const uint8_t complete = RESILIENCE_RECOVERY_TELEMETRY |
+                             RESILIENCE_RECOVERY_CONTROL;
+    if (pending_valid && pending.recovery_mask != complete)
+        memcpy(attempt_id, pending.attempt_id, 16);
     xSemaphoreGive(state_lock);
 }
 

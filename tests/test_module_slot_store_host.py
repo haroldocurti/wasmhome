@@ -91,6 +91,7 @@ static esp_partition_t partitions[SLOT_COUNT] = {
 };
 static uint8_t flash[SLOT_COUNT][SLOT_SIZE];
 static unsigned erases[SLOT_COUNT];
+static unsigned reads[SLOT_COUNT];
 static const esp_partition_t *active_partition = &partitions[3];
 static bool fail_erase, fail_write, fail_read, missing_last_partition;
 
@@ -151,6 +152,7 @@ esp_err_t esp_partition_read(const esp_partition_t *partition, uint32_t offset,
                              void *data, size_t size)
 {
     size_t index = partition_index(partition);
+    reads[index]++;
     if (fail_read) return ESP_FAIL;
     if (offset > SLOT_SIZE || size > SLOT_SIZE - offset) return ESP_ERR_INVALID_ARG;
     memcpy(data, flash[index] + offset, size);
@@ -230,7 +232,9 @@ int main(void)
     assert(wh_module_slot_store_begin(3, WH_MODULE_SLOT_ID_B,
                                      sizeof(payload)) == ESP_OK);
     assert(wh_module_slot_store_write(payload, sizeof(payload)) == ESP_FAIL);
+    const unsigned reads_before_failed_erase_abort = reads[3];
     assert(wh_module_slot_store_abort() == ESP_FAIL);
+    assert(reads[3] > reads_before_failed_erase_abort); /* readback still runs after erase error */
     fail_erase = false;
     assert(erases[3] == 2 && erases[2] == 1);
     assert(memcmp(flash[2], copy, sizeof(copy)) == 0);

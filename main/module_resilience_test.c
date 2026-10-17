@@ -194,6 +194,7 @@ persist_fault_accepted(module_resilience_trial_t *trial)
     next.case_code = trial->case_code;
     next.accepted = 1;
     next.accepted_boot_id = wh_platform_boot_id();
+    next.recovery_boot_id = next.accepted_boot_id;
     memcpy(next.attempt_id, trial->request.attempt_id, sizeof(next.attempt_id));
     esp_err_t err = persist_pending(&next);
     if (err == ESP_OK) {
@@ -207,6 +208,8 @@ persist_fault_accepted(module_resilience_trial_t *trial)
                  esp_err_to_name(err));
         return false;
     }
+    /* Both durable NVS state and a flushed host-visible ack are required
+     * before the caller may inject a fixture. */
     return emit_event_for_pending("fault_accepted", &next, NULL);
 }
 
@@ -229,6 +232,60 @@ mark_recovered_after_health_check(const uint8_t attempt_id[16], uint64_t boot_id
     if (err != ESP_OK) return false;
     return emit_event_for_pending("control_slot_restored", &updated,
         ",\"control_slot_recovered\":true,\"control_health_check_passed\":true");
+}
+
+static bool snapshot_pending_for_attempt(const uint8_t attempt_id[16],
+                                        module_resilience_pending_t *snapshot);
+
+static bool
+recover_environment_attempt_after_health_check(
+    const module_resilience_trial_t *trial)
+{
+    if (!trial || !trial->accepted) return false;
+    module_resilience_pending_t current = {0};
+    if (!snapshot_pending_for_attempt(trial->request.attempt_id, &current))
+        return false;
+
+    const uint64_t boot_id = wh_platform_boot_id();
+    bool recovery_state_persisted = false;
+    if (state_lock && xSemaphoreTake(state_lock, portMAX_DELAY) == pdTRUE) {
+        if (pending_valid && memcmp(pending.attempt_id,
+                                    trial->request.attempt_id, 16) == 0) {
+            module_resilience_pending_t next = pending;
+            next.recovery_boot_id = boot_id;
+            next.recovery_mask = 0;
+            next.slot_recovered = 0;
+            next.recovery_reported = 0;
+            next.telemetry_tx_monotonic_us = 0;
+            next.control_tx_monotonic_us = 0;
+            if (persist_pending(&next) == ESP_OK) {
+                pending = next;
+                current = next;
+                recovery_state_persisted = true;
+            }
+        }
+        xSemaphoreGive(state_lock);
+    }
+    if (!recovery_state_persisted) {
+        ESP_LOGE(TAG, "recovery state persistence failed after accepted ENV attempt");
+        return false;
+    }
+    (void)emit_event_for_pending("control_recovery_started", &current, NULL);
+    const esp_err_t health_err = wh_module_manager_health_check_active_control();
+    if (health_err != ESP_OK) {
+        char health_fields[128];
+        (void)snprintf(health_fields, sizeof(health_fields),
+            ",\"control_slot_recovered\":false,\"control_health_check_passed\":false,"
+            "\"esp_err\":%d", health_err);
+        (void)emit_event_for_pending("control_recovery_failed", &current,
+                                     health_fields);
+        return false;
+    }
+    if (!mark_recovered_after_health_check(trial->request.attempt_id, boot_id)) {
+        ESP_LOGE(TAG, "control health passed but ENV recovery readback failed");
+        return false;
+    }
+    return true;
 }
 
 static bool
@@ -394,7 +451,14 @@ module_resilience_event(void *context, const char *event, const char *case_id,
     }
     const char *serial_event = strcmp(event, "control_recovery_completed") == 0
         ? "control_slot_restored" : event;
-    return emit_event_for_pending(serial_event, &updated, fields);
+    const bool emitted = emit_event_for_pending(serial_event, &updated, fields);
+    if (!emitted && (strcmp(event, "control_recovery_completed") == 0 ||
+                     strcmp(event, "control_recovery_failed") == 0))
+        ESP_LOGE(TAG, "recovery state is durable but serial evidence failed");
+    /* Recovery callback success means matching NVS state was found and
+     * persisted. The host classifier still requires the serial evidence. */
+    return emitted || strcmp(event, "control_recovery_completed") == 0 ||
+           strcmp(event, "control_recovery_failed") == 0;
 }
 
 static void
@@ -427,19 +491,26 @@ emit_recovery_if_complete(void)
         ",\"control_slot_recovered\":true,\"control_health_check_passed\":true"
         ",\"telemetry_udp_tx\":true,\"control_udp_tx\":true"
         ",\"telemetry_within_timeout\":%s,\"control_recovery_within_30s\":%s",
+        /* Keep these in the same order as the two JSON fields above. */
         telemetry_within_candidate ? "true" : "false",
         within_30s ? "true" : "false");
+    bool retired = false;
     if (emit_event_for_pending("control_recovery_completed", &current, fields)) {
         if (xSemaphoreTake(state_lock, portMAX_DELAY) == pdTRUE) {
             if (pending_valid &&
                 memcmp(pending.attempt_id, current.attempt_id, 16) == 0) {
                 module_resilience_pending_t next = pending;
                 next.recovery_reported = 1;
-                if (persist_pending(&next) == ESP_OK) pending = next;
+                if (persist_pending(&next) == ESP_OK) {
+                    pending = next;
+                    retired = true;
+                }
             }
             xSemaphoreGive(state_lock);
         }
     }
+    if (retired)
+        wh_module_manager_clear_resilience_attempt_id(current.attempt_id);
 }
 
 static void
@@ -457,17 +528,29 @@ emit_environment_execution_failed(const module_resilience_trial_t *trial,
         (uint64_t)esp_timer_get_time(), fields);
 }
 
+static bool
+environment_fixture_state_safe(const wh_module_update_resilience_result_t *result)
+{
+    return result && result->cleanup_status == ESP_OK &&
+        result->active_slot_unchanged && result->active_version_unchanged &&
+        result->accepted_sequence_unchanged;
+}
+
 static void
 handle_environment_fixture(module_resilience_trial_t *trial)
 {
     const esp_err_t err = wh_module_manager_set_resilience_attempt_id(
         trial->request.attempt_id);
     if (err != ESP_OK || !persist_fault_accepted(trial)) {
-        if (!trial->accepted)
+        if (!trial->accepted) {
+            wh_module_manager_clear_resilience_attempt_id(
+                trial->request.attempt_id);
             emit_request_rejected(&trial->request,
                                   "acceptance_not_durable_or_attempt_unavailable");
-        else
+        } else {
             emit_environment_execution_failed(trial, err, NULL);
+            (void)recover_environment_attempt_after_health_check(trial);
+        }
         return;
     }
 
@@ -476,10 +559,15 @@ handle_environment_fixture(module_resilience_trial_t *trial)
         trial->request.case_id, trial->request.attempt_id, &result);
     if (queue_err != ESP_OK) {
         emit_environment_execution_failed(trial, queue_err, &result);
+        /* Queue/preflight failures happen before the update worker mutates a
+         * slot. Retire only after the known-good active control passes health. */
+        (void)recover_environment_attempt_after_health_check(trial);
         return;
     }
     if (!result.expected_rejection) {
         emit_environment_execution_failed(trial, result.status, &result);
+        if (environment_fixture_state_safe(&result))
+            (void)recover_environment_attempt_after_health_check(trial);
         return;
     }
 
@@ -507,47 +595,17 @@ handle_environment_fixture(module_resilience_trial_t *trial)
         result.payload_invalidated ? "true" : "false",
         result.nvs_floor_checked ? "true" : "false", result.cleanup_status);
     module_resilience_pending_t current = {0};
-    if (!snapshot_pending_for_attempt(trial->request.attempt_id, &current) ||
-        !emit_event_for_pending("update_rejected", &current, fields))
-        return;
+    if (!snapshot_pending_for_attempt(trial->request.attempt_id, &current)) {
+        ESP_LOGE(TAG, "cannot snapshot accepted ENV rejection for serial evidence");
+    } else if (!emit_event_for_pending("update_rejected", &current, fields)) {
+        /* Serial evidence failure must not skip the independent known-good
+         * control recovery/retirement path. The host will leave this attempt
+         * incomplete because the expected rejection line is absent. */
+        ESP_LOGE(TAG, "ENV rejection is durable but serial evidence failed");
+    }
 
-    const uint64_t boot_id = wh_platform_boot_id();
-    bool recovery_state_persisted = false;
-    if (state_lock && xSemaphoreTake(state_lock, portMAX_DELAY) == pdTRUE) {
-        if (pending_valid && memcmp(pending.attempt_id,
-                                    trial->request.attempt_id, 16) == 0) {
-            module_resilience_pending_t next = pending;
-            next.recovery_boot_id = boot_id;
-            next.recovery_mask = 0;
-            next.slot_recovered = 0;
-            next.recovery_reported = 0;
-            next.telemetry_tx_monotonic_us = 0;
-            next.control_tx_monotonic_us = 0;
-            if (persist_pending(&next) == ESP_OK) {
-                pending = next;
-                current = next;
-                recovery_state_persisted = true;
-            }
-        }
-        xSemaphoreGive(state_lock);
-    }
-    if (!recovery_state_persisted) {
-        ESP_LOGE(TAG, "recovery state persistence failed after expected update rejection");
-        return;
-    }
-    (void)emit_event_for_pending("control_recovery_started", &current, NULL);
-    const esp_err_t health_err = wh_module_manager_health_check_active_control();
-    if (health_err != ESP_OK) {
-        char health_fields[128];
-        (void)snprintf(health_fields, sizeof(health_fields),
-            ",\"control_slot_recovered\":false,\"control_health_check_passed\":false,"
-            "\"esp_err\":%d", health_err);
-        (void)emit_event_for_pending("control_recovery_failed", &current,
-                                     health_fields);
-        return;
-    }
-    if (!mark_recovered_after_health_check(trial->request.attempt_id, boot_id))
-        ESP_LOGE(TAG, "control health passed but recovery readback failed");
+    if (!recover_environment_attempt_after_health_check(trial))
+        ESP_LOGE(TAG, "control health passed but recovery did not complete");
 }
 
 static void

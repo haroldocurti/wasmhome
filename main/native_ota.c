@@ -196,30 +196,28 @@ static esp_err_t sink_abort(void *opaque)
             return err == ESP_OK ? ESP_ERR_INVALID_STATE : err;
         esp_err_t erase_err = esp_partition_erase_range(
             context->partition, 0, context->partition->size);
-        if (erase_err == ESP_OK) {
-            uint8_t verify[NATIVE_OTA_HASH_CHUNK_BYTES];
-            context->invalidated = true;
-            for (uint32_t offset = 0;
-                 context->invalidated && offset < context->partition->size;) {
-                size_t amount = context->partition->size - offset;
-                if (amount > sizeof(verify)) amount = sizeof(verify);
-                if (esp_partition_read(context->partition, offset, verify, amount) != ESP_OK) {
-                    context->invalidated = false;
-                    break;
-                }
+        uint8_t verify[NATIVE_OTA_HASH_CHUNK_BYTES];
+        esp_err_t readback_err = ESP_OK;
+        context->invalidated = true;
+        for (uint32_t offset = 0; offset < context->partition->size;) {
+            size_t amount = context->partition->size - offset;
+            if (amount > sizeof(verify)) amount = sizeof(verify);
+            const esp_err_t read_err = esp_partition_read(
+                context->partition, offset, verify, amount);
+            if (read_err != ESP_OK) {
+                context->invalidated = false;
+                if (readback_err == ESP_OK) readback_err = read_err;
+            } else {
                 for (size_t i = 0; i < amount; ++i) {
-                    if (verify[i] != 0xff) {
-                        context->invalidated = false;
-                        break;
-                    }
+                    if (verify[i] != 0xff) context->invalidated = false;
                 }
-                offset += (uint32_t)amount;
             }
-        } else {
-            context->invalidated = false;
-            if (err == ESP_OK) err = erase_err;
+            offset += (uint32_t)amount;
         }
-        if (!context->invalidated && err == ESP_OK) err = ESP_FAIL;
+        memset(verify, 0, sizeof(verify));
+        if (err == ESP_OK && erase_err != ESP_OK) err = erase_err;
+        if (err == ESP_OK && readback_err != ESP_OK) err = readback_err;
+        if (err == ESP_OK && !context->invalidated) err = ESP_ERR_INVALID_CRC;
     }
     return err;
 }
@@ -358,6 +356,15 @@ static bool active_state_unchanged(const wh_signed_update_state_t *before,
         memcmp(before->active_attempt_id, after->active_attempt_id, 16) == 0;
 }
 
+static bool resilience_fixture_approved(bool expected_failure,
+                                        bool state_preserved,
+                                        bool payload_verified,
+                                        esp_err_t cleanup_status)
+{
+    return expected_failure && state_preserved && payload_verified &&
+        cleanup_status == ESP_OK;
+}
+
 static void perform_resilience_fixture(const char *case_id,
                                        const uint8_t attempt_id[16])
 {
@@ -376,9 +383,10 @@ static void perform_resilience_fixture(const char *case_id,
     wh_signed_update_manifest_t manifest = {0};
     wh_signed_update_failure_t failure = WH_SIGNED_UPDATE_FAILURE_NONE;
     const char *stage = "fixture_setup";
+    esp_err_t cleanup_status = ESP_FAIL;
     const esp_err_t err = wh_signed_update_resilience_download(
         WH_NATIVE_SCENARIO_NATIVE, case_id, attempt_id, &sink, NULL, NULL,
-        &manifest, &failure, &stage, NULL);
+        &manifest, &failure, &stage, &cleanup_status);
 
     const bool is_sig = strcmp(case_id, "ENV-SIG") == 0;
     const bool is_hash = strcmp(case_id, "ENV-HASH") == 0;
@@ -401,11 +409,15 @@ static void perform_resilience_fixture(const char *case_id,
     /* A mistakenly accepted fixture is never activated by this path. */
     if (err == ESP_OK) {
         esp_err_t abort_err = sink_abort(&sink_context);
-        if (abort_err != ESP_OK)
+        if (abort_err != ESP_OK) {
             wh_platform_event("resilience_fixture_sink_abort_failed", abort_err);
+            cleanup_status = abort_err;
+        }
         esp_err_t ledger_err = wh_signed_update_abort(&manifest);
-        if (ledger_err != ESP_OK)
+        if (ledger_err != ESP_OK) {
             wh_platform_event("resilience_fixture_ledger_abort_failed", ledger_err);
+            if (cleanup_status == ESP_OK) cleanup_status = ledger_err;
+        }
     }
     const esp_err_t after_err = wh_signed_update_get_state(
         WH_NATIVE_SCENARIO_NATIVE, "firmware", CONFIG_WASMHOME_UPDATE_CAMPAIGN_ID,
@@ -413,8 +425,17 @@ static void perform_resilience_fixture(const char *case_id,
     const bool state_preserved = before_err == ESP_OK && after_err == ESP_OK &&
         active_state_unchanged(&before, &after);
     const bool no_payload_for_reject = (is_sig || !is_hash) && sink_context.written == 0;
-    const bool approved = expected_failure && state_preserved &&
-        (is_hash ? sink_context.invalidated : no_payload_for_reject);
+    const bool inactive_slot_only = is_hash && sink_context.partition &&
+        sink_context.partition != esp_ota_get_running_partition();
+    const bool payload_verified = is_hash
+        ? sink_context.written > 0 && inactive_slot_only && sink_context.invalidated
+        : no_payload_for_reject;
+    const bool approved = resilience_fixture_approved(expected_failure,
+        state_preserved, payload_verified, cleanup_status);
+    const bool nvs_floor_checked = is_old && before_err == ESP_OK &&
+        before.accepted_floor >= 1 && manifest.sequence != 0 &&
+        manifest.sequence <= before.accepted_floor &&
+        err == ESP_ERR_INVALID_VERSION;
 
     char attempt[37];
     format_resilience_uuid(attempt_id, attempt);
@@ -426,13 +447,20 @@ static void perform_resilience_fixture(const char *case_id,
                "\"reason\":\"%s\",\"stage\":\"%s\","
                "\"sequence\":%" PRIu64 ",\"accepted_floor_before\":%" PRIu64 ","
                "\"accepted_floor_after\":%" PRIu64 ",\"state_preserved\":true,"
-               "\"payload_bytes_written\":%" PRIu32 ","
-               "\"payload_slot\":\"%s\",\"payload_invalidated\":%s}\n",
+               "\"real_envelope_validator\":true,"
+               "\"active_slot_unchanged\":true,\"active_version_unchanged\":true,"
+               "\"accepted_sequence_unchanged\":true,\"nvs_floor_checked\":%s,"
+               "\"payload_written\":%s,\"payload_bytes_written\":%" PRIu32 ","
+               "\"inactive_slot_only\":%s,\"payload_slot\":\"%s\","
+               "\"payload_invalidated\":%s,\"cleanup_err\":%d}\n",
                attempt, case_id, wh_platform_boot_id(), esp_timer_get_time(),
                expected_reason, expected_stage, manifest.sequence,
-               before.accepted_floor, after.accepted_floor, sink_context.written,
+               before.accepted_floor, after.accepted_floor,
+               nvs_floor_checked ? "true" : "false",
+               sink_context.written > 0 ? "true" : "false", sink_context.written,
+               inactive_slot_only ? "true" : "false",
                is_hash ? "inactive" : "none",
-               is_hash && sink_context.invalidated ? "true" : "false");
+               sink_context.invalidated ? "true" : "false", cleanup_status);
     } else {
         printf("WASMHOME_RESILIENCE,{\"schema\":\"wasmhome-resilience-v1\","
                "\"event\":\"fault_execution_failed\",\"attempt_id\":\"%s\","
@@ -441,11 +469,11 @@ static void perform_resilience_fixture(const char *case_id,
                "\"reason\":\"%s\",\"stage\":\"%s\","
                "\"failure\":\"%s\",\"esp_err\":%d,"
                "\"state_preserved\":%s,\"payload_bytes_written\":%" PRIu32 ","
-               "\"payload_invalidated\":%s}\n",
+               "\"payload_invalidated\":%s,\"cleanup_err\":%d}\n",
                attempt, case_id, wh_platform_boot_id(), esp_timer_get_time(),
                expected_reason, stage, wh_signed_update_failure_name(failure), err,
                state_preserved ? "true" : "false", sink_context.written,
-               sink_context.invalidated ? "true" : "false");
+               sink_context.invalidated ? "true" : "false", cleanup_status);
     }
     fflush(stdout);
 #if defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE)
@@ -582,6 +610,35 @@ esp_err_t wh_native_ota_queue_health_check(void)
     if (notified != pdPASS) ota_busy = false;
     xSemaphoreGive(ota_state_lock);
     return notified == pdPASS ? ESP_OK : ESP_FAIL;
+}
+
+esp_err_t wh_native_ota_resilience_preflight(const char *case_id)
+{
+#if !defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE)
+    (void)case_id;
+    return ESP_ERR_INVALID_STATE;
+#else
+    const bool supported = case_id &&
+        (strcmp(case_id, "ENV-SIG") == 0 ||
+         strcmp(case_id, "ENV-HASH") == 0 ||
+         strcmp(case_id, "ENV-OLD") == 0);
+    if (!supported) return ESP_ERR_INVALID_ARG;
+    if (!ota_state_lock || !ota_worker_task) return ESP_ERR_INVALID_STATE;
+
+    xSemaphoreTake(ota_state_lock, portMAX_DELAY);
+    const bool busy = ota_busy || ota_reserved;
+    xSemaphoreGive(ota_state_lock);
+    if (busy) return ESP_ERR_INVALID_STATE;
+
+    wh_signed_update_state_t state = {0};
+    const esp_err_t err = wh_signed_update_get_state(WH_NATIVE_SCENARIO_NATIVE,
+        "firmware", CONFIG_WASMHOME_UPDATE_CAMPAIGN_ID, &state);
+    if (err != ESP_OK) return err;
+    if (state.pending) return ESP_ERR_INVALID_STATE;
+    if (strcmp(case_id, "ENV-OLD") == 0 && state.accepted_floor < 1)
+        return ESP_ERR_INVALID_VERSION;
+    return ESP_OK;
+#endif
 }
 
 esp_err_t wh_native_ota_run_resilience_fixture(

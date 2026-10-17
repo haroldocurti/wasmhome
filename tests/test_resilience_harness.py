@@ -15,6 +15,8 @@ from tools.resilience_harness import (
     parse_serial_event,
     resilience_plan,
     _read_serial_events,
+    _observer_gap_series,
+    _observer_packet_times,
 )
 
 
@@ -31,6 +33,59 @@ def serial_event(event, *, case="ENV-OLD", boot="0123456789abcdef", **values):
         "monotonic_us": 10 + len(event),
         **values,
     }
+
+
+def observer_packet(message_type, host_ns, *, boot="0123456789abcdef",
+                    sensor_status=0, age_ms=100, control_status=0,
+                    module_version=1, requested_gpio=0, observed_gpio=0,
+                    sample_id=1, sequence=None):
+    if message_type == "TELEMETRY":
+        body = {"sample_id": sample_id, "temperature_mC": 23000,
+                "age_ms": age_ms, "sensor_status": sensor_status}
+    else:
+        body = {
+        "sample_id": sample_id, "module_version": module_version,
+        "requested_gpio": requested_gpio, "observed_gpio": observed_gpio,
+        "status": control_status,
+        }
+    return {
+        "kind": "decoded",
+        "host_monotonic_ns": host_ns,
+        "packet": {
+            "attempt_id": ATTEMPT,
+            "boot_id": int(boot, 16),
+            "sequence": sequence if sequence is not None else int(host_ns % (2**32 - 1)) + 1,
+            "message_type": message_type,
+            "body": body,
+        },
+    }
+
+
+def observer_session(*, initial_version=1, max_sample_age_ms=1000,
+                     attempt_id=ATTEMPT):
+    return {"kind": "session_start", "initial_version": initial_version,
+            "max_sample_age_ms": max_sample_age_ms, "attempt_id": attempt_id,
+            "period_ns": 100_000_000, "timeout_ns": 300_000_000}
+
+
+def observer_control_request(host_ns=1_050_000_000, *, boot="0123456789abcdef",
+                             temperature=23000, sample_id=1, sent=True):
+    raw = f"request-{boot}-{sample_id}"
+    intent = {
+        "kind": "send_intent", "host_monotonic_ns": host_ns, "hex": raw,
+        "packet": {
+            "attempt_id": ATTEMPT, "boot_id": int(boot, 16),
+            "sequence": sample_id,
+            "message_type": "CONTROL_REQUEST",
+            "body": {"sample_id": sample_id,
+                     "input_temperature_mC": temperature},
+        },
+    }
+    records = [intent]
+    if sent:
+        records.append({"kind": "send", "host_monotonic_ns": host_ns + 1,
+                        "hex": raw})
+    return records
 
 
 class ResilienceHarnessTests(unittest.TestCase):
@@ -98,17 +153,241 @@ class ResilienceHarnessTests(unittest.TestCase):
         })
 
     def test_old_envelope_requires_real_sequence_stage_after_acceptance(self):
-        accepted = serial_event("fault_accepted")
+        accepted = serial_event("fault_accepted", case="ENV-OLD",
+                                functional_timeout_ms_candidate=300,
+                                host_monotonic_ns=1_000_000_000)
         rejection = serial_event("update_rejected", reason="SEQUENCE_NOT_NEWER",
+                                 case="ENV-OLD",
                                  stage="envelope_sequence", real_envelope_validator=True,
                                  nvs_floor_checked=True, active_slot_unchanged=True,
                                  active_version_unchanged=True,
-                                 accepted_sequence_unchanged=True)
-        result = classify_attempt([accepted, rejection], expected_case="ENV-OLD")
-        self.assertEqual(result["status"], "passed")
+                                 accepted_sequence_unchanged=True,
+                                 host_monotonic_ns=1_100_000_000)
+        restored = serial_event("control_slot_restored", case="ENV-OLD",
+                                control_slot_recovered=True,
+                                control_health_check_passed=True,
+                                host_monotonic_ns=1_200_000_000)
+        recovery = serial_event("control_recovery_completed",
+                                case="ENV-OLD", host_monotonic_ns=1_500_000_000)
+        udp = [observer_session(), *observer_control_request(host_ns=1_200_000_000),
+               observer_packet("TELEMETRY", 900_000_000),
+               observer_packet("CONTROL_RESULT", 950_000_000),
+               observer_packet("TELEMETRY", 1_300_000_000),
+               observer_packet("CONTROL_RESULT", 1_400_000_000)]
+        result = classify_attempt([accepted, rejection, restored, recovery],
+                                  expected_case="ENV-OLD", udp_records=udp)
+        self.assertEqual(result["status"], "candidate_passed")
+        self.assertEqual(result["functional_timeout_status"], "candidate_only")
         self.assertEqual(result["stage"], "envelope_sequence")
+        accepted["functional_timeout_frozen"] = True
+        self.assertEqual(classify_attempt([accepted, rejection, restored, recovery],
+                                          expected_case="ENV-OLD",
+                                          udp_records=udp)["status"], "passed")
         rejection["stage"] = "udp_trigger"
-        self.assertEqual(classify_attempt([accepted, rejection])["status"], "observed_failure")
+        self.assertEqual(classify_attempt([accepted, rejection, restored, recovery],
+                                          udp_records=udp)["status"], "observed_failure")
+
+    def test_env_rejection_without_observer_receipts_is_incomplete(self):
+        accepted = serial_event("fault_accepted", case="ENV-SIG",
+                                host_monotonic_ns=1_000_000_000)
+        rejection = serial_event("update_rejected", reason="SIGNATURE_INVALID",
+                                 case="ENV-SIG", stage="envelope_signature",
+                                 real_envelope_validator=True,
+                                 active_slot_unchanged=True,
+                                 active_version_unchanged=True,
+                                 accepted_sequence_unchanged=True,
+                                 payload_written=False,
+                                 host_monotonic_ns=1_100_000_000)
+        recovery = serial_event("control_recovery_completed",
+                                case="ENV-SIG", host_monotonic_ns=1_200_000_000)
+        self.assertEqual(classify_attempt([accepted, rejection, recovery],
+                                          expected_case="ENV-SIG")["status"],
+                         "accepted_incomplete")
+
+    def test_wasm_trap_requires_observed_udp_receipts_and_recovery_timing(self):
+        accepted = serial_event("fault_accepted", case="WASM-OOB",
+                                host_monotonic_ns=1_000_000_000)
+        trap = serial_event("wasm_trap", case="WASM-OOB", call_ok=False,
+                            timed_out=False,
+                            exception_raw="out of bounds memory access",
+                            functional_timeout_ms_candidate=300,
+                            host_monotonic_ns=1_100_000_000)
+        restored = serial_event("control_slot_restored", case="WASM-OOB",
+                                control_slot_recovered=True,
+                                control_health_check_passed=True,
+                                host_monotonic_ns=1_200_000_000)
+        recovery = serial_event("control_recovery_completed", case="WASM-OOB",
+                                control_slot_recovered=True,
+                                telemetry_within_timeout=True,
+                                control_recovery_within_30s=True,
+                                host_monotonic_ns=1_350_000_000)
+        udp = [observer_session(), *observer_control_request(host_ns=1_200_000_000),
+               observer_packet("TELEMETRY", 1_250_000_000),
+               observer_packet("CONTROL_RESULT", 1_300_000_000)]
+        result = classify_attempt([accepted, trap, restored, recovery],
+                                  expected_case="WASM-OOB", udp_records=udp)
+        self.assertEqual(result["status"], "candidate_passed")
+        self.assertTrue(result["telemetry_udp_received"])
+        self.assertTrue(result["control_udp_received"])
+        self.assertEqual(classify_attempt([accepted, trap, restored, recovery],
+                                          expected_case="WASM-OOB")["status"],
+                         "accepted_incomplete")
+
+    def test_wasm_zero_control_requires_received_udp_evidence(self):
+        accepted = serial_event("fault_accepted", case="WASM-ZERO",
+                                host_monotonic_ns=1_000_000_000)
+        control = serial_event("wasm_control", case="WASM-ZERO", call_ok=True,
+                               return_value=0x12345678,
+                               host_monotonic_ns=1_050_000_000)
+        restored = serial_event("control_slot_restored", case="WASM-ZERO",
+                                control_slot_recovered=True,
+                                host_monotonic_ns=1_100_000_000)
+        recovery = serial_event("control_recovery_completed", case="WASM-ZERO",
+                                control_slot_recovered=True,
+                                host_monotonic_ns=1_500_000_000)
+        self.assertEqual(classify_attempt([accepted, control, restored, recovery],
+                                          expected_case="WASM-ZERO")["status"],
+                         "accepted_incomplete")
+        udp = [observer_session(), *observer_control_request(host_ns=1_200_000_000),
+               observer_packet("TELEMETRY", 1_300_000_000),
+               observer_packet("CONTROL_RESULT", 1_300_000_000)]
+        self.assertEqual(classify_attempt([accepted, control, restored, recovery],
+                                          expected_case="WASM-ZERO",
+                                          udp_records=udp)["status"], "candidate_passed")
+
+    def test_observer_control_requires_intent_with_successful_send(self):
+        request = observer_control_request(sent=False)
+        result = observer_packet("CONTROL_RESULT", 1_300_000_000)
+        self.assertEqual(_observer_packet_times(
+            [observer_session(), *request, result], ATTEMPT,
+            "0123456789abcdef", "CONTROL_RESULT"), [])
+
+    def test_late_control_response_is_not_a_valid_recovery_receipt(self):
+        request = observer_control_request(host_ns=1_000_000_000)
+        response = observer_packet("CONTROL_RESULT", 1_310_000_000)
+        self.assertEqual(_observer_packet_times(
+            [observer_session(), *request, response], ATTEMPT,
+            "0123456789abcdef", "CONTROL_RESULT"), [])
+
+    def test_control_request_in_flight_at_acceptance_uses_overlapping_deadline(self):
+        accepted = serial_event("fault_accepted", case="ENV-SIG",
+                                functional_timeout_ms_candidate=300,
+                                host_monotonic_ns=1_000_000_000)
+        rejection = serial_event("update_rejected", case="ENV-SIG",
+                                 reason="SIGNATURE_INVALID", stage="envelope_signature",
+                                 real_envelope_validator=True, payload_written=False,
+                                 active_slot_unchanged=True,
+                                 active_version_unchanged=True,
+                                 accepted_sequence_unchanged=True,
+                                 host_monotonic_ns=1_100_000_000)
+        restored = serial_event("control_slot_restored", case="ENV-SIG",
+                                control_slot_recovered=True,
+                                host_monotonic_ns=1_200_000_000)
+        recovery = serial_event("control_recovery_completed", case="ENV-SIG",
+                                host_monotonic_ns=1_600_000_000)
+        udp = [observer_session(),
+               *observer_control_request(host_ns=900_000_000, sample_id=1),
+               *observer_control_request(host_ns=1_200_000_000, sample_id=2),
+               observer_packet("TELEMETRY", 1_300_000_000, sample_id=2),
+               observer_packet("CONTROL_RESULT", 1_150_000_000, sample_id=1),
+               observer_packet("CONTROL_RESULT", 1_400_000_000, sample_id=2)]
+        result = classify_attempt([accepted, rejection, restored, recovery],
+                                  expected_case="ENV-SIG", udp_records=udp)
+        self.assertEqual(result["status"], "candidate_passed")
+        self.assertEqual(result["control_requests_checked"], 2)
+        udp.remove(next(record for record in udp
+                        if record.get("kind") == "decoded" and
+                        record["packet"]["message_type"] == "CONTROL_RESULT" and
+                        record["packet"]["body"]["sample_id"] == 1))
+        result = classify_attempt([accepted, rejection, restored, recovery],
+                                  expected_case="ENV-SIG", udp_records=udp)
+        self.assertEqual(result["status"], "accepted_incomplete")
+        self.assertEqual(result["control_requests_overdue"], 1)
+
+    def test_env_recovery_requires_telemetry_gap_and_control_deadline_evidence(self):
+        accepted = serial_event("fault_accepted", case="ENV-SIG",
+                                functional_timeout_ms_candidate=100,
+                                host_monotonic_ns=1_000_000_000)
+        rejection = serial_event("update_rejected", case="ENV-SIG",
+                                 reason="SIGNATURE_INVALID", stage="envelope_signature",
+                                 real_envelope_validator=True, payload_written=False,
+                                 active_slot_unchanged=True,
+                                 active_version_unchanged=True,
+                                 accepted_sequence_unchanged=True,
+                                 host_monotonic_ns=1_100_000_000)
+        restored = serial_event("control_slot_restored", case="ENV-SIG",
+                                control_slot_recovered=True,
+                                host_monotonic_ns=1_200_000_000)
+        recovery = serial_event("control_recovery_completed", case="ENV-SIG",
+                                host_monotonic_ns=1_500_000_000)
+        udp = [observer_session(), *observer_control_request(host_ns=1_200_000_000),
+               observer_packet("TELEMETRY", 1_300_000_000),
+               observer_packet("CONTROL_RESULT", 1_400_000_000)]
+        result = classify_attempt([accepted, rejection, restored, recovery],
+                                  expected_case="ENV-SIG", udp_records=udp)
+        self.assertEqual(result["status"], "accepted_incomplete")
+        self.assertFalse(result["telemetry_gap_series_within_candidate"])
+        udp[-1] = observer_packet("CONTROL_RESULT", 1_510_000_000)
+        result = classify_attempt([accepted, rejection, restored, recovery],
+                                  expected_case="ENV-SIG", udp_records=udp)
+        self.assertEqual(result["status"], "accepted_incomplete")
+        self.assertFalse(result["control_udp_received"])
+
+    def test_duplicate_decoded_telemetry_cannot_shrink_gap_series(self):
+        telemetry = observer_packet("TELEMETRY", 1_310_000_000, sequence=27)
+        duplicate = observer_packet("TELEMETRY", 1_320_000_000, sequence=27)
+        records = [telemetry, duplicate]
+        self.assertEqual(_observer_packet_times(
+            records, ATTEMPT, "0123456789abcdef", "TELEMETRY"),
+            [1_310_000_000])
+        evidence = _observer_gap_series(
+            records, ATTEMPT, "0123456789abcdef", 1_000_000_000,
+            1_350_000_000, 300_000_000)
+        self.assertFalse(evidence["telemetry_gap_series_within_candidate"])
+
+    def test_wasm_wrong_exception_timeout_and_execution_failure_fail_closed(self):
+        accepted = serial_event("fault_accepted", case="WASM-DIV0",
+                                host_monotonic_ns=1_000_000_000)
+        trap = serial_event("wasm_trap", case="WASM-DIV0", call_ok=False,
+                            timed_out=False,
+                            exception_raw="integer divide by zero",
+                            host_monotonic_ns=1_100_000_000)
+        unexpected = dict(trap, exception_raw="out of bounds memory access")
+        timeout = dict(trap, timed_out=True)
+        recovery = serial_event("control_recovery_completed", case="WASM-DIV0",
+                                host_monotonic_ns=1_200_000_000)
+        self.assertEqual(classify_attempt([accepted, unexpected, recovery])["status"],
+                         "observed_failure")
+        self.assertEqual(classify_attempt([accepted, timeout, recovery])["status"],
+                         "observed_failure")
+        failed = serial_event("fault_execution_failed", case="WASM-DIV0")
+        self.assertEqual(classify_attempt([accepted, trap, recovery, failed])["status"],
+                         "observed_failure")
+
+    def test_wasm_recovery_uses_observer_control_after_serial_completion(self):
+        accepted = serial_event("fault_accepted", case="WASM-OOB",
+                                host_monotonic_ns=1_000_000_000)
+        trap = serial_event("wasm_trap", case="WASM-OOB", call_ok=False,
+                            timed_out=False,
+                            exception_raw="out of bounds memory access",
+                            functional_timeout_ms_candidate=300,
+                            host_monotonic_ns=1_100_000_000)
+        restored = serial_event("control_slot_restored", case="WASM-OOB",
+                                control_slot_recovered=True,
+                                host_monotonic_ns=1_200_000_000)
+        recovery = serial_event("control_recovery_completed", case="WASM-OOB",
+                                control_slot_recovered=True,
+                                telemetry_within_timeout=True,
+                                control_recovery_within_30s=True,
+                                host_monotonic_ns=1_300_000_000)
+        udp = [observer_session(), *observer_control_request(host_ns=1_200_000_000),
+               observer_packet("TELEMETRY", 1_250_000_000),
+               observer_packet("CONTROL_RESULT", 1_300_000_000)]
+        result = classify_attempt([accepted, trap, restored, recovery],
+                                  expected_case="WASM-OOB", udp_records=udp)
+        self.assertEqual(result["status"], "candidate_passed")
+        self.assertEqual(result["recovery_endpoint_host_monotonic_ns"],
+                         1_300_000_000)
 
     def test_serial_events_correlate_udp_separately_on_each_boot(self):
         before = serial_event("fault_accepted")
@@ -123,6 +402,32 @@ class ResilienceHarnessTests(unittest.TestCase):
         self.assertEqual(attempt["boots"], [before["boot_id"], after["boot_id"]])
         self.assertEqual(attempt["udp_record_count"], 2)
         self.assertIn("never subtract them", report["clock_rule"])
+
+    def test_session_metadata_is_scoped_to_attempt_and_not_unmatched_udp(self):
+        other_attempt = "00000000-0000-0000-0000-000000000001"
+        session = observer_session(max_sample_age_ms=0, attempt_id=other_attempt)
+        report = correlate([serial_event("fault_accepted")], [session])
+        attempt = report["attempts"][0]
+        self.assertEqual(attempt["udp_record_count"], 0)
+        self.assertEqual(report["unmatched_udp_records"], [])
+
+    def test_retired_zero_attempt_udp_is_not_attached_to_previous_trial(self):
+        accepted = serial_event("fault_accepted", case="ENV-OLD",
+                                host_monotonic_ns=1_000_000_000)
+        rejected = serial_event("update_rejected", case="ENV-OLD",
+                                host_monotonic_ns=1_100_000_000)
+        recovery = serial_event("control_recovery_completed", case="ENV-OLD",
+                                host_monotonic_ns=1_300_000_000)
+        retired_packet = {
+            "kind": "decoded", "host_monotonic_ns": 1_500_000_000,
+            "packet": {"attempt_id": "00000000-0000-0000-0000-000000000000",
+                       "boot_id": int(accepted["boot_id"], 16),
+                       "message_type": "TELEMETRY"},
+        }
+        report = correlate([accepted, rejected, recovery], [retired_packet])
+        attempt = report["attempts"][0]
+        self.assertEqual(attempt["udp_record_count"], 0)
+        self.assertEqual(report["unmatched_udp_records"], [retired_packet])
 
     def test_request_without_acceptance_is_preserved_as_unconfirmed(self):
         request = make_fault_request_record(ATTEMPT, "NAT-ABORT", "native", 1234)
@@ -154,23 +459,47 @@ class ResilienceHarnessTests(unittest.TestCase):
             correlate([], [], [mismatched])
 
     def test_nat_abort_requires_raw_marker_panic_reset_and_recovery(self):
-        accepted = serial_event("fault_accepted", case="NAT-ABORT")
+        accepted = serial_event("fault_accepted", case="NAT-ABORT",
+                                host_monotonic_ns=1_000_000_000)
         marker = parse_serial_event(
             "resilience:controlled_abort attempt_id="
             "b78edc42-e6c3-4598-8609-55a061b1c8d6 case_id=NAT-ABORT "
             "boot_id=0123456789abcdef monotonic_us=20\r\n")
+        marker["host_monotonic_ns"] = 1_200_000_000
         boot = serial_event("boot_observed", case="NAT-ABORT",
-                            boot="fedcba9876543210", reset_reason="ESP_RST_PANIC")
+                            boot="fedcba9876543210", reset_reason="ESP_RST_PANIC",
+                            host_monotonic_ns=2_000_000_000)
         recovery = serial_event("control_recovery_completed", case="NAT-ABORT",
                                 boot="fedcba9876543210",
-                                telemetry_udp_received=True, control_udp_received=True,
-                                recovery_within_30s=True)
+                                telemetry_udp_tx=True, control_udp_tx=True,
+                                host_monotonic_ns=2_500_000_000)
+        udp = [observer_session(),
+               *observer_control_request(boot="0123456789abcdef", host_ns=1_050_000_000,
+                                         sample_id=1),
+               *observer_control_request(boot="fedcba9876543210", host_ns=2_100_000_000,
+                                         sample_id=2),
+               observer_packet("TELEMETRY", 1_100_000_000,
+                               boot="0123456789abcdef", sample_id=1),
+               observer_packet("CONTROL_RESULT", 1_150_000_000,
+                               boot="0123456789abcdef", sample_id=1),
+               observer_packet("TELEMETRY", 2_300_000_000,
+                               boot="fedcba9876543210", sample_id=2),
+               observer_packet("CONTROL_RESULT", 2_400_000_000,
+                               boot="fedcba9876543210", sample_id=2)]
         self.assertEqual(marker["event"], "abort_marker")
         self.assertEqual(classify_attempt(
-            [accepted, marker, boot, recovery], expected_case="NAT-ABORT")["status"],
-            "passed")
+            [accepted, marker, boot, recovery], expected_case="NAT-ABORT",
+            udp_records=udp)["status"],
+            "candidate_passed")
         self.assertEqual(classify_attempt(
-            [accepted, boot, recovery], expected_case="NAT-ABORT")["status"],
+            [accepted, boot, recovery], expected_case="NAT-ABORT",
+            udp_records=udp)["status"],
+            "accepted_incomplete")
+        interrupted = [record for record in udp if not (
+            record.get("packet", {}).get("boot_id") == int("0123456789abcdef", 16))]
+        self.assertEqual(classify_attempt(
+            [accepted, marker, boot, recovery], expected_case="NAT-ABORT",
+            udp_records=interrupted)["status"],
             "accepted_incomplete")
 
     def test_nat_serial_send_event_alone_does_not_prove_udp_recovery(self):

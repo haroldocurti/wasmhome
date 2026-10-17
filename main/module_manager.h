@@ -124,6 +124,7 @@ esp_err_t wh_module_manager_run_resilience_case(
     const uint8_t attempt_id[16], wh_module_resilience_case_t test_case,
     wh_module_resilience_event_fn event_fn, void *context);
 esp_err_t wh_module_manager_set_resilience_attempt_id(const uint8_t attempt_id[16]);
+void wh_module_manager_clear_resilience_attempt_id(const uint8_t attempt_id[16]);
 
 /* Execute the same bounded control vectors used for candidate admission on
    the resident active control, from its owning WAMR worker. */
