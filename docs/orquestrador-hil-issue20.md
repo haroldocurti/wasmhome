@@ -60,6 +60,7 @@ python3 tools/issue20_hil_orchestrator.py run \
   --expected-mac MAC_DA_PLACA_VALIDADA \
   --device-ip 192.168.0.145 --serial-port /dev/ttyACM0 \
   --python /CAMINHO/DO/PYTHON --esptool /CAMINHO/DO/esptool.py \
+  --flash-baud 921600 --read-timeout-seconds 600 \
   --bind-ip 192.168.0.138 \
   --remote-observer wasmhome@192.168.0.138 \
   --remote-known-hosts /home/haroldocurti/.ssh/wasmhome-ct107_known_hosts \
@@ -73,6 +74,17 @@ os mesmos argumentos e `--max-slots 17` pode executar os slots restantes do
 piloto, na ordem registrada. O estado `complete` significa que as chamadas de
 captura retornaram e que a baseline foi restaurada e verificada; a aceitação
 experimental ainda exige adjudicar os registros do observador e de servidor.
+
+A leitura integral aprovada de 16 MiB levou **212,2 s a 921600 baud**, conforme
+o recibo privado da captura. O default de transporte usa essa velocidade já
+validada e permite 600 s por leitura integral. O limite de 240 s anterior
+deixava pouca margem e era insuficiente para uma leitura a 460800 baud. O
+parâmetro `--read-timeout-seconds` aceita inteiros de 360 a 3600; se a bancada
+exigir transporte mais lento, reservar por exemplo 900 s. Alterar esse orçamento
+de leitura não muda as janelas experimentais nem o timeout das gravações, que
+continua em 240 s para a restauração integral. `--flash-baud` permanece
+configurável; a velocidade registrada no journal não pode mudar no meio da
+campanha.
 
 O lock exclusivo em `~/.local/state/wasmhome-hil/hardware.lock` abrange todas as
 campanhas e aliases seriais do usuário que usam este orquestrador. Ferramentas

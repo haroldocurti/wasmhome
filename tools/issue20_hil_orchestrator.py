@@ -30,6 +30,7 @@ BASELINE_SHA256 = "00aa22c35720354383c3d686a14612a7cb2fd99c57cb1ce214d07338c1c16
 FLASH_BYTES = 0x1000000
 TABLE_OFFSET, TABLE_LIMIT = 0x8000, 0x1000
 APP_OFFSET, APP_LIMIT = 0x20000, 0x700000
+DEFAULT_READ_TIMEOUT_SECONDS = 600
 PARTITIONS = (
     ("nvs", 1, 2, 0x9000, 0x6000),
     ("otadata", 1, 0, 0xf000, 0x2000),
@@ -194,7 +195,8 @@ class Board:
 
     def read_hash(self, destination):
         require(not destination.exists(), "readback destination already exists")
-        self.command("read_flash", "0x0", hex(FLASH_BYTES), destination, timeout=240)
+        self.command("read_flash", "0x0", hex(FLASH_BYTES), destination,
+                     timeout=self.options.read_timeout_seconds)
         os.chmod(destination, 0o600)
         require(destination.stat().st_size == FLASH_BYTES, "full flash readback is incomplete")
         return digest(destination)
@@ -264,6 +266,8 @@ def execute(options, *, board_factory=Board, invoke_slot=_invoke_slot):
     require(os.geteuid() != 0, "HIL must run as an ordinary user")
     require(re.fullmatch(r"(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}", options.expected_mac), "invalid expected MAC")
     require(1 <= options.max_slots <= 90, "max-slots must be between 1 and 90")
+    require(type(options.read_timeout_seconds) is int and 360 <= options.read_timeout_seconds <= 3600,
+            "read-timeout-seconds must be an integer between 360 and 3600")
     require(options.remote_observer and options.remote_server_log
             and Path(options.remote_server_log).is_absolute(), "explicit remote observer/log required")
     # Validate SSH policy before any serial access.
@@ -311,8 +315,11 @@ def execute(options, *, board_factory=Board, invoke_slot=_invoke_slot):
         require(type(journal["next_index"]) is int and 0 <= journal["next_index"] <= len(journal["slots"]),
                 "invalid journal schedule index")
         # Prevent changing network, profile or serial configuration between invocations.
-        require({k: v for k, v in journal["options"].items() if k not in {"max_slots", "action"}}
-                == {k: v for k, v in vars(options).items() if k not in {"max_slots", "action"}},
+        # A longer transport read budget does not change any experimental window
+        # and may also be used to recover journals from before this option existed.
+        mutable = {"max_slots", "action", "read_timeout_seconds"}
+        require({k: v for k, v in journal["options"].items() if k not in mutable}
+                == {k: v for k, v in vars(options).items() if k not in mutable},
                 "HIL configuration changed; start a separately registered campaign")
         for index in range(journal["next_index"], min(len(journal["slots"]), journal["next_index"] + options.max_slots)):
             slot = journal["slots"][index]
@@ -366,7 +373,9 @@ def parser():
                  "python", "esptool", "bind-ip", "remote-observer", "remote-known-hosts", "remote-identity",
                  "remote-server-log"):
         result.add_argument("--" + name, required=True)
-    result.add_argument("--flash-baud", type=int, default=460800)
+    result.add_argument("--flash-baud", type=int, default=921600)
+    result.add_argument("--read-timeout-seconds", type=int, default=DEFAULT_READ_TIMEOUT_SECONDS,
+                        help="full 16 MiB read budget, 360..3600 s (default: 600); write budgets stay unchanged")
     result.add_argument("--serial-baud", type=int, default=115200)
     result.add_argument("--remote-root", default=".local/share/wasmhome-hil")
     result.add_argument("--remote-ssh-port", type=int, default=22)

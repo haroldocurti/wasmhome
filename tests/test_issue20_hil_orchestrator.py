@@ -79,6 +79,31 @@ class HilArtifactTests(unittest.TestCase):
             board.identify()
         board.command.assert_called_once_with("flash_id")
 
+    def test_full_read_has_conservative_budget_without_changing_write_budget(self):
+        self.assertEqual(hil.parser().get_default("flash_baud"), 921600)
+        self.assertEqual(hil.parser().get_default("read_timeout_seconds"), 600)
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            baseline, readback = root / "baseline.bin", root / "readback.bin"
+            with baseline.open("wb") as stream:
+                stream.truncate(hil.FLASH_BYTES)
+            board = hil.Board(argparse.Namespace(read_timeout_seconds=600), root)
+
+            def emulate_command(*args, **kwargs):
+                if args[0] == "read_flash":
+                    with Path(args[-1]).open("wb") as stream:
+                        stream.truncate(hil.FLASH_BYTES)
+                return ""
+
+            board.command = Mock(side_effect=emulate_command)
+            with patch.object(hil, "digest", return_value=hil.BASELINE_SHA256):
+                board.restore(baseline, readback)
+            calls = board.command.call_args_list
+            self.assertEqual(calls[0].args, ("write_flash", "0x0", baseline))
+            self.assertEqual(calls[0].kwargs["timeout"], 240)
+            self.assertEqual(calls[1].args, ("read_flash", "0x0", "0x1000000", readback))
+            self.assertEqual(calls[1].kwargs["timeout"], 600)
+
 
 class HilOrchestrationTests(unittest.TestCase):
     def setUp(self):
@@ -87,7 +112,8 @@ class HilOrchestrationTests(unittest.TestCase):
         self.root = Path(self.temporary.name)
         self.options = argparse.Namespace(action="run", campaign_root=str(self.root), profiles="/profiles",
             baseline="/baseline", expected_mac="dc:b4:d9:0b:22:e4", serial_port="/dev/ttyACM0",
-            device_ip="192.168.0.145", python="/python", esptool="/esptool.py", flash_baud=460800,
+            device_ip="192.168.0.145", python="/python", esptool="/esptool.py", flash_baud=921600,
+            read_timeout_seconds=600,
             serial_baud=115200, bind_ip="192.168.0.138", remote_observer="wasmhome@192.168.0.138",
             remote_known_hosts="/known_hosts", remote_identity="/identity", remote_root=".local/share/hil",
             remote_ssh_port=22, remote_server_log="/home/wasmhome/http-events.jsonl", max_slots=2)
@@ -211,6 +237,19 @@ class HilOrchestrationTests(unittest.TestCase):
         with self.assertRaisesRegex(hil.HilError, "configuration changed"):
             self.run_hil()
         self.board.identify.assert_not_called()
+
+    def test_read_budget_validation_occurs_before_board_access(self):
+        for invalid in (240, 3601, True):
+            self.options.read_timeout_seconds = invalid
+            with self.assertRaisesRegex(hil.HilError, "read-timeout-seconds"):
+                self.run_hil()
+        self.board.identify.assert_not_called()
+
+    def test_legacy_ready_journal_can_use_longer_read_budget(self):
+        self.journal["options"].pop("read_timeout_seconds")
+        self.options.read_timeout_seconds = 900
+        self.run_hil()
+        self.assertEqual(self.invoke.call_count, 2)
 
 
 class HilLockTests(unittest.TestCase):
