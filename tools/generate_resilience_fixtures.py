@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import sys
 import tempfile
@@ -51,6 +52,7 @@ def _record(root: Path, case_id: str, scenario: int, private_key: Path,
     envelope = build_envelope(manifest, signed_payload, private_key)
     folder = root / "resilience" / case_id / f"scenario-{scenario}"
     _, component, payload_filename, _ = SCENARIOS[scenario]
+    verification_rel = (Path("verification") / f"scenario-{scenario}" / payload_filename)
     _write_file(folder / "manifest.cose", envelope)
     _write_file(folder / payload_filename, received_payload)
     return {
@@ -64,10 +66,13 @@ def _record(root: Path, case_id: str, scenario: int, private_key: Path,
         "payload_path": (Path("resilience") / case_id / f"scenario-{scenario}" / payload_filename).as_posix(),
         "manifest_bytes": len(envelope),
         "manifest_sha256": hashlib.sha256(envelope).hexdigest(),
+        "payload_bytes": len(received_payload),
+        "payload_sha256": hashlib.sha256(received_payload).hexdigest(),
         "signed_payload_bytes": len(signed_payload),
         "signed_payload_sha256": hashlib.sha256(signed_payload).hexdigest(),
-        "received_payload_bytes": len(received_payload),
-        "received_payload_sha256": hashlib.sha256(received_payload).hexdigest(),
+        "verification_payload_path": verification_rel.as_posix(),
+        "verification_payload_bytes": len(signed_payload),
+        "verification_payload_sha256": hashlib.sha256(signed_payload).hexdigest(),
         "expected": {
             "ENV-SIG": {"event": "update_rejected", "reason": "SIGNATURE_INVALID",
                         "stage": "envelope_signature", "payload_written": False},
@@ -81,14 +86,16 @@ def _record(root: Path, case_id: str, scenario: int, private_key: Path,
 
 
 def generate(package: Path, public_key: Path, trusted_private_key: Path,
-             untrusted_private_key: Path, untrusted_public_key: Path, output: Path, *, old_sequence=1,
-             next_sequence=2, module_next_sequence=3, expected_campaign_id=None,
-             expected_aot_toolchain_id=None):
+             untrusted_private_key: Path, untrusted_public_key: Path, output: Path, *,
+             old_sequence: int, next_sequence: int, module_next_sequence: int,
+             expected_campaign_id: str, expected_aot_toolchain_id: str,
+             trusted_public_key: Path, fixture_campaign_id: str):
     package = package.resolve()
     public_key = public_key.resolve()
     trusted_private_key = trusted_private_key.resolve()
     untrusted_private_key = untrusted_private_key.resolve()
     untrusted_public_key = untrusted_public_key.resolve()
+    trusted_public_key = trusted_public_key.resolve()
     output = output.absolute()
     if (old_sequence <= 0 or next_sequence <= old_sequence or
             module_next_sequence <= old_sequence):
@@ -98,7 +105,7 @@ def generate(package: Path, public_key: Path, trusted_private_key: Path,
     verified = verify_set(package, public_key,
                           expected_campaign_id=expected_campaign_id,
                           expected_aot_toolchain_id=expected_aot_toolchain_id)
-    trusted_der = public_der_from_key(public_key)
+    trusted_der = public_der_from_key(trusted_public_key)
     signing_der = public_der_from_key(trusted_private_key, private=True)
     untrusted_der = public_der_from_key(untrusted_private_key, private=True)
     untrusted_public_der = public_der_from_key(untrusted_public_key)
@@ -108,7 +115,17 @@ def generate(package: Path, public_key: Path, trusted_private_key: Path,
         raise ValueError("untrusted signing key must differ from the trusted key")
     if hashlib.sha256(untrusted_der).digest() != hashlib.sha256(untrusted_public_der).digest():
         raise ValueError("untrusted private key does not match its public key")
-    campaign_id = verified["campaign_id"]
+    source_campaign_id = verified["campaign_id"]
+    if (not isinstance(fixture_campaign_id, str) or
+            re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", fixture_campaign_id) is None):
+        raise ValueError("fixture_campaign_id has invalid form")
+    campaign_id = fixture_campaign_id
+    source_key_sha256 = verified["signing_public_key_sha256"]
+    fixture_key_sha256 = hashlib.sha256(trusted_der).hexdigest()
+    if campaign_id == source_campaign_id:
+        raise ValueError("fixture campaign must differ from the verified source package campaign")
+    if fixture_key_sha256 == source_key_sha256:
+        raise ValueError("fixture trust key must differ from the verified source package key")
     toolchain_id = verified["aot_toolchain_id"]
     index = json.loads((package / "index.json").read_text(encoding="utf-8"))
     entries = {(item["scenario"], item["label"]): item for item in index["artifacts"]}
@@ -124,7 +141,7 @@ def generate(package: Path, public_key: Path, trusted_private_key: Path,
             signed_payload = (package / artifact["payload_path"]).read_bytes()
             source_envelope = (package / artifact["envelope_path"]).read_bytes()
             verify_envelope(source_envelope, signed_payload, public_key,
-                            expected_campaign_id=campaign_id,
+                            expected_campaign_id=source_campaign_id,
                             expected_aot_toolchain_id=toolchain_id)
 
             sig_manifest = _fixture_manifest(campaign_id, scenario, scenario_next_sequence,
@@ -153,7 +170,7 @@ def generate(package: Path, public_key: Path, trusted_private_key: Path,
             received = (staging / record["payload_path"]).read_bytes()
             if record["case_id"] == "ENV-SIG":
                 try:
-                    verify_envelope(envelope, received, public_key,
+                    verify_envelope(envelope, received, trusted_public_key,
                                     expected_campaign_id=campaign_id,
                                     expected_aot_toolchain_id=toolchain_id)
                 except ValueError:
@@ -166,7 +183,7 @@ def generate(package: Path, public_key: Path, trusted_private_key: Path,
                                 expected_aot_toolchain_id=toolchain_id)
             elif record["case_id"] == "ENV-HASH":
                 try:
-                    verify_envelope(envelope, received, public_key,
+                    verify_envelope(envelope, received, trusted_public_key,
                                     expected_campaign_id=campaign_id,
                                     expected_aot_toolchain_id=toolchain_id)
                 except ValueError as error:
@@ -175,7 +192,7 @@ def generate(package: Path, public_key: Path, trusted_private_key: Path,
                 else:
                     raise ValueError("ENV-HASH unexpectedly accepts the altered payload")
             else:
-                manifest = verify_envelope(envelope, received, public_key,
+                manifest = verify_envelope(envelope, received, trusted_public_key,
                                            expected_campaign_id=campaign_id,
                                            expected_aot_toolchain_id=toolchain_id)
                 if manifest[7] != old_sequence or manifest[7] >= scenario_next_sequence:
@@ -185,9 +202,9 @@ def generate(package: Path, public_key: Path, trusted_private_key: Path,
             "schema": "wasmhome-issue22-resilience-fixtures-v1",
             "status": "host_generated_not_device_validated",
             "campaign_id": campaign_id,
-            "trusted_public_key_sha256": hashlib.sha256(trusted_der).hexdigest(),
-            "untrusted_public_key_sha256": hashlib.sha256(untrusted_public_der).hexdigest(),
-            "aot_toolchain_id": toolchain_id,
+            "trusted_fixture_public_key_sha256": hashlib.sha256(trusted_der).hexdigest(),
+            "untrusted_fixture_public_key_sha256": hashlib.sha256(untrusted_public_der).hexdigest(),
+            "expected_aot_toolchain_id": toolchain_id,
             "sequence_setup": {"old_sequence": old_sequence,
                                "next_sequence": next_sequence,
                                "module_next_sequence": module_next_sequence,
@@ -196,8 +213,11 @@ def generate(package: Path, public_key: Path, trusted_private_key: Path,
                                    "scenario-2": module_next_sequence,
                                    "scenario-3": module_next_sequence,
                                },
+                               "requires_floor_before_hash_scenario_1": next_sequence - 1,
+                               "requires_floor_before_hash_scenarios_2_3": module_next_sequence - 1,
                                "requires_real_nvs_floor_at_least_old_sequence": True},
             "source_package_verified": verified,
+            "source_campaign_id": source_campaign_id,
             "artifacts": records,
             "pending": [
                 "install fixture files on the fixed HTTPS bench server",
@@ -205,6 +225,14 @@ def generate(package: Path, public_key: Path, trusted_private_key: Path,
                 "verify real inactive-slot invalidation and NVS floor on ESP32-S3",
             ],
         }
+        _write_file(staging / "verification" / "trusted-public.der", trusted_der)
+        _write_file(staging / "verification" / "untrusted-public.der", untrusted_public_der)
+        for scenario in (1, 2, 3):
+            artifact = entries[(scenario, "v2")]
+            payload = (package / artifact["payload_path"]).read_bytes()
+            _, _, payload_filename, _ = SCENARIOS[scenario]
+            _write_file(staging / "verification" / f"scenario-{scenario}" / payload_filename,
+                        payload)
         (staging / "fixture-index.json").write_text(
             json.dumps(fixture_index, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         for path in staging.rglob("*"):
@@ -225,12 +253,19 @@ def main(argv=None):
     parser.add_argument("--untrusted-private-key", type=Path, required=True)
     parser.add_argument("--untrusted-public-key", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--old-sequence", type=int, default=1)
-    parser.add_argument("--next-sequence", type=int, default=2)
-    parser.add_argument("--module-next-sequence", type=int, default=3,
-                        help="next sequence for scenarios 2/3 after module v2 has floor 2")
-    parser.add_argument("--expected-campaign-id")
-    parser.add_argument("--expected-aot-toolchain-id")
+    parser.add_argument("--old-sequence", type=int, required=True)
+    parser.add_argument("--next-sequence", type=int, required=True,
+                        help="native sequence after the explicitly confirmed NVS floor")
+    parser.add_argument("--module-next-sequence", type=int, required=True,
+                        help="sequence for scenarios 2/3 after the explicitly confirmed module NVS floor")
+    parser.add_argument("--expected-campaign-id", required=True,
+                        help="expected campaign ID in the verified source package")
+    parser.add_argument("--expected-aot-toolchain-id", required=True,
+                        help="expected AOT toolchain ID in the verified source package")
+    parser.add_argument("--trusted-public-key", type=Path, required=True,
+                        help="public key matching the isolated fixture signing key")
+    parser.add_argument("--fixture-campaign-id", required=True,
+                        help="isolated campaign ID to sign into fixtures (must differ from source)")
     args = parser.parse_args(argv)
     try:
         result = generate(args.package, args.public_key, args.trusted_private_key,
@@ -239,7 +274,9 @@ def main(argv=None):
                           old_sequence=args.old_sequence, next_sequence=args.next_sequence,
                           module_next_sequence=args.module_next_sequence,
                           expected_campaign_id=args.expected_campaign_id,
-                          expected_aot_toolchain_id=args.expected_aot_toolchain_id)
+                          expected_aot_toolchain_id=args.expected_aot_toolchain_id,
+                          trusted_public_key=args.trusted_public_key,
+                          fixture_campaign_id=args.fixture_campaign_id)
         print(json.dumps({"fixture_count": len(result["artifacts"]),
                           "output": str(args.output),
                           "status": result["status"]}, sort_keys=True))

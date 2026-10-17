@@ -12,7 +12,11 @@ registro não fecha a issue nem autoriza a campanha #23.
   `fault_accepted`. Timeout ou silêncio não viram rejeição.
 - `tools/generate_resilience_fixtures.py` gera nove conjuntos ENV-SIG/HASH/OLD
   a partir de artefato #15 verificado. A chave privada fica fora da saída; as
-  fixtures não foram validadas no dispositivo.
+  fixtures não foram validadas no dispositivo. A identidade da fixture #22 é
+  obrigatória e separada: o gerador exige a chave pública correspondente à
+  chave privada isolada e um campaign ID distinto do pacote fonte #15. A
+  verificação criptográfica do pacote fonte continua usando sua chave e seu
+  campaign ID próprios.
 - `main/resilience_test_protocol.c` aceita somente `event=fault_request`, UUID
   canônico `attempt_id` e `case_id` fechado. A linha não pode fornecer cenário,
   URL, caminho, chave ou opção extra. `fault_accepted` só sai após persistência
@@ -81,26 +85,44 @@ modulares, o abort do ledger e o abort OTA:
   `tests.test_signed_update_parser_c` e os testes do harness/protocolo cobrem os
   adaptadores, validação do envelope, parser serial e correlação host.
 
-Os 232 testes da suíte host passaram (5 ignorados). Também passaram
-`tools/generate_service_modules.py --verify` e
+Nesta revisão, a suíte host executou 237 testes: 5 foram ignorados e 231
+passaram. Um teste falhou somente porque o executável PowerShell (`pwsh`) não
+está disponível no ambiente (`test_powershell_frontend_requires_origin_proof_before_writes`).
+Os sete testes específicos de geração/validação de fixtures passaram após as
+mudanças, incluindo a recusa explícita das portas de campanha `8443`/`8444`
+pelo CLI e a aceitação da porta temporária `18445`. A evidência sanitizada está
+em [`docs/evidence/issue22-fixture-preflight-2026-10-17.json`](evidence/issue22-fixture-preflight-2026-10-17.json)
+e as 18 respostas TLS verificadas individualmente em
+[`docs/evidence/issue22-fixture-tls-smoke-2026-10-17.jsonl`](evidence/issue22-fixture-tls-smoke-2026-10-17.jsonl).
+Também passaram `tools/generate_service_modules.py --verify` e
 `tools/generate_resilience_wasm.py --verify` após gerar os artefatos a partir do
 checkout limpo desta revisão. O manifesto dos módulos registra o commit, a
 árvore e os hashes dos geradores; ambos os manifestos registram hashes dos
 artefatos e toolchains usados.
 
 Os builds locais ESP-IDF 5.2.6 para ESP32-S3 passaram com módulo de serviços,
-atualização assinada e modo de ensaio opt-in. O artefato Wasm e o manifesto de
-serviços registram WAMR port `2.4.5-wasmhome.3`, `wamrc 2.4.5` SHA-256
+atualização assinada e modo de ensaio opt-in. Estes builds usam explicitamente
+o campaign `issues16-18-bench-20261016-observer13`, a chave pública dedicada
+`e2b4d52e6f7f76af469ef90aa9d6f099c92e3da0d3fd46efec083d67d9137afd`, CA
+`757b99b20a567a27041be3f204831b7aa2f6d0192504e7d13fd6261267f1a942` e endpoint
+de fixtures `192.168.0.138:8445`. O perfil nativo foi compilado no commit
+`42f34de`; os perfis modulares foram compilados a partir do checkout
+`c8f1dd07c8bdb88d2b0b4fa919c8b6ced42ce6c6`, exigido pelo manifesto de
+proveniência dos módulos. Os três perfis são opt-in e não foram gravados nem
+executados na placa. Os hashes de firmware desta matriz são:
+
+| Perfil | Tamanho | SHA-256 do firmware |
+|---|---:|---|
+| `native` | 915.808 B | `e36cdfa37a875996db44f45393342d643c1fc55f282b49379e4498365af3747c` |
+| `module-interp` | 1.022.320 B | `a4019449255b4ad228e3aca53e2f4198be8f64f61f68835b6a702d2d3fca5548` |
+| `module-aot` | 1.010.032 B | `18767cf4f045ad24d1a7a3118bb6baf63e406f259dacd26183031f574cb57250` |
+
+O artefato Wasm e o manifesto de serviços registram WAMR port
+`2.4.5-wasmhome.3`, `wamrc 2.4.5` SHA-256
 `98ab5acb7bc451cc5bf9d28940d4e252e8c00c7dbc5b0fe6d097901818fe7824`, e WASI
 SDK 27.0 SHA-256 de pacote
 `b7d4d944c88503e4f21d84af07ac293e3440b1b6210bfd7fe78e0afd92c23bc2`. O fixture
-trap usa WABT `1.0.36 (git~1.0.37)` com o SHA fixado no manifesto. Os hashes dos
-firmwares compilados são:
-
-| Perfil | SHA-256 do firmware |
-|---|---|
-| `module-interp` | `6239f6ff95720af0d6aa3bae9e663f933631981f789101d21d3d3f202d70e0ac` |
-| `module-aot` | `0c90662f6b52aef0225b334428590b428ff37cd5527092c97868191d13f72212` |
+trap usa WABT `1.0.36 (git~1.0.37)` com o SHA fixado no manifesto.
 
 O vínculo entre esse `wamrc` e o runtime WAMR `.3` está registrado em
 [`docs/evidence/issue22-wamrc-build-provenance.json`](evidence/issue22-wamrc-build-provenance.json).
@@ -117,13 +139,69 @@ Os builds foram feitos em diretórios isolados e não foram gravados nem
 executados na placa. Compilação local não valida transporte HTTPS real ou
 comportamento HIL.
 
+## Regenerar a matriz de fixtures isolada
+
+Execute em um checkout confiável, com variáveis apontando para entradas e
+saídas locais privadas. Não coloque valores de caminho, conteúdo de chave ou
+segredos na documentação ou no log compartilhado:
+
+```sh
+python3 tools/generate_resilience_fixtures.py \
+  --package "$ISSUE15_VERIFIED_PACKAGE" \
+  --public-key "$ISSUE15_PACKAGE_PUBLIC_KEY" \
+  --expected-campaign-id issue15-bench-20261015 \
+  --trusted-private-key "$ISSUE22_FIXTURE_PRIVATE_KEY" \
+  --trusted-public-key "$ISSUE22_FIXTURE_PUBLIC_KEY" \
+  --untrusted-private-key "$ISSUE22_UNTRUSTED_PRIVATE_KEY" \
+  --untrusted-public-key "$ISSUE22_UNTRUSTED_PUBLIC_KEY" \
+  --fixture-campaign-id issues16-18-bench-20261016-observer13 \
+  --expected-aot-toolchain-id wamr-2.4.5-wasmhome.3 \
+  --old-sequence 1 --next-sequence 3 --module-next-sequence 3 \
+  --output "$ISSUE22_FIXTURE_OUTPUT"
+```
+
+O índice de saída registra as identidades de campaign fonte e fixture, ambos os
+fingerprints de chave pública e o plano de sequências. ENV-SIG/HASH usam
+sequência 3 e ENV-OLD usa sequência 1. Antes de HIL, leia o ledger NVS real de
+cada cenário: ENV-HASH precisa de piso exatamente 2 para que a sequência 3 seja
+a próxima; ENV-OLD precisa de piso pelo menos 1 para que sequência 1 seja
+antiga. A saída inclui o catálogo fechado e os 18 objetos servidos por HTTPS,
+mais os arquivos públicos de verificação usados pelo preflight do servidor. As
+fixtures não determinam o piso atual do dispositivo.
+
+O servidor fechado está em `tools/resilience_fixture_https_server.py` e valida
+índice, fingerprints, assinatura, hashes, caminhos e sequência antes de abrir
+um socket. O CLI também recusa `8443` e `8444` explicitamente, inclusive com
+`--check`; a regressão cobre ambas as portas e permite o smoke temporário em
+`18445`. A unit não secreta e revisável está versionada em
+[`deploy/wasmhome-issue22-hil-fixtures-campaign16.service`](../deploy/wasmhome-issue22-hil-fixtures-campaign16.service).
+No CT107 `wasmhome-bench`, ela usa somente `192.168.0.138:8445`, o campaign
+acima e a raiz isolada de fixtures. `systemd-analyze verify` passou e o
+preflight `--check`, executado como `wasmhome-http`, validou as nove duplas
+manifesto/payload sem abrir socket. A unit permanece `static`/inativa; não há
+listener em `8445`. As campanhas existentes `8443` e `8444` continuaram ativas
+nos PIDs observados `266369` e `268013`. Um smoke TLS local usando o mesmo
+servidor atualizado, em loopback `127.0.0.1:18445`, verificou 18 GETs, todos
+HTTP 200 com bytes e hashes iguais às fixtures; isso não inicia o endpoint CT
+em `8445` nem substitui a validação HIL na placa.
+
+Depois da liberação da bancada #20 e de confirmar o piso NVS real do cenário,
+controle o endpoint dedicado manualmente com `systemctl start
+wasmhome-issue22-hil-fixtures-campaign16.service` e finalize com `systemctl stop
+wasmhome-issue22-hil-fixtures-campaign16.service`. A URL base fica em
+`https://192.168.0.138:8445/issues16-18-bench-20261016-observer13/resilience/`
+e o nome TLS é `wasmhome-issue22.test`. O CA público tem SHA-256
+`757b99b20a567a27041be3f204831b7aa2f6d0192504e7d13fd6261267f1a942`, a chave
+pública dedicada da fixture `e2b4d52e6f7f76af469ef90aa9d6f099c92e3da0d3fd46efec083d67d9137afd`,
+e o índice publicado `bf36fb7c2a2a65616b0651dbb5cdf69af569d249b46d99a6d840ce372c41ab0f`.
+
 ## Estado por critério de aceitação
 
 | Mecanismo | Código / teste host | Ainda necessário |
 |---|---|---|
-| ENV-SIG | Atualizador nativo e perfis modulares B/C usam validador COSE real; testes de parser/assinatura, suíte host e builds ESP-IDF passaram. | Fixture HTTPS isolada e observação física da rejeição no estágio esperado em A/B/C. |
-| ENV-HASH | A/B/C escrevem somente no slot OTA/modular inativo; abort apaga e lê de volta a partição inteira; invariância do ativo tem testes host; builds passaram. | Comprovar na placa bytes gravados/invalidados e ativo/piso preservados em cada perfil. |
-| ENV-OLD | A/B/C chegam ao ledger NVS real; estágio `envelope_sequence` mapeado; testes host cobrem piso e preservação de ativo/piso; builds passaram. | Semear ledger na bancada e observar rejeição física em A/B/C. |
+| ENV-SIG | Atualizador nativo e perfis modulares B/C usam validador COSE real; testes de parser/assinatura, suíte host, builds ESP-IDF e staging da fixture HTTPS passaram. | Após #20 liberar a bancada, observar rejeição física no estágio esperado em A/B/C. |
+| ENV-HASH | A/B/C escrevem somente no slot OTA/modular inativo; abort apaga e lê de volta a partição inteira; invariância do ativo tem testes host; builds e staging HTTPS passaram. | Comprovar na placa bytes gravados/invalidados e ativo/piso preservados em cada perfil. |
+| ENV-OLD | A/B/C chegam ao ledger NVS real; estágio `envelope_sequence` mapeado; testes host cobrem piso e preservação de ativo/piso; builds e staging HTTPS passaram. | Confirmar piso real maior que zero, depois observar rejeição física em A/B/C após #20 liberar a bancada. |
 | ENV em B/C | Pedido serial fechado e execução ENV-SIG/HASH/OLD estão ligados aos perfis `module-interp` e `module-aot`; builds locais passaram. | Ensaios HIL B/C, incluindo todas as falhas e controles da matriz. |
 | WASM-ZERO/OOB/DIV0 | Fixtures Wasm/AOT fixadas, compiladas no firmware por perfil; dispatcher, persistência antes da chamada, exceção WAMR, aposentadoria do slot e health check do controle estão integrados; builds e cobertura host passaram. | Executar em ESP32-S3 em interp e AOT e observar trap, UDP e continuidade/recovery reais. |
 | NAT-ABORT | Caminho de firmware e correlação após reboot implementados. | Builds e prova física de pânico, novo boot e recuperação recebida por UDP. |
@@ -160,10 +238,12 @@ aceitação de artefato nem recuperação funcional.
 - A geração reproduzível dos fixtures Wasm/AOT e a compilação dos dois perfis
   passaram, mas a execução real do fixture dentro do WAMR na ESP32-S3 ainda
   precisa ser observada. Os testes host não substituem esse trap real.
-- Antes de HIL, preparar um **serviço HTTPS de fixture isolado**, com os nove
-  conjuntos e CA/nome TLS correspondentes. As rotas `8443` e `8444` ativas não
-  contêm essas fixtures e permanecem fora do escopo. Fixar as opções de endpoint
-  no build opt-in; a serial nunca escolhe endereço nem caminho.
+- O serviço HTTPS de fixtures isolado está preparado no CT107 com os nove
+  conjuntos e CA/nome TLS correspondentes, e a unit permanece parada. Só iniciar
+  `wasmhome-issue22-hil-fixtures-campaign16.service` depois que #20 liberar a
+  bancada e os pisos NVS reais forem confirmados. As rotas `8443` e `8444`
+  existentes permanecem fora do escopo; a serial nunca escolhe endereço nem
+  caminho.
 - Fazer o piloto #20 e congelar o timeout antes de atribuir limite funcional;
   `300 ms` não é ainda critério empírico aprovado.
 - Executar primeiro a prova HIL controlada em A/B/C, confirmar ambiente,
