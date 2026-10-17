@@ -90,6 +90,11 @@ este prazo de atualização.
    acionar DTR/RTS e reiniciar a placa; qualquer reinício/conexão necessária
    ocorre antes da janela anterior. Não reabrir a serial durante a captura.
    Confirmar `boot_id`, v1, hashes, DS18B20, GPIO5→GPIO6 e endpoint do servidor.
+   As imagens da plataforma comum emitem `WASMHOME_UART_HEARTBEAT,v1` a cada
+   500 ms (configurável entre 500 e 750 ms). É um registro serial fixo, sem
+   identificadores nem dados de rede; mantém evidência UART atual para o lease
+   remoto sem alterar a cadência ou o protocolo UDP. O desafio continua exigindo
+   idade do byte mais RTT inferior a 2 s.
 5. Observar 60 s em v1 a partir do primeiro `boot_id` recebido e exigir ao
    menos 30 controles corretos e 30 telemetrias válidas nessa janela, todas sob
    um único `boot_id`. Se a qualificação falhar, registrar falha de preparo e
