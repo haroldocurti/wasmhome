@@ -423,3 +423,10 @@ and fixture HTTPS endpoints to be identical on port 18445, with the same IP,
 TLS name and embedded CA. Both endpoints are embedded in the app marker and
 recorded in the manifest, so a stale normal-update port 8445 is rejected even
 when the fixture endpoint is already correct.
+
+The bootstrap gate additionally parses the complete pinned IDF bootloader
+image with bounded standard-library code, checking complete segments, checksum,
+appended SHA-256, exact EOF, IRAM entrypoint and the IDF bootloader descriptor.
+Generated-header parsing ignores block/line comments and rejects conditional
+or ambiguous definitions, so an inactive rollback macro cannot pass the gate.
+These checks require no serial API, privileged operation or CT service.

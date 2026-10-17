@@ -30,7 +30,11 @@ inputs validate:
    in the image. Both config artifacts must declare the same app rollback mode;
    native requires it enabled, while module profiles may retain it disabled.
    All configs must target ESP32-S3, 16 MiB flash and table offset 0x8000. Bootloader images
-   must be valid S3 images smaller than 0x8000. Editing only the JSON cannot
+   must be complete S3 images smaller than 0x8000. The offline validator checks
+   every segment, checksum, appended SHA-256, exact EOF, executable entrypoint
+   and the pinned IDF v5.2.6 bootloader description. A header-only file, unknown
+   trailer, corrupted image or application masquerading as a bootloader is
+   rejected. Editing only the JSON cannot
    make a stale app pass. Schema v1 manifests and V1 BIN markers are rejected.
 4. Both firmware endpoints (normal signed sequence-2 provisioning and
    resilience fixtures) must match the orchestrator's CT IPv4 address, HTTPS
@@ -213,6 +217,33 @@ python3 tools/issue22_profile_manifest.py \
   --tls-ca /private/pki/ca.pem \
   --output /private/campaign/issue22-profiles-v2.json
 ```
+
+Segment loads must also fit wholly inside one pinned IDF v5.2.6 bootloader
+linker RAM area: DRAM `[0x3fce3700,0x3fce7700)` or contiguous IRAM
+`[0x403c9700,0x403d3700)`. The logical IRAM/loader split at `0x403cc700`
+is allowed inside a segment because `elf2image` can merge adjacent IRAM loads.
+Zero/unaligned addresses, 32-bit address overflow, crossing a linker window,
+peripheral/flash/other RAM destinations and overlapping loads fail closed.
+Overlap checks normalize the SRAM instruction/data bus alias offset before
+comparing ranges; adjacent non-overlapping segments remain valid. These bounds
+come from the pinned `bootloader/subproject/main/ld/esp32s3/bootloader.ld`, so
+changing IDF or its linker layout requires reviewing the validator as well.
+
+The generated bootloader header is parsed as the flat IDF output format:
+comments are removed while preserving quoted strings; duplicate macros,
+conditionals, includes, undef directives, line continuations and malformed
+input fail closed. A rollback define inside a block comment is ignored, and a
+conditional inactive define cannot establish rollback support. Image integrity
+checks do not themselves prove rollback semantics: the app/config/bootloader
+hashes must still come from the same trusted build, followed by physical
+native activation through `PENDING_VERIFY`/`VALID`.
+
+`tools/hil_bootstrap_validation.py` performs these bounded checks with the
+Python standard library, without importing a serial API, opening a port or
+contacting CT. An offline esptool `image_info` inspection is also read-only,
+but its success exit code alone is insufficient: the pinned esptool prints
+invalid checksum/digest findings without necessarily failing the command.
+The campaign validator explicitly compares both values and exact image size.
 
 The generator hashes the four artifacts per bootstrap build, checks the app
 marker against the sdkconfig and the two endpoints, and validates both rollback

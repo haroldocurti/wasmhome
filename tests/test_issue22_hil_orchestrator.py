@@ -21,6 +21,26 @@ class Issue22OrchestratorTests(unittest.TestCase):
         self.temporary.cleanup()
 
     @staticmethod
+    def valid_bootloader_bytes(*, description_magic=0x50, extra_segments=()):
+        header = bytearray(24)
+        header[:4] = bytes((0xE9, 2 + len(extra_segments), 2, 0x4F))
+        header[4:8] = (0x403C9700).to_bytes(4, "little")
+        header[12:14] = (9).to_bytes(2, "little")
+        header[23] = 1
+        description = struct.pack("<B3sI32s24s16s", description_magic, b"\0" * 3, 1,
+            b"v5.2.6".ljust(32, b"\0"), b"\0" * 24, b"\0" * 16)
+        body = bytes(header)
+        checksum = 0xEF
+        for address, payload in ((0x3FCE3700, description), (0x403C9700, b"\0" * 16),
+                                 *extra_segments):
+            body += struct.pack("<II", address, len(payload)) + payload
+            for value in payload:
+                checksum ^= value
+        checksum_offset = len(body) | 15
+        body += b"\0" * (checksum_offset - len(body)) + bytes((checksum,))
+        return body + hashlib.sha256(body).digest()
+
+    @staticmethod
     def valid_partition_table():
         import csv
 
@@ -92,7 +112,7 @@ class Issue22OrchestratorTests(unittest.TestCase):
                 app_bytes = bytes(header) + marker.encode() + ca_bytes
                 app.write_bytes(app_bytes)
                 bootloader = self.root / f"{name}-bootloader.bin"
-                bootloader.write_bytes(bytes(header) + b"synthetic bootloader")
+                bootloader.write_bytes(self.valid_bootloader_bytes())
                 boot_config = self.root / f"{name}-bootloader-sdkconfig.h"
                 boot_config.write_text(("#define CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE 1\n" if rollback else "") +
                     "#define CONFIG_IDF_TARGET_ESP32S3 1\n"
@@ -174,7 +194,7 @@ class Issue22OrchestratorTests(unittest.TestCase):
         app = self.root / "app.bin"
         bootloader = self.root / "bootloader.bin"
         app.write_bytes(b"A" * 24)
-        bootloader.write_bytes(b"B" * 24)
+        bootloader.write_bytes(self.valid_bootloader_bytes())
         board = orchestrator.Board(object(), self.root)
 
         def readback(_offset, _size, path, **_kwargs):
@@ -185,7 +205,7 @@ class Issue22OrchestratorTests(unittest.TestCase):
             board.overlay_profile(app, bootloader)
         self.assertEqual(command.call_args.args, ("write_flash", "0x0", str(bootloader),
             hex(orchestrator.OTA_OFFSETS[0]), str(app), hex(orchestrator.OTA_OFFSETS[1]), str(app)))
-        self.assertEqual(read.call_args.args[:2], (0, 24))
+        self.assertEqual(read.call_args.args[:2], (0, len(self.valid_bootloader_bytes())))
 
         def wrong_readback(_offset, _size, path, **_kwargs):
             path.write_bytes(b"C" * 24)
@@ -195,6 +215,67 @@ class Issue22OrchestratorTests(unittest.TestCase):
             with self.assertRaisesRegex(orchestrator.OrchestratorError, "refusing reset"):
                 board.overlay_profile(app, bootloader)
         self.assertEqual(command.call_count, 1)
+
+    def test_bootloader_requires_complete_segments_checksum_digest_and_no_tail(self):
+        data = self.valid_bootloader_bytes()
+        validation = orchestrator._validate_bootloader_bytes(data, "native")
+        self.assertEqual(validation["segments"], 2)
+        self.assertEqual(validation["bytes"], len(data))
+        corrupt_checksum = bytearray(data)
+        corrupt_checksum[-33] ^= 1
+        corrupt_digest = bytearray(data)
+        corrupt_digest[-1] ^= 1
+        corrupt_segment = bytearray(data)
+        corrupt_segment[28:32] = (0xFFFFFFFF).to_bytes(4, "little")
+        for invalid in (data[:24], data[:-1], data + b"tail", bytes(corrupt_checksum),
+                        bytes(corrupt_digest), bytes(corrupt_segment),
+                        self.valid_bootloader_bytes(description_magic=0x51)):
+            with self.subTest(bytes=len(invalid)):
+                with self.assertRaises(orchestrator.OrchestratorError):
+                    orchestrator._validate_bootloader_bytes(invalid, "native")
+
+    def test_bootloader_rejects_invalid_or_overlapping_segment_load_ranges(self):
+        # These retain complete segments, valid checksum and valid SHA-256 so
+        # address validation, rather than incidental corruption, rejects them.
+        cases = (
+            (0, b"\0" * 4, "zero, unaligned or overflowing"),
+            (0xFFFFFFFC, b"\0" * 8, "zero, unaligned or overflowing"),
+            (0x403C9711, b"\0" * 4, "zero, unaligned or overflowing"),
+            (0x42000000, b"\0" * 4, "outside the pinned linker windows"),
+            (0x60000000, b"\0" * 4, "outside the pinned linker windows"),
+            (0x3FC88000, b"\0" * 4, "outside the pinned linker windows"),
+            (0x3FCE76FC, b"\0" * 8, "outside the pinned linker windows"),
+            (0x403D36FC, b"\0" * 8, "outside the pinned linker windows"),
+            (0x403C9708, b"\0" * 8, "address ranges overlap"),
+            (0x3FCE3700, b"\0" * 4, "address ranges overlap"),
+            # The alias of an IRAM allocation is outside the DRAM linker window.
+            (0x3FCD9700, b"\0" * 4, "outside the pinned linker windows"),
+            (0x403C9710, b"", "truncated or malformed segment"),
+        )
+        for address, payload, reason in cases:
+            with self.subTest(address=hex(address), length=len(payload)):
+                image = self.valid_bootloader_bytes(extra_segments=((address, payload),))
+                with self.assertRaisesRegex(orchestrator.OrchestratorError, reason):
+                    orchestrator._validate_bootloader_bytes(image, "native")
+        adjacent = self.valid_bootloader_bytes(extra_segments=((0x403C9710, b"\0" * 4),))
+        self.assertEqual(orchestrator._validate_bootloader_bytes(adjacent, "native")["segments"], 3)
+        # elf2image may merge across the contiguous IRAM/loader logical split.
+        merged_iram = self.valid_bootloader_bytes(extra_segments=((0x403CC6FC, b"\0" * 8),))
+        self.assertEqual(orchestrator._validate_bootloader_bytes(merged_iram, "native")["segments"], 3)
+
+    def test_generated_config_does_not_accept_comment_or_inactive_rollback(self):
+        parser = orchestrator.bootstrap_validation.generated_config_defines
+        self.assertEqual(parser("/*\n#define CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE 1\n*/\n"), {})
+        self.assertEqual(parser('#pragma once\n#define CONFIG_LABEL "//literal/*text*/"\n'),
+                         {"CONFIG_LABEL": '"//literal/*text*/"'})
+        for invalid in ("#if 0\n#define CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE 1\n#endif\n",
+                        "#undef CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE\n",
+                        '#include "other.h"\n',
+                        "#define CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE 1\n" * 2,
+                        "/* unterminated\n#define CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE 1\n"):
+            with self.subTest(config=invalid):
+                with self.assertRaises(orchestrator.bootstrap_validation.BootstrapFormatError):
+                    parser(invalid)
 
     def test_scp_translates_ssh_port_to_uppercase_p(self):
         identity = self.root / "identity"

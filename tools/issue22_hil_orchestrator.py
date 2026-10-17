@@ -49,6 +49,7 @@ if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
 import external_observer
+import hil_bootstrap_validation as bootstrap_validation
 import resilience_fixture_https_server as fixture_server
 import resilience_harness
 import resilience_hil_runner as hil_runner
@@ -292,6 +293,13 @@ def _embedded_issue22_build_marker(data: bytes) -> dict:
     return marker
 
 
+def _validate_bootloader_bytes(data: bytes, profile: str) -> dict:
+    try:
+        return bootstrap_validation.validate_bootloader_image(data)
+    except bootstrap_validation.BootstrapFormatError as error:
+        raise OrchestratorError(f"{profile} bootstrap bootloader is invalid: {error}") from error
+
+
 def validate_profile_manifest(path: Path, timeout_ms: int, server_ip: str,
                               server_port: int, server_name: str, ca_path: Path) -> dict:
     value = load_json(path, "issue #22 profile build manifest", max_bytes=128 * 1024)
@@ -334,24 +342,22 @@ def validate_profile_manifest(path: Path, timeout_ms: int, server_ip: str,
                     f"{name} sdkconfig must use the registered S3 layout")
         boot_config, boot_config_digest = _artifact_row(profile["bootloader_config"],
             f"{name} bootloader generated config", max_bytes=1024 * 1024)
-        boot_config_lines = boot_config.read_text(encoding="utf-8").splitlines()
-        boot_rollback_lines = [line for line in boot_config_lines
-                               if line.startswith(f"#define {rollback_key} ")]
-        require(boot_rollback_lines == ([f"#define {rollback_key} 1"] if rollback_enabled else []),
+        try:
+            boot_defines = bootstrap_validation.generated_config_defines(
+                boot_config.read_text(encoding="utf-8"))
+        except bootstrap_validation.BootstrapFormatError as error:
+            raise OrchestratorError(f"{name} bootloader generated config is invalid: {error}") from error
+        require(boot_defines.get(rollback_key, "0") == ("1" if rollback_enabled else "0"),
                 f"{name} bootloader config rollback mode differs from the app sdkconfig")
-        for setting in ("#define CONFIG_IDF_TARGET_ESP32S3 1",
-                        "#define CONFIG_ESPTOOLPY_FLASHSIZE_16MB 1",
-                        "#define CONFIG_PARTITION_TABLE_OFFSET 0x8000"):
-            key = setting.split()[1]
-            require([line for line in boot_config_lines if line.startswith(f"#define {key} ")]
-                    == [setting], f"{name} bootloader config must use the registered S3 layout")
+        for key, expected in (("CONFIG_IDF_TARGET_ESP32S3", "1"),
+                              ("CONFIG_ESPTOOLPY_FLASHSIZE_16MB", "1"),
+                              ("CONFIG_PARTITION_TABLE_OFFSET", "0x8000")):
+            require(boot_defines.get(key) == expected,
+                    f"{name} bootloader config must use the registered S3 layout")
         bootloader, bootloader_digest = _artifact_row(profile["bootloader"],
             f"{name} matching bootloader", max_bytes=BOOTLOADER_BYTES - 1)
         bootloader_data = bootloader.read_bytes()
-        require(len(bootloader_data) >= 24 and bootloader_data[0] == 0xE9
-                and 1 <= bootloader_data[1] <= 16
-                and int.from_bytes(bootloader_data[12:14], "little") == 9,
-                f"{name} bootstrap bootloader is not an ESP32-S3 image")
+        _validate_bootloader_bytes(bootloader_data, name)
         app, digest = _artifact_row(profile["v1_app"], f"{name} v1 bootstrap app",
                                     max_bytes=OTA_SLOT_BYTES)
         app_bytes = app.read_bytes()
@@ -819,6 +825,7 @@ class Board:
         require(bootloader.is_file() and not bootloader.is_symlink()
                 and 24 <= bootloader.stat().st_size < BOOTLOADER_BYTES,
                 "profile bootloader is invalid")
+        _validate_bootloader_bytes(bootloader.read_bytes(), "selected")
         bootloader_hash = sha256_file(bootloader)
         # The accepted baseline's bootloader has rollback disabled. Use the
         # matching bootloader from this profile build until full restoration.
