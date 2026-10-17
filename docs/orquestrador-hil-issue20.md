@@ -107,7 +107,8 @@ a execução sem preparar o perfil. Em cada slot:
 4. Chamar `run_slot` uma única vez, com sequência alvo 2 e limites congelados
    de 150/60 s e 100/300/1000 ms. O runner exige UART e lease remotos frescos.
 5. No `finally`, restaurar a baseline integral e conferir o hash de outra
-   leitura completa antes de reiniciar. Falha na gravação do journal também
+   leitura completa, mantendo a placa no carregador ROM entre slots. A placa só
+   reinicia ao gravar o overlay do slot seguinte. Falha na gravação do journal também
    tenta essa restauração. Falha de restauração bloqueia o lote.
 
 A restauração integral reproduz os bytes aprovados, incluindo NVS e otadata.

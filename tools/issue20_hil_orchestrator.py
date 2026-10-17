@@ -351,7 +351,13 @@ def execute(options, *, board_factory=Board, invoke_slot=_invoke_slot):
                 except OSError as exc:
                     failure = failure or exc
                 try:
-                    board.restore(Path(journal["baseline"]), receipt / f"{slot['slot_id']}-after.bin")
+                    # Keep the ESP32-S3 in the ROM loader between slots. Booting
+                    # the baseline firmware here lets runtime NVS writes change
+                    # the approved flash image before the next slot's full-image
+                    # gate. The next iteration can safely identify/read flash
+                    # while it remains unbooted; the overlay performs the reset.
+                    board.restore(Path(journal["baseline"]), receipt / f"{slot['slot_id']}-after.bin",
+                                  boot=False)
                 except BaseException as exc:
                     journal.update(state="restore_failed", error=type(exc).__name__)
                     write_private(journal_path, journal)

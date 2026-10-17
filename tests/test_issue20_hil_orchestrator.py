@@ -152,6 +152,8 @@ class HilOrchestrationTests(unittest.TestCase):
                          [row["slot_id"] for row in self.slots])
         self.assertEqual([row.args[0]["selected"] for row in self.board.overlay.call_args_list], ["interp", "native"])
         self.assertEqual(self.board.restore.call_count, 4)
+        self.assertEqual([row.kwargs.get("boot", True) for row in self.board.restore.call_args_list],
+                         [False, False, False, False])
         self.assertEqual(result["completed_slots"], 2)
         self.assertFalse(self.stored()["restore_required"])
         # A repeated invocation cannot dispatch the same slots.
