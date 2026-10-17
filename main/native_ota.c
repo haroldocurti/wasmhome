@@ -390,10 +390,17 @@ static void perform_resilience_fixture(const char *case_id,
 
     const bool is_sig = strcmp(case_id, "ENV-SIG") == 0;
     const bool is_hash = strcmp(case_id, "ENV-HASH") == 0;
+    const bool is_old = strcmp(case_id, "ENV-OLD") == 0;
     const char *expected_reason = is_sig ? "SIGNATURE_INVALID" :
-                                  is_hash ? "HASH_MISMATCH" : "SEQUENCE_NOT_NEWER";
+                                  is_hash ? "HASH_MISMATCH" :
+                                  is_old ? "SEQUENCE_NOT_NEWER" : "UNSUPPORTED_CASE";
     const char *expected_stage = is_sig ? "envelope_signature" :
-                                 is_hash ? "payload_hash" : "envelope_sequence";
+                                 is_hash ? "payload_hash" :
+                                 is_old ? "envelope_sequence" : "fixture_setup";
+    const bool nvs_floor_checked = is_old && before_err == ESP_OK &&
+        before.accepted_floor >= 1 && manifest.sequence != 0 &&
+        manifest.sequence <= before.accepted_floor &&
+        err == ESP_ERR_INVALID_VERSION;
     const bool expected_failure = is_sig
         ? (err != ESP_OK && failure == WH_SIGNED_UPDATE_FAILURE_SIGNATURE &&
            strcmp(stage, expected_stage) == 0)
@@ -402,9 +409,11 @@ static void perform_resilience_fixture(const char *case_id,
                failure == WH_SIGNED_UPDATE_FAILURE_PAYLOAD_HASH &&
                strcmp(stage, expected_stage) == 0 && sink_context.written > 0 &&
                sink_context.invalidated)
-            : (err == ESP_ERR_INVALID_VERSION &&
-               failure == WH_SIGNED_UPDATE_FAILURE_POLICY &&
-               strcmp(stage, expected_stage) == 0);
+            : is_old
+                ? (err == ESP_ERR_INVALID_VERSION &&
+                   failure == WH_SIGNED_UPDATE_FAILURE_POLICY &&
+                   strcmp(stage, expected_stage) == 0 && nvs_floor_checked)
+                : false;
 
     /* A mistakenly accepted fixture is never activated by this path. */
     if (err == ESP_OK) {
@@ -424,7 +433,7 @@ static void perform_resilience_fixture(const char *case_id,
         &after);
     const bool state_preserved = before_err == ESP_OK && after_err == ESP_OK &&
         active_state_unchanged(&before, &after);
-    const bool no_payload_for_reject = (is_sig || !is_hash) && sink_context.written == 0;
+    const bool no_payload_for_reject = (is_sig || is_old) && sink_context.written == 0;
     const bool inactive_slot_only = is_hash && sink_context.partition &&
         sink_context.partition != esp_ota_get_running_partition();
     const bool payload_verified = is_hash
@@ -432,10 +441,6 @@ static void perform_resilience_fixture(const char *case_id,
         : no_payload_for_reject;
     const bool approved = resilience_fixture_approved(expected_failure,
         state_preserved, payload_verified, cleanup_status);
-    const bool nvs_floor_checked = is_old && before_err == ESP_OK &&
-        before.accepted_floor >= 1 && manifest.sequence != 0 &&
-        manifest.sequence <= before.accepted_floor &&
-        err == ESP_ERR_INVALID_VERSION;
 
     char attempt[37];
     format_resilience_uuid(attempt_id, attempt);
