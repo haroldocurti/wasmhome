@@ -26,6 +26,8 @@ SCHEMA = "wasmhome-remote-observer-v1"
 SOURCES = ("remote_observer.py", "external_observer.py",
            "observation_protocol_v1.py", "update_campaign.py")
 LEASE_NS = 3_000_000_000
+SERIAL_MAX_SILENCE_NS = 2_000_000_000
+SERIAL_SAMPLE_MARGIN_NS = 500_000_000
 CHUNK_BYTES = 256 * 1024
 TERMINAL = {"complete", "aborted", "failed"}
 BOOTSTRAP = """import base64,hashlib,json,sys
@@ -237,10 +239,18 @@ def _process_identity(pid):
         return None
 
 
-def _lease(directory, reason=None):
-    _write(directory / "lease.json", {"expires_ns": time.monotonic_ns() + LEASE_NS,
-                                     "cancel_reason": reason,
-                                     "host_boot_id": clock_domain("observer_ct107")["host_boot_id"]})
+def _lease(directory, reason=None, serial_age_ns=None):
+    now_ns = time.monotonic_ns()
+    lease = {"expires_ns": now_ns + LEASE_NS, "cancel_reason": reason,
+             "host_boot_id": clock_domain("observer_ct107")["host_boot_id"]}
+    if reason is None:
+        _require(type(serial_age_ns) is int and 0 <= serial_age_ns < SERIAL_MAX_SILENCE_NS,
+                 "a fresh UART byte timestamp is required to renew the observer lease")
+        remaining_ns = SERIAL_MAX_SILENCE_NS - serial_age_ns - SERIAL_SAMPLE_MARGIN_NS
+        _require(remaining_ns > 0, "UART evidence is too old to renew the observer lease")
+        lease["serial_fresh_until_ns"] = now_ns + remaining_ns
+        lease["expires_ns"] = min(lease["expires_ns"], lease["serial_fresh_until_ns"])
+    _write(directory / "lease.json", lease)
 
 
 def _guard(directory):
@@ -250,7 +260,12 @@ def _guard(directory):
             return lease["cancel_reason"]
         if lease.get("host_boot_id") != clock_domain("observer_ct107")["host_boot_id"]:
             return "remote_host_rebooted"
-        if time.monotonic_ns() >= lease["expires_ns"]:
+        now_ns = time.monotonic_ns()
+        if lease.get("serial_fresh_until_ns") is None:
+            return "laptop_uart_freshness_lease_missing"
+        if now_ns >= lease["serial_fresh_until_ns"]:
+            return "laptop_uart_freshness_lease_expired"
+        if now_ns >= lease["expires_ns"]:
             return "laptop_health_lease_expired"
     except (OSError, ValueError, KeyError, TypeError):
         return "laptop_health_lease_missing_or_invalid"
@@ -308,10 +323,13 @@ def _remote_rpc(request):
         if action == "start":
             if not (directory / "start.claim").exists():
                 _require(status["state"] == "prepared", "session is not prepared")
+                age = request.get("serial_age_ns")
+                _require(type(age) is int and 0 <= age < SERIAL_MAX_SILENCE_NS - SERIAL_SAMPLE_MARGIN_NS,
+                         "start requires a recent UART byte from the laptop")
                 _write(directory / "start.claim", {"claimed_ns": time.monotonic_ns()}, exclusive=True)
                 status.update(state="launching")
                 _write(directory / "status.json", status)
-                _lease(directory)
+                _lease(directory, serial_age_ns=age)
                 with (directory / "worker.log").open("xb") as log:
                     process = subprocess.Popen([sys.executable, str(directory / "remote_observer.py"),
                                                 "worker", str(directory)], cwd=directory,
@@ -327,7 +345,7 @@ def _remote_rpc(request):
                     _write(directory / "cancel.claim", {"reason": reason}, exclusive=True)
                     _lease(directory, reason)
                 else:
-                    _lease(directory)
+                    _lease(directory, serial_age_ns=request.get("serial_age_ns"))
         elif action == "cancel":
             if not (directory / "cancel.claim").exists():
                 _write(directory / "cancel.claim", {"reason": request.get("reason", "laptop_cancelled")}, exclusive=True)
@@ -461,11 +479,19 @@ def _archive(options, session_id, response, output):
     return _read(output / "remote-result.json")
 
 
-def run_remote_observer(output, observer, options, *, context, health_check, server_log=None):
+def run_remote_observer(output, observer, options, *, context, health_check,
+                        serial_age_check, server_log=None):
     """Start at most once; cease lease renewal permanently after any SSH loss."""
     output = Path(output)
     options = validate_options(dict(options))
     _validate_observer(observer)
+
+    def current_serial_age_ns():
+        age_ns = serial_age_check()
+        _require(type(age_ns) is int and 0 <= age_ns < SERIAL_MAX_SILENCE_NS - SERIAL_SAMPLE_MARGIN_NS,
+                 "UART byte evidence is too old to safely start or renew the remote observer")
+        return age_ns
+
     if server_log is not None:
         _require(Path(server_log).is_absolute(), "--remote-server-log requires an absolute CT107 path")
     session_id = options.get("session_id") or str(uuid.uuid4())
@@ -493,30 +519,39 @@ def run_remote_observer(output, observer, options, *, context, health_check, ser
     _write(output / "remote-session.json", record, exclusive=True)
     failure = health_check()
     _require(not failure, str(failure))
+    current_serial_age_ns()
     response = _rpc(options, session_id, "prepare", config=config,
                     sources={name: base64.b64encode(raw).decode() for name, raw in sources.items()})
     _write(output / "remote-status.json", response["status"])
     failure = health_check()
     _require(not failure, str(failure))
+    serial_age_ns = current_serial_age_ns()
     # Persist the claim locally BEFORE the single start RPC. Loss of its reply
     # leaves the execution uncertain, and recovery never sends start.
     _write(output / "remote-start-claim.json", {"session_id": session_id,
                                                "laptop_monotonic_ns": time.monotonic_ns()}, exclusive=True)
     transport_failure = None
     try:
-        response = _rpc(options, session_id, "start")
+        response = _rpc(options, session_id, "start", serial_age_ns=serial_age_ns)
     except RemoteObserverError as exc:
         transport_failure = str(exc)
     deadline = time.monotonic() + 330
     last_success = time.monotonic()
     while time.monotonic() < deadline:
         failure = health_check()
+        serial_age_ns = None
+        if not failure and transport_failure is None:
+            try:
+                serial_age_ns = current_serial_age_ns()
+            except RemoteObserverError as exc:
+                failure = str(exc)
         if failure and transport_failure is None:
             transport_failure = str(failure)
+        action = "cancel" if failure else "status" if transport_failure else "heartbeat"
+        values = ({"reason": str(failure)} if failure else
+                  {"serial_age_ns": serial_age_ns} if action == "heartbeat" else {})
         try:
-            response = _rpc(options, session_id,
-                            "cancel" if failure else "status" if transport_failure else "heartbeat",
-                            **({"reason": str(failure)} if failure else {}))
+            response = _rpc(options, session_id, action, **values)
             last_success = time.monotonic()
             _write(output / "remote-status.json", response["status"])
             if response["status"]["state"] in TERMINAL:

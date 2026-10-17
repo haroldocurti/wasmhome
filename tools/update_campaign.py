@@ -42,6 +42,11 @@ ISSUE20_POST_WINDOW_MS = 30_000
 ISSUE20_TRIGGER_AFTER_SECONDS = 60
 ISSUE20_CAPTURE_SECONDS = 150
 DEFAULT_SERVER_LOG = Path("server/http-events.jsonl")
+# Prior native/interpreter captures had a maximum inter-block UART gap of
+# 407.149 ms. A 2 s freshness window allows nearly 5x that observed gap while
+# rejecting a stalled capture before it can qualify an update trigger.
+SERIAL_MAX_SILENCE_NS = 2_000_000_000
+SERIAL_FIRST_DATA_TIMEOUT_NS = 5_000_000_000
 MAX_SERVER_LOG_ROTATION_PASSES = 4
 SCENARIOS = ("native", "interp", "aot")
 SCENARIO_CODES = {"native": 1, "interp": 2, "aot": 3}
@@ -474,18 +479,25 @@ def _start_serial_capture(port: str, baud: int, output: Path):
             serial_device.port = port
             serial_device.open()
             with output.open("xb") as stream:
-                stream.write(_json_bytes({"kind": "serial_open", "host_monotonic_ns": time.monotonic_ns(),
+                opened_ns = time.monotonic_ns()
+                stream.write(_json_bytes({"kind": "serial_open", "host_monotonic_ns": opened_ns,
                                           "clock_domain": _host_clock_domain("serial_laptop"),
                                           "port_alias": Path(port).name, "baud": baud}))
                 stream.flush()
+                state["opened_ns"] = opened_ns
+                state["serial_bytes"] = 0
+                state["last_data_ns"] = None
                 ready.set()
                 while not stop.is_set():
                     data = serial_device.read(max(1, min(getattr(serial_device, "in_waiting", 0), 4096)))
                     if data:
-                        row = {"kind": "serial_bytes", "host_monotonic_ns": time.monotonic_ns(),
+                        data_ns = time.monotonic_ns()
+                        row = {"kind": "serial_bytes", "host_monotonic_ns": data_ns,
                                "byte_count": len(data), "raw_base64": base64.b64encode(data).decode("ascii")}
                         stream.write(_json_bytes(row))
                         stream.flush()
+                        state["serial_bytes"] += len(data)
+                        state["last_data_ns"] = data_ns
                 stream.write(_json_bytes({"kind": "serial_closed", "host_monotonic_ns": time.monotonic_ns()}))
                 stream.flush()
         except Exception as exc:  # propagate background failures before dispatch
@@ -521,14 +533,55 @@ def _host_clock_domain(name: str) -> dict:
             "host_boot_id": host_boot_id, "clock": "monotonic_ns"}
 
 
-def _serial_capture_failure(worker) -> str | None:
+def _serial_capture_failure(worker, *, now_ns: int | None = None,
+                           require_fresh_data: bool = True) -> str | None:
     state = getattr(worker, "capture_state", None)
     if isinstance(state, dict):
         if state.get("error") is not None:
             return f"serial_capture_failed: {state['error']}"
         if not worker.is_alive():
             return "serial_capture_stopped_before_observer_finished"
+        if not require_fresh_data:
+            return None
+        now_ns = time.monotonic_ns() if now_ns is None else now_ns
+        opened_ns = state.get("opened_ns")
+        if not isinstance(opened_ns, int):
+            return "serial_capture_not_open"
+        last_data_ns = state.get("last_data_ns")
+        if not state.get("serial_bytes") or not isinstance(last_data_ns, int):
+            if now_ns - opened_ns >= SERIAL_FIRST_DATA_TIMEOUT_NS:
+                return "serial_capture_received_no_bytes_within_startup_window"
+            return None
+        if now_ns - last_data_ns >= SERIAL_MAX_SILENCE_NS:
+            return "serial_capture_data_stale_before_observer_finished"
     return None
+
+
+def _serial_capture_age_ns(worker, *, now_ns: int | None = None) -> int | None:
+    state = getattr(worker, "capture_state", None)
+    if not isinstance(state, dict) or state.get("error") is not None or not worker.is_alive():
+        return None
+    last_data_ns = state.get("last_data_ns")
+    if not state.get("serial_bytes") or not isinstance(last_data_ns, int):
+        return None
+    now_ns = time.monotonic_ns() if now_ns is None else now_ns
+    return max(0, now_ns - last_data_ns)
+
+
+def _wait_for_serial_data(worker) -> None:
+    """Do not start a measurement until the open UART has yielded real bytes."""
+    state = getattr(worker, "capture_state", None)
+    _require(isinstance(state, dict) and isinstance(state.get("opened_ns"), int),
+             "serial capture did not expose a verified open state")
+    deadline_ns = state["opened_ns"] + SERIAL_FIRST_DATA_TIMEOUT_NS
+    while True:
+        failure = _serial_capture_failure(worker)
+        _require(not failure, str(failure))
+        if _serial_capture_age_ns(worker) is not None:
+            return
+        _require(time.monotonic_ns() < deadline_ns,
+                 "serial capture received no bytes within the 5 s startup window")
+        time.sleep(0.05)
 
 
 def _observer_attempt_id(observations: Path, summary: dict) -> str | None:
@@ -981,13 +1034,16 @@ def run_slot(campaign_root: Path, slot_id: str, *, device_ip: str, serial_port: 
     try:
         stop, worker = _start_serial_capture(serial_port, serial_baud, output / "device.jsonl")
         try:
+            if issue20:
+                _wait_for_serial_data(worker)
             # Import lazily so plan/preflight/analyze never import serial, bind UDP, or resolve a device.
             sys.path.insert(0, str(Path(__file__).resolve().parent))
             from external_observer import run as observer_run
             if remote_options is None:
                 observer_summary = observer_run(
                     output=output, **observer_options,
-                    health_check=lambda: _serial_capture_failure(worker),
+                    health_check=lambda: _serial_capture_failure(
+                        worker, require_fresh_data=issue20),
                     clock_domain=_host_clock_domain("observer_local"))
             else:
                 from remote_observer import run_remote_observer
@@ -997,7 +1053,10 @@ def run_slot(campaign_root: Path, slot_id: str, *, device_ip: str, serial_port: 
                              "session_id": campaign.get("metadata", {}).get("session_id"),
                              "git_commit": campaign["git_commit"],
                              "runner_sha256": campaign["script_sha256"]},
-                    health_check=lambda: _serial_capture_failure(worker), server_log=remote_server_log)
+                    health_check=lambda: _serial_capture_failure(
+                        worker, require_fresh_data=issue20),
+                    serial_age_check=lambda: _serial_capture_age_ns(worker),
+                    server_log=remote_server_log)
                 observer_summary = remote_result.get("observer_summary")
                 _require(isinstance(observer_summary, dict),
                          "remote observer failed before producing a summary; preserve the sealed evidence and review")

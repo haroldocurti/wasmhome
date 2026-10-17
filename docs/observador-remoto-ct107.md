@@ -1,17 +1,21 @@
 # Observador da #20 no CT107, sem privilégios administrativos
 
 O laptop conserva flash, restauração da baseline e captura UART. O CT107 executa
-o observador UDP como `wasmhome`, com Python padrão, e pode hospedar o servidor
-HTTPS existente. O laptop inicia conexões SSH de saída; a telemetria da placa
-passa diretamente ao CT107. Não é necessário abrir UDP/3333 no firewall do
-laptop. Este backend não instala pacotes, muda firewall, inicia containers ou
-altera firmware, baseline e chaves autorizadas.
+o observador UDP como `wasmhome`, com Python padrão, e pode hospedar uma cópia
+do servidor HTTPS como processo desse usuário. Os listeners atuais em 8443 e
+8444 pertencem a serviços do sistema (UID 999) e devem permanecer intactos; o
+preparo observado encontrou 8446 livre para o novo processo. Estagiar pacote,
+certificado e chave TLS sob o home de `wasmhome`. O laptop inicia conexões SSH
+de saída; a telemetria da placa passa diretamente ao CT107. Não é necessário
+abrir UDP/3333 no firewall do laptop. Este backend não instala pacotes, muda
+firewall, inicia containers ou altera firmware, baseline e chaves autorizadas.
 
-Esta implementação foi preparada sem executar testes, SSH, serviços ou acesso
-à placa. A integração física e a recuperação após falhas ainda precisam de
-validação autorizada antes de uma campanha válida.
+O acesso SSH estrito já foi conferido no CT como `wasmhome` (UID 1000), sem
+`sudo`. Os testes locais do runner não acessam serviços nem hardware. A
+integração física e a recuperação após falhas ainda precisam de validação
+antes de uma campanha válida.
 
-## Identidades e preparação única
+## Identidade provisionada e preflight
 
 O endpoint LAN confirmado nesta sessão é `192.168.0.138/24`, hostname
 `wasmhome-bench`, usuário `wasmhome`, UID 1000, Python 3.13.5 e SSH/22.
@@ -22,33 +26,25 @@ explicitamente com o IPv4 LAN do CT107; o worker rejeita endereço indefinido,
 loopback, multicast e a faixa de overlay `100.64.0.0/10`. O IP do ESP é outro
 valor, obtido do inventário/captura já existente ou da concessão DHCP.
 
-O runtime usa somente `wasmhome`. Essa conta ainda precisa receber **uma chave
-SSH dedicada uma única vez**: a chave local disponível na investigação não
-correspondia ao `authorized_keys` do usuário e o acesso direto foi recusado.
-O backend não consegue provisionar sua própria primeira credencial. O operador
-deve instalar a chave pública por um canal já autenticado da própria conta ou
-pela console apropriada, sem trocar permissões do sistema. Nenhuma alteração
-de `authorized_keys` foi feita por esta implementação.
+O acesso unattended usa uma chave SSH dedicada **já provisionada**. A identidade
+privada local é `/home/haroldocurti/.ssh/wasmhome-ct107-hil` (modo 0600); sua
+chave pública está instalada na conta `wasmhome` do CT, UID 1000, com a opção
+`restrict`. A chave do host CT107, verificada via Proxmox, está em
+`/home/haroldocurti/.ssh/wasmhome-ct107_known_hosts` (modo 0600). A conexão
+estrita já foi confirmada como `wasmhome`, sem `sudo`; não gere outra chave nem
+reinstale a existente.
 
-No laptop, criar uma chave exclusiva **sem passphrase**, necessária para a
-execução unattended porque o cliente usa `BatchMode=yes` e `IdentityAgent=none`:
+Use estes caminhos nos comandos locais:
 
 ```bash
-ssh-keygen -t ed25519 -N '' -f /CAMINHO_PRIVADO/ct107-hil -C wasmhome-hil
-chmod 600 /CAMINHO_PRIVADO/ct107-hil
+HIL_KEY=/home/haroldocurti/.ssh/wasmhome-ct107-hil
+HIL_KNOWN_HOSTS=/home/haroldocurti/.ssh/wasmhome-ct107_known_hosts
 ```
 
-Proteger também seu diretório com modo 0700. Instalar apenas sua linha pública no arquivo do usuário
-`wasmhome`; a opção `restrict` na linha de `authorized_keys` limita recursos
-SSH desnecessários, mantendo execução de comandos sem terminal.
-
-Preservar a chave pública do **servidor CT107**, conferida por um canal
-independente, em um arquivo `known_hosts` dedicado. A fingerprint ED25519 já
-foi conferida via Proxmox durante a investigação; conservar esse recibo.
-Não usar aceitação automática da primeira chave nem confundir a chave do CT
-com a chave do Proxmox. Alteração posterior precisa ser reconciliada. O cliente
-exige `StrictHostKeyChecking=yes`, um arquivo explícito de hosts conhecidos e
-uma identidade explícita; não usa senha, agente SSH ou hosts globais.
+O cliente usa `BatchMode=yes`, `StrictHostKeyChecking=yes`, identidade e
+`known_hosts` explícitos, `IdentityAgent=none` e nenhuma senha ou host global.
+Não aceitar automaticamente uma nova chave de servidor nem confundir a chave
+do CT com a do Proxmox; mudança de fingerprint precisa ser reconciliada.
 
 O diretório padrão remoto é `~/.local/share/wasmhome-hil`, privado, modo 0700,
 pertencente a `wasmhome`. Outro caminho pode ser escolhido com `--remote-root`,
@@ -59,14 +55,12 @@ O laptop precisa das dependências de captura serial já usadas pelo runner.
 
 ## Verificação anterior, somente leitura
 
-Depois do provisionamento da chave, executar esta conferência separadamente.
-Ela consulta identidade, endereços, rota e espaço; não abre serial, não envia
-pacotes UDP à placa e não inicia o observador ou o servidor. A conexão SSH é
-uma ação de rede explícita e não foi executada nesta entrega.
+Esta conferência opcional reconfirma identidade, endereços, rota e espaço. Não
+abre serial, não envia UDP à placa e não inicia o observador ou o servidor. A
+conexão SSH estrita já foi verificada; executá-la novamente não é requisito para
+usar a identidade provisionada.
 
 ```bash
-HIL_KEY=/CAMINHO_PRIVADO/ct107-hil
-HIL_KNOWN_HOSTS=/CAMINHO_PRIVADO/ct107-known_hosts
 HIL_DEVICE_IP=IPV4_LAN_CONFIRMADO_DO_ESP
 HIL_SSH=(-T -o BatchMode=yes -o StrictHostKeyChecking=yes
   -o "UserKnownHostsFile=$HIL_KNOWN_HOSTS" -o GlobalKnownHostsFile=/dev/null
@@ -110,7 +104,7 @@ no preparo já aprovado da bancada.
    CONFIG_WASMHOME_UDP_PORT=3333
    CONFIG_WASMHOME_UPDATE_SERVER_IPV4="192.168.0.138"
    CONFIG_WASMHOME_UPDATE_SERVER_NAME="wasmhome-bench.test"
-   CONFIG_WASMHOME_UPDATE_SERVER_PORT=8444
+   CONFIG_WASMHOME_UPDATE_SERVER_PORT=8446
    CONFIG_WASMHOME_UPDATE_CAMPAIGN_ID="UUID_NOVO_DA_CAMPANHA"
    ```
 
@@ -133,14 +127,16 @@ no preparo já aprovado da bancada.
    A chave privada COSE permanece fora do CT. A chave TLS deve ter modo 0600,
    e o certificado deve satisfazer o DNS SAN `wasmhome-bench.test`, a CA
    compilada e a validade temporal. Conservar a sincronização SNTP do ESP.
-5. Iniciar o servidor existente em uma sessão normal de `wasmhome`, em porta
-   não privilegiada, com log exclusivo da nova campanha. Exemplo no CT,
-   substituindo os caminhos e as identidades pelos valores reais:
+5. Iniciar uma cópia do servidor aprovado em uma sessão normal de `wasmhome`,
+   em porta não privilegiada, com log exclusivo da nova campanha. Os serviços
+   existentes em 8443/8444 (UID 999) não devem ser parados, reconfigurados ou
+   substituídos. O preparo observou 8446 livre; reconfirmar antes de iniciar.
+   Exemplo no CT, substituindo os caminhos e as identidades pelos valores reais:
 
    ```bash
    umask 077
    python3 /home/wasmhome/HIL/tools/artifact_https_server.py \
-     --bind 192.168.0.138 --port 8444 \
+     --bind 192.168.0.138 --port 8446 \
      --server-ip 192.168.0.138 --server-name wasmhome-bench.test \
      --package /home/wasmhome/HIL/package \
      --certificate /home/wasmhome/HIL/tls/server.pem \
@@ -182,7 +178,7 @@ campaign_id = str(uuid.UUID(sys.argv[3]))
 metadata = {'protocol_revision': 'issue20-v1.0', 'campaign_type': 'pilot',
             'campaign_id': campaign_id, 'session_id': str(uuid.uuid4()),
             'bench': {'observer_host': 'wasmhome-bench', 'observer_ipv4': '192.168.0.138',
-                      'https_ipv4': '192.168.0.138', 'https_port': 8444,
+                      'https_ipv4': '192.168.0.138', 'https_port': 8446,
                       'device_ipv4': device, 'serial_port': '/dev/ttyACM0'},
             'environment': {}}
 with (root / 'metadata.json').open('x') as stream:
@@ -243,14 +239,33 @@ worker. O diretório local do slot também impede reexecução. Uma preparação
 interrompida deixa uma pasta recusada para nova preparação; não a apagar para
 repetir um estado potencialmente ambíguo.
 
+Antes de qualquer trigger, a captura UART precisa registrar bytes reais. O
+runner espera até 5 s pelo primeiro byte depois de abrir a serial e considera
+a captura sem saúde quando o último bloco de bytes tem 2 s ou mais. O limite de
+2 s foi definido a partir dos metadados das capturas anteriores: os fluxos
+native/interp tiveram maior intervalo entre blocos de 407,149 ms (212 blocos /
+11.098 bytes no native e 6.289 blocos / 376.137 bytes no interp); a janela de
+2 s dá quase 5 vezes essa margem observada. Os primeiros bytes chegaram 6,255
+e 11,181 ms após a abertura. Se a UART ficar sem bytes além do limite, o health
+check cancela a confirmação remota; o observador registra `instrument_abort`,
+preserva evidências e não repete o slot. A mesma regra vale depois do trigger:
+uma pausa UART longa pode encerrar a observação antes do fim do pós-window, e
+esse slot exige adjudicação, sem novo trigger automático.
+
+No backend remoto, a confirmação enviada ao CT incorpora a idade medida do
+último byte e uma margem de transporte SSH de 500 ms. Por isso a renovação é
+recusada preventivamente quando essa idade chega a 1,5 s; o limite efetivo
+continua abaixo dos 2 s, inclusive durante o trânsito da confirmação.
+
 O worker roda separado da conexão SSH, mas só continua enquanto o laptop
-renova uma confirmação de saúde de **3 segundos**. O cliente verifica a thread
-serial antes de iniciar e antes de cada renovação. Erro serial cancela a
-confirmação; a primeira falha SSH impede qualquer renovação posterior,
-inclusive após reconexão. O observador confere a confirmação a cada ciclo e
-novamente antes do trigger. No backend local, consulta diretamente o estado
-da captura serial. Uma falha de captura gera `instrument_abort` e preserva
-resumo e dados disponíveis.
+renova uma confirmação com limite máximo de **3 segundos**, também limitada
+pelo frescor UART informado e uma margem conservadora de 500 ms para transporte
+SSH. O cliente verifica a thread e a idade dos bytes antes de iniciar e antes
+de cada renovação. Erro serial cancela a confirmação; a primeira falha SSH
+impede qualquer renovação posterior, inclusive após reconexão. O observador
+confere a confirmação a cada ciclo e novamente antes do trigger. No backend
+local, consulta diretamente o estado da captura serial. Uma falha de captura
+gera `instrument_abort` e preserva resumo e dados disponíveis.
 
 Essa comunicação distribuída possui um limite: uma falha recém-ocorrida pode
 ainda não ter chegado ao CT enquanto a última confirmação estiver válida.
@@ -302,5 +317,5 @@ As novas opções e a correção da captura serial alteram o SHA-256 de
 `script_sha256` e será recusado depois dessa mudança. Criar o plano novo após
 estabilizar a revisão e os artefatos; qualquer commit posterior muda a revisão
 e também exige outro plano. Preservar o snapshot `remote-code` e seus hashes
-para recuperação, mesmo que a árvore de desenvolvimento avance. Esta etapa
-não fez commit, push, rebuild, reboot ou atualização da placa.
+para recuperação, mesmo que a árvore de desenvolvimento avance. O preparo
+documentado não inclui commit, push, rebuild, reboot ou operação na placa.

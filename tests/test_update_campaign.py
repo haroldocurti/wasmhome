@@ -18,6 +18,10 @@ from tools.update_campaign import (
     _load_artifacts,
     _load_slot_records,
     _start_serial_capture,
+    _serial_capture_failure,
+    _wait_for_serial_data,
+    SERIAL_FIRST_DATA_TIMEOUT_NS,
+    SERIAL_MAX_SILENCE_NS,
     make_schedule,
     _observer_attempt_id,
     _read_jsonl,
@@ -184,6 +188,87 @@ class UpdateCampaignTests(unittest.TestCase):
             self.assertIn('"kind": "serial_open"', capture)
             self.assertIn('"kind": "serial_closed"', capture)
 
+    def test_serial_health_requires_real_fresh_uart_bytes(self):
+        worker = Mock()
+        worker.is_alive.return_value = True
+        opened_ns = 10_000_000_000
+        worker.capture_state = {"error": None, "opened_ns": opened_ns,
+                                "serial_bytes": 0, "last_data_ns": None}
+        self.assertIsNone(_serial_capture_failure(
+            worker, now_ns=opened_ns + SERIAL_FIRST_DATA_TIMEOUT_NS - 1))
+        self.assertEqual(_serial_capture_failure(
+            worker, now_ns=opened_ns + SERIAL_FIRST_DATA_TIMEOUT_NS),
+            "serial_capture_received_no_bytes_within_startup_window")
+        self.assertIsNone(_serial_capture_failure(
+            worker, now_ns=opened_ns + SERIAL_FIRST_DATA_TIMEOUT_NS,
+            require_fresh_data=False))
+
+        worker.capture_state.update(serial_bytes=12, last_data_ns=opened_ns + 1_000_000_000)
+        self.assertIsNone(_serial_capture_failure(
+            worker, now_ns=worker.capture_state["last_data_ns"] + SERIAL_MAX_SILENCE_NS - 1))
+        self.assertEqual(_serial_capture_failure(
+            worker, now_ns=worker.capture_state["last_data_ns"] + SERIAL_MAX_SILENCE_NS),
+            "serial_capture_data_stale_before_observer_finished")
+
+        worker.capture_state["error"] = OSError("serial read failed")
+        self.assertEqual(_serial_capture_failure(worker),
+                         "serial_capture_failed: serial read failed")
+
+    def test_observer_start_is_blocked_when_uart_never_produces_bytes(self):
+        opened_ns = 10_000_000_000
+        worker = Mock()
+        worker.is_alive.return_value = True
+        worker.capture_state = {"error": None, "opened_ns": opened_ns,
+                                "serial_bytes": 0, "last_data_ns": None}
+        with patch("tools.update_campaign.time.monotonic_ns",
+                   return_value=opened_ns + SERIAL_FIRST_DATA_TIMEOUT_NS):
+            with self.assertRaisesRegex(CampaignError, "received_no_bytes"):
+                _wait_for_serial_data(worker)
+
+    def test_run_slot_never_starts_observer_without_uart_bytes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            artifacts = []
+            for scenario in ("native", "interp", "aot"):
+                artifact = root / f"silent-uart-{scenario}.bin"
+                artifact.write_bytes(scenario.encode())
+                artifacts.append({"artifact_id": scenario, "scenario": scenario,
+                                  "path": str(artifact),
+                                  "sha256": hashlib.sha256(artifact.read_bytes()).hexdigest()})
+            manifest = root / "silent-uart-artifacts.json"
+            manifest.write_text(json.dumps({"schema_version": 1, "artifacts": artifacts}))
+            metadata = root / "silent-uart-metadata.json"
+            metadata.write_text(json.dumps({"protocol_revision": "issue20-v1.0",
+                                            "campaign_type": "pilot"}))
+            package = root / "silent-uart-campaign"
+            plan(package, metadata, manifest, 6, "silent-uart")
+            slot = json.loads((package / "schedule.json").read_text())["slots"][0]
+
+            def silent_serial(_port, _baud, path):
+                path.write_text('{"kind":"serial_open"}\n')
+                stop = threading.Event()
+                worker = Mock()
+                worker.is_alive.side_effect = lambda: not stop.is_set()
+                worker.capture_state = {
+                    "error": None,
+                    "opened_ns": time.monotonic_ns() - SERIAL_FIRST_DATA_TIMEOUT_NS,
+                    "serial_bytes": 0,
+                    "last_data_ns": None,
+                }
+                return stop, worker
+
+            observer = Mock()
+            with patch("tools.update_campaign._start_serial_capture", side_effect=silent_serial), \
+                    patch.dict(sys.modules, {"external_observer": SimpleNamespace(run=observer)}):
+                with self.assertRaisesRegex(CampaignError, "received_no_bytes"):
+                    run_slot(package, slot["slot_id"], device_ip="192.0.2.1", serial_port="fake",
+                             seconds=150, trigger_after=60, target_sequence=2)
+
+            observer.assert_not_called()
+            output = package / "raw" / "slots" / slot["slot_id"]
+            error = json.loads((output / "terminal-error.json").read_text())
+            self.assertFalse(error["automatic_retry_permitted"])
+
     def test_preflight_serial_probe_disables_dtr_rts_before_assigning_or_opening(self):
         calls = []
         self_outer = self
@@ -274,9 +359,12 @@ class UpdateCampaignTests(unittest.TestCase):
 
             def fake_serial(_port, _baud, path):
                 path.write_bytes(b'{"kind":"serial_open"}\n{"kind":"serial_closed"}\n')
+                stop = threading.Event()
                 worker = Mock()
-                worker.is_alive.return_value = False
-                return threading.Event(), worker
+                worker.is_alive.side_effect = lambda: not stop.is_set()
+                worker.capture_state = {"error": None, "opened_ns": time.monotonic_ns(),
+                                        "serial_bytes": 1, "last_data_ns": time.monotonic_ns()}
+                return stop, worker
 
             sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
             import external_observer
@@ -626,9 +714,12 @@ class UpdateCampaignTests(unittest.TestCase):
 
             def fake_serial(_port, _baud, path):
                 path.write_bytes(b'{"kind":"serial_open"}\n{"kind":"serial_closed"}\n')
+                stop = threading.Event()
                 worker = Mock()
-                worker.is_alive.return_value = False
-                return threading.Event(), worker
+                worker.is_alive.side_effect = lambda: not stop.is_set()
+                worker.capture_state = {"error": None, "opened_ns": time.monotonic_ns(),
+                                        "serial_bytes": 1, "last_data_ns": time.monotonic_ns()}
+                return stop, worker
 
             sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
             import external_observer
@@ -733,9 +824,12 @@ class UpdateCampaignTests(unittest.TestCase):
 
             def fake_serial(_port, _baud, path):
                 path.write_bytes(b"serial bytes\n")
+                stop = threading.Event()
                 worker = Mock()
-                worker.is_alive.return_value = False
-                return threading.Event(), worker
+                worker.is_alive.side_effect = lambda: not stop.is_set()
+                worker.capture_state = {"error": None, "opened_ns": time.monotonic_ns(),
+                                        "serial_bytes": 1, "last_data_ns": time.monotonic_ns()}
+                return stop, worker
 
             sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
             import external_observer
@@ -813,9 +907,12 @@ class UpdateCampaignTests(unittest.TestCase):
     def _run_fake_slot(self, package, slot, fake_observer, server_log):
         def fake_serial(_port, _baud, path):
             path.write_bytes(b'{"kind":"serial_open"}\n{"kind":"serial_closed"}\n')
+            stop = threading.Event()
             worker = Mock()
-            worker.is_alive.return_value = False
-            return threading.Event(), worker
+            worker.is_alive.side_effect = lambda: not stop.is_set()
+            worker.capture_state = {"error": None, "opened_ns": time.monotonic_ns(),
+                                    "serial_bytes": 1, "last_data_ns": time.monotonic_ns()}
+            return stop, worker
 
         sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
         import external_observer
