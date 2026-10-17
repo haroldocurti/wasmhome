@@ -23,6 +23,7 @@ from tools.update_campaign import (
     _read_jsonl,
     build_parser,
     plan,
+    preflight,
     run_slot,
 )
 
@@ -182,6 +183,72 @@ class UpdateCampaignTests(unittest.TestCase):
             capture = output.read_text()
             self.assertIn('"kind": "serial_open"', capture)
             self.assertIn('"kind": "serial_closed"', capture)
+
+    def test_preflight_serial_probe_disables_dtr_rts_before_assigning_or_opening(self):
+        calls = []
+        self_outer = self
+
+        class FakeSerial:
+            def __init__(self, *, port, baudrate, timeout):
+                calls.append(("construct", port, baudrate, timeout))
+                self._port = port
+                self._dtr = True
+                self._rts = True
+                self.closed = False
+
+            @property
+            def dtr(self):
+                return self._dtr
+
+            @dtr.setter
+            def dtr(self, value):
+                calls.append(("dtr", value))
+                self._dtr = value
+
+            @property
+            def rts(self):
+                return self._rts
+
+            @rts.setter
+            def rts(self, value):
+                calls.append(("rts", value))
+                self._rts = value
+
+            @property
+            def port(self):
+                return self._port
+
+            @port.setter
+            def port(self, value):
+                calls.append(("port", value))
+                self._port = value
+
+            def open(self):
+                calls.append(("open", self._port))
+                self_outer.assertFalse(self._dtr)
+                self_outer.assertFalse(self._rts)
+                self_outer.assertEqual(self._port, "fake-device")
+
+            def close(self):
+                calls.append(("close",))
+                self.closed = True
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            package, _slot = self._make_test_campaign(root, "preflight-safe-serial")
+            output = root / "preflight-output"
+            with patch.dict(sys.modules, {"serial": SimpleNamespace(Serial=FakeSerial)}):
+                result = preflight(package, output, serial_port="fake-device", probe_serial=True)
+
+            self.assertEqual(result["probes"]["serial"], "passed")
+            self.assertEqual(calls, [
+                ("construct", None, 115200, 0.2),
+                ("dtr", False),
+                ("rts", False),
+                ("port", "fake-device"),
+                ("open", "fake-device"),
+                ("close",),
+            ])
 
     def test_cli_server_log_default_matches_observer_filename(self):
         args = build_parser().parse_args([

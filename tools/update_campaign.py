@@ -415,8 +415,17 @@ def preflight(root: Path, output: Path, minimum_free_bytes: int = 0,
         _require(bool(serial_port), "--probe-serial requires --serial-port")
         try:
             import serial  # type: ignore[import-not-found]
-            with serial.Serial(serial_port, serial_baud, timeout=0.2):
-                pass
+            # Construct closed, make the modem-control lines inactive, and
+            # only then assign/open the port. Constructing with a port can
+            # implicitly open it before DTR/RTS are safe for the ESP32.
+            serial_device = serial.Serial(port=None, baudrate=serial_baud, timeout=0.2)
+            try:
+                serial_device.dtr = False
+                serial_device.rts = False
+                serial_device.port = serial_port
+                serial_device.open()
+            finally:
+                serial_device.close()
         except Exception as exc:
             raise CampaignError(f"serial probe failed for {serial_port}: {exc}") from exc
         probes["serial"] = "passed"
