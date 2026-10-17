@@ -599,10 +599,13 @@ static void process_resilience_fixture(
     result->inactive_slot_only = result->candidate_slot < WH_MODULE_SLOT_COUNT &&
         result->candidate_slot != before.active_slot;
 
+    bool fixture_integrity_verified = false;
     if (strcmp(request->fixture_case, "ENV-SIG") == 0) {
         result->real_envelope_validator = err != ESP_OK &&
             attempt.failure == WH_SIGNED_UPDATE_FAILURE_SIGNATURE &&
             strcmp(result->stage, "envelope_signature") == 0;
+        fixture_integrity_verified = attempt.sink_bytes_written == 0 &&
+            result->candidate_slot == WH_SIGNED_UPDATE_NO_ACTIVE_SLOT;
     } else if (strcmp(request->fixture_case, "ENV-HASH") == 0) {
         result->real_envelope_validator = err == ESP_ERR_INVALID_CRC &&
             attempt.failure == WH_SIGNED_UPDATE_FAILURE_PAYLOAD_HASH &&
@@ -610,6 +613,7 @@ static void process_resilience_fixture(
         result->payload_invalidated = result->real_envelope_validator &&
             attempt.sink_bytes_written > 0 && result->inactive_slot_only &&
             result->cleanup_status == ESP_OK;
+        fixture_integrity_verified = result->payload_invalidated;
     } else if (strcmp(request->fixture_case, "ENV-OLD") == 0) {
         result->nvs_floor_checked = before.accepted_floor >= 1 &&
             attempt.manifest.sequence != 0 &&
@@ -618,11 +622,13 @@ static void process_resilience_fixture(
         result->real_envelope_validator = result->nvs_floor_checked &&
             attempt.failure == WH_SIGNED_UPDATE_FAILURE_POLICY &&
             strcmp(result->stage, "envelope_sequence") == 0;
+        fixture_integrity_verified = attempt.sink_bytes_written == 0 &&
+            result->candidate_slot == WH_SIGNED_UPDATE_NO_ACTIVE_SLOT;
     }
     result->expected_rejection = result->real_envelope_validator &&
         result->active_slot_unchanged && result->active_version_unchanged &&
         result->accepted_sequence_unchanged &&
-        result->cleanup_status == ESP_OK;
+        result->cleanup_status == ESP_OK && fixture_integrity_verified;
 }
 #endif
 #endif
