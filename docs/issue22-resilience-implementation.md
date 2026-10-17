@@ -1,8 +1,8 @@
 # Implementação defensável da issue #22
 
-Status em 2026-10-17: **integração opt-in implementada e suíte host aprovada;
-rebuild ESP-IDF desta revisão e HIL pendentes**. Este registro não fecha a issue
-nem autoriza a campanha #23.
+Status em 2026-10-17: **integração opt-in implementada, suíte host aprovada e
+builds locais `module-interp`/`module-aot` aprovados; HIL ainda pendente**. Este
+registro não fecha a issue nem autoriza a campanha #23.
 
 ## Implementado no código
 
@@ -83,24 +83,38 @@ modulares, o abort do ledger e o abort OTA:
 
 Os 232 testes da suíte host passaram (5 ignorados). Também passaram
 `tools/generate_service_modules.py --verify` e
-`tools/generate_resilience_wasm.py --verify`. Os builds ESP-IDF existentes
-foram feitos antes das correções finais do harness/ENV; serão refeitos a partir
-do commit desta revisão antes de serem usados como evidência.
+`tools/generate_resilience_wasm.py --verify` após gerar os artefatos a partir do
+checkout limpo desta revisão. O manifesto dos módulos registra o commit, a
+árvore e os hashes dos geradores; ambos os manifestos registram hashes dos
+artefatos e toolchains usados.
 
-O rebuild local com ESP-IDF 5.2.6 de `module-interp` e `module-aot` para
-ESP32-S3 está pendente para este commit. Nenhuma alteração foi gravada nem
-executada na placa; compilação local não valida transporte HTTPS real ou
+Os builds locais ESP-IDF 5.2.6 para ESP32-S3 passaram com módulo de serviços,
+atualização assinada e modo de ensaio opt-in. O artefato Wasm e o manifesto de
+serviços registram WAMR port `2.4.5-wasmhome.3`, `wamrc 2.4.5` SHA-256
+`98ab5acb7bc451cc5bf9d28940d4e252e8c00c7dbc5b0fe6d097901818fe7824`, e WASI
+SDK 27.0 SHA-256 de pacote
+`b7d4d944c88503e4f21d84af07ac293e3440b1b6210bfd7fe78e0afd92c23bc2`. O fixture
+trap usa WABT `1.0.36 (git~1.0.37)` com o SHA fixado no manifesto. Os hashes dos
+firmwares compilados são:
+
+| Perfil | SHA-256 do firmware |
+|---|---|
+| `module-interp` | `8839b1517a6771915fdbcbe658560bc9bfa17f5dfb1b49febf01dea9099dece4` |
+| `module-aot` | `797a30d3254795de3448abbe4b6f264927ec70ff75d9cb246e4b88906deb93ab` |
+
+Os builds foram feitos em diretórios isolados e não foram gravados nem
+executados na placa. Compilação local não valida transporte HTTPS real ou
 comportamento HIL.
 
 ## Estado por critério de aceitação
 
 | Mecanismo | Código / teste host | Ainda necessário |
 |---|---|---|
-| ENV-SIG | Atualizador nativo e perfis modulares B/C usam validador COSE real; testes de parser/assinatura e suíte host passaram. | Rebuild dos perfis, fixture HTTPS isolada e observação física da rejeição no estágio esperado em A/B/C. |
-| ENV-HASH | A/B/C escrevem somente no slot OTA/modular inativo; abort apaga e lê de volta a partição inteira; invariância do ativo tem testes host. | Rebuild dos perfis e comprovar na placa bytes gravados/invalidados e ativo/piso preservados em cada perfil. |
-| ENV-OLD | A/B/C chegam ao ledger NVS real; estágio `envelope_sequence` mapeado; testes host cobrem piso e preservação de ativo/piso. | Rebuild dos perfis, semear ledger na bancada e observar rejeição física em A/B/C. |
-| ENV em B/C | Pedido serial fechado e execução ENV-SIG/HASH/OLD estão ligados aos perfis `module-interp` e `module-aot`. | Rebuild e ensaios HIL B/C, incluindo todas as falhas e controles da matriz. |
-| WASM-ZERO/OOB/DIV0 | Fixtures Wasm/AOT fixadas, compiladas no firmware por perfil; dispatcher, persistência antes da chamada, exceção WAMR, aposentadoria do slot e health check do controle estão integrados; cobertura host passou. | Rebuild e executar em ESP32-S3 em interp e AOT, observando trap, UDP e continuidade/recovery reais. |
+| ENV-SIG | Atualizador nativo e perfis modulares B/C usam validador COSE real; testes de parser/assinatura, suíte host e builds ESP-IDF passaram. | Fixture HTTPS isolada e observação física da rejeição no estágio esperado em A/B/C. |
+| ENV-HASH | A/B/C escrevem somente no slot OTA/modular inativo; abort apaga e lê de volta a partição inteira; invariância do ativo tem testes host; builds passaram. | Comprovar na placa bytes gravados/invalidados e ativo/piso preservados em cada perfil. |
+| ENV-OLD | A/B/C chegam ao ledger NVS real; estágio `envelope_sequence` mapeado; testes host cobrem piso e preservação de ativo/piso; builds passaram. | Semear ledger na bancada e observar rejeição física em A/B/C. |
+| ENV em B/C | Pedido serial fechado e execução ENV-SIG/HASH/OLD estão ligados aos perfis `module-interp` e `module-aot`; builds locais passaram. | Ensaios HIL B/C, incluindo todas as falhas e controles da matriz. |
+| WASM-ZERO/OOB/DIV0 | Fixtures Wasm/AOT fixadas, compiladas no firmware por perfil; dispatcher, persistência antes da chamada, exceção WAMR, aposentadoria do slot e health check do controle estão integrados; builds e cobertura host passaram. | Executar em ESP32-S3 em interp e AOT e observar trap, UDP e continuidade/recovery reais. |
 | NAT-ABORT | Caminho de firmware e correlação após reboot implementados. | Builds e prova física de pânico, novo boot e recuperação recebida por UDP. |
 | Timeout funcional | `300 ms` permanece valor candidato, reportado como não congelado. | #20 ainda não congelou empiricamente o timeout. |
 | Recuperação operacional | Harness calcula recuperação a partir das observações UDP. | Confirmar recebimento UDP e recuperação dentro de 30 s no ensaio físico. |
