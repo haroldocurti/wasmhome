@@ -10,6 +10,10 @@ registro não fecha a issue nem autoriza a campanha #23.
   valida pedidos fechados, correlaciona JSONL serial e observações UDP por
   `attempt_id`/`boot_id`, e preserva `unconfirmed` quando falta
   `fault_accepted`. Timeout ou silêncio não viram rejeição.
+- `tools/resilience_hil_runner.py` executa uma linha explicitamente armada,
+  grava serial bruta/UDP com timestamps host monotônicos, e mantém transporte
+  HTTP em evidência separada. O runner e os testes novos foram validados sem
+  abrir serial, gravar flash ou iniciar o servidor; isso não é uma tentativa HIL.
 - `tools/generate_resilience_fixtures.py` gera nove conjuntos ENV-SIG/HASH/OLD
   a partir de artefato #15 verificado. A chave privada fica fora da saída; as
   fixtures não foram validadas no dispositivo. A identidade da fixture #22 é
@@ -194,6 +198,115 @@ e o nome TLS é `wasmhome-issue22.test`. O CA público tem SHA-256
 `757b99b20a567a27041be3f204831b7aa2f6d0192504e7d13fd6261267f1a942`, a chave
 pública dedicada da fixture `e2b4d52e6f7f76af469ef90aa9d6f099c92e3da0d3fd46efec083d67d9137afd`,
 e o índice publicado `bf36fb7c2a2a65616b0651dbb5cdf69af569d249b46d99a6d840ce372c41ab0f`.
+
+## Executor HIL de uma tentativa
+
+[`tools/resilience_hil_runner.py`](../tools/resilience_hil_runner.py) adiciona
+um comando explícito de uma tentativa por execução. `run` exige uma linha do
+plano completo, UUID de confirmação igual ao `attempt_id`, caminho serial
+explícito, IPs IPv4 literais, diretório de saída novo e preflight JSON. Antes
+de abrir serial ou UDP, valida campanha, perfil, boot ID, ledger e floors. A
+primeira telemetria UDP também precisa apresentar o mesmo `boot_id` do
+preflight; em divergência ou ausência de boot, não envia `fault_request`.
+Antes de enviar, também exige pelo menos 30 controles e 30 telemetrias válidos
+no boot do preflight. Depois do evento serial que encerra a execução da falha,
+exige outros 30 de cada tipo dentro da janela pós-falha; se a amostra não for suficiente, a correlação fica marcada
+como `insufficient_observation_coverage` e não produz classificação. Janelas
+menores que 30 períodos de controle são recusadas antes de abrir portas.
+Serial, datagramas, registros de envio e saídas são mantidos em arquivos
+privados (`0700` no diretório e `0600` nos arquivos), com serial bruta em
+Base64 e timestamp host `monotonic_ns`. Os bytes recebidos nunca vão para
+stdout. O runner fecha as portas ao terminar; não inicia nem para o serviço
+HTTPS.
+
+O preflight é pequeno e não aceita campos de Wi-Fi, MAC ou credenciais. Este
+exemplo mostra o schema e valores ilustrativos; deve ser preenchido com leituras
+reais, nunca copiado como evidência:
+
+```json
+{
+  "schema": "wasmhome-issue22-readonly-preflight-v1",
+  "campaign_id": "issues16-18-bench-20261016-observer13",
+  "profile": "native",
+  "boot_id": "0123456789abcdef",
+  "firmware_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "native_state": {"ledger_present": true, "accepted_floor": 2, "pending": false},
+  "module_state": null
+}
+```
+
+Para `ENV-SIG` e `ENV-HASH`, o preflight nativo exige piso exatamente 2; para
+`ENV-OLD`, exige piso pelo menos 1. `NAT-ABORT` exige estado não pendente, sem
+um piso mínimo de update. Em `module-interp` e `module-aot`, todos os casos
+exigem ledger modular presente, sem tentativa pendente, piso 2, módulo ativo
+v2 e sequência ativa 2. O baseline aprovado `00aa22c35720354383c3d686a14612a7cb2fd99c57cb1ce214d07338c1c167a5`
+não contém esses ledgers; floor 0 não satisfaz estes gates. É necessário
+provisionar e confirmar os estados exigidos depois da restauração da baseline
+e antes do HIL. O runner confere o SHA informado contra o artefato registrado
+para o perfil, mas esse SHA continua sendo uma atestação do operador: o
+firmware atual não reporta o hash da imagem em execução. O módulo também não
+emite hoje seu floor/versão ativo no evento de boot; a leitura modular precisa
+vir de diagnóstico NVS somente leitura revisado, sem extrair ou publicar
+campos alheios ao ledger.
+
+Com a bancada #20 liberada, perfil correto gravado e preflight medido, mantenha
+host e ESP32 na mesma LAN: `--device-ip` é o IPv4 atual da placa e `--bind-ip`
+é o IPv4 da interface LAN do host que receberá UDP. Os três builds apontam ao
+fixture CT107 em `192.168.0.138:8445`, TLS `wasmhome-issue22.test`. Gere o plano
+offline e execute somente a linha desejada. O UUID passado em
+`--arm-attempt-id` deve ser o dessa mesma linha:
+
+```sh
+python3 tools/resilience_harness.py plan --seed issue22-run-01 \
+  --output "$HIL_PRIVATE/plan.jsonl"
+python3 tools/resilience_hil_runner.py run \
+  --plan "$HIL_PRIVATE/plan.jsonl" --slot "$SLOT" \
+  --preflight "$HIL_PRIVATE/preflight.json" \
+  --arm-attempt-id "$ATTEMPT_ID" \
+  --serial-port /dev/ttyACM0 --baud 115200 \
+  --device-ip "$ESP32_LAN_IP" --bind-ip "$HOST_LAN_IP" \
+  --udp-port 3333 --device-port 3333 \
+  --output "$HIL_PRIVATE/attempt-$SLOT"
+```
+
+`--timeout-ms 300` continua candidato, não limite de aceite congelado. O
+runner mede UDP no relógio monotônico do host e não subtrai esse relógio do
+`monotonic_us` do MCU. Só registra o envio do pedido; apenas um evento serial
+`fault_accepted` pode provar que o firmware aceitou a injeção. Ausência desse
+evento permanece `unconfirmed`, nunca vira rejeição por silêncio.
+
+Se o log HTTPS do CT não estiver montado em leitura, capture seu prefixo antes
+e depois da tentativa pela rota aprovada via Proxmox/Tailscale e `pct exec`
+(sem SSH direto ao CT), mantendo os snapshots privados. O caminho de log da
+unit é `/var/log/wasmhome/issue22-hil-20261017/campaign16-http.jsonl`:
+
+```sh
+umask 077
+set -o noclobber
+snapshot_http() {
+  ssh -i "$PROXMOX_IDENTITY" -o IdentitiesOnly=yes -o BatchMode=yes \
+    -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$PROXMOX_KNOWN_HOSTS" \
+    root@100.89.142.40 \
+    'pct exec 107 -- sh -c "test ! -f /var/log/wasmhome/issue22-hil-20261017/campaign16-http.jsonl || cat /var/log/wasmhome/issue22-hil-20261017/campaign16-http.jsonl"' \
+    > "$1"
+}
+snapshot_http "$HIL_PRIVATE/http-before.jsonl"
+# execute exatamente uma tentativa, sem requisições concorrentes ao fixture server
+snapshot_http "$HIL_PRIVATE/http-after.jsonl"
+python3 tools/resilience_hil_runner.py correlate-http \
+  --run-dir "$HIL_PRIVATE/attempt-$SLOT" \
+  --before "$HIL_PRIVATE/http-before.jsonl" \
+  --after "$HIL_PRIVATE/http-after.jsonl"
+```
+
+O correlator exige que o segundo snapshot seja uma extensão byte a byte do
+primeiro, extrai só as linhas acrescentadas e verifica as rotas HTTP esperadas.
+Como o servidor não registra `attempt_id`, essa ligação é uma janela de log
+para uma única tentativa operacional, não prova causal isolada. O relatório
+HTTP fica separado e `fault_accepted_inferred` permanece `false`; somente a
+serial e a correlação UDP classificam os eventos da tentativa. Não pode haver
+requisições concorrentes à unit durante essa janela. Os snapshots guardam o IP
+do peer e também devem permanecer no diretório privado da bancada.
 
 ## Estado por critério de aceitação
 

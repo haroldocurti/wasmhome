@@ -458,6 +458,16 @@ class ResilienceHarnessTests(unittest.TestCase):
         with self.assertRaises(ResilienceFormatError):
             correlate([], [], [mismatched])
 
+    def test_partial_host_write_is_preserved_without_claiming_acceptance(self):
+        partial = make_fault_request_record(ATTEMPT, "NAT-ABORT", "native", 1234)
+        partial["dispatch_status"] = "partial_write"
+        partial["bytes_written"] = 7
+        report = correlate([], [], [partial])
+        attempt = report["attempts"][0]
+        self.assertEqual(attempt["status"], "unconfirmed")
+        self.assertEqual(attempt["fault_requests"], [partial])
+        self.assertEqual(attempt["dispatch_statuses"], ["partial_write"])
+
     def test_nat_abort_requires_raw_marker_panic_reset_and_recovery(self):
         accepted = serial_event("fault_accepted", case="NAT-ABORT",
                                 host_monotonic_ns=1_000_000_000)

@@ -263,8 +263,9 @@ def correlate(serial_events: list[dict], udp_records: list[dict],
         if (not isinstance(host_time, int) or isinstance(host_time, bool) or
                 host_time < 0):
             raise ResilienceFormatError("dispatched request requires host_monotonic_ns")
-        if request.get("dispatch_status") != "sent":
-            raise ResilienceFormatError("only successfully dispatched requests may seed correlation")
+        dispatch_status = request.get("dispatch_status")
+        if dispatch_status not in ("sent", "partial_write", "write_error", "write_interrupted"):
+            raise ResilienceFormatError("request record has an unknown host dispatch status")
         parsed_request = parse_fault_request(request.get("raw_request", ""))
         if parsed_request["attempt_id"] != attempt or parsed_request["case_id"] != case_id:
             raise ResilienceFormatError("raw request differs from its host record")
@@ -281,6 +282,7 @@ def correlate(serial_events: list[dict], udp_records: list[dict],
         if case_id != group["case_id"] or scenario != group["scenario"]:
             group["correlation_error"] = "attempt_id reused with different case or scenario"
         group["fault_requests"].append(request)
+        group.setdefault("dispatch_statuses", []).append(dispatch_status)
     for event in serial_events:
         attempt = event["attempt_id"]
         group = attempts.setdefault(attempt, {
