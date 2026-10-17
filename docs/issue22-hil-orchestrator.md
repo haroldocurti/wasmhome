@@ -163,6 +163,24 @@ campaign only after the board has been restored from the #20 accepted image.
 
 ## User-level CT HTTPS process
 
+The dedicated Ed25519 SSH key is already enrolled once in the `wasmhome`
+account with the OpenSSH `restrict` option. This disables PTY allocation,
+agent/X11/port forwarding and user SSH startup scripts while retaining the
+command execution and file transfer needed by the orchestrator. Do not enroll
+the same key again or replace the account's other authorized keys. The private
+key stays on the local machine with mode 0600; the CT account's `.ssh` directory
+and `authorized_keys` have modes 0700 and 0600 respectively. The provisioned
+account runs as an ordinary UID and belongs only to its own group.
+
+The 2026-10-17 access audit verified an unattended connection with the pinned
+host key, exactly one matching restricted enrollment, the file ownership and
+modes above, Python availability, and ownership of the campaign root. Its full
+receipt remains in the private campaign records. No password, root login,
+privileged group, system service or interactive shell is required by this
+connection. A management route through Tailscale may use the same pinned CT
+host-key alias; the firmware HTTPS endpoint must still use an address that the
+ESP32-S3 can reach directly on its own network.
+
 The orchestrator stages the strict fixture handler, its verifier, the signed
 package, public verification keys, and the TLS files beneath a unique
 user-owned directory under
