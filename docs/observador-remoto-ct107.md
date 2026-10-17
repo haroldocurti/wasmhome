@@ -95,6 +95,11 @@ integral aprovada. O runner **não** restaura a flash, grava overlays, muda
 sdkconfig, compila, assina pacotes ou inicia HTTPS; essas etapas continuam
 no preparo já aprovado da bancada.
 
+O [orquestrador HIL](orquestrador-hil-issue20.md) envolve o runner com lock da
+bancada, preparação dos overlays v1, restauração integral e leitura de
+verificação entre slots. Ele usa um journal privado para bloquear repetições
+após interrupção e recuperar a baseline sem relançar o observador.
+
 1. Escolher e registrar o novo UUID de campanha antes de preparar os artefatos.
    Usar a revisão `issue20-v1.0`, `campaign_type="pilot"`, N=6 e uma semente
    nova. Os limites de medição permanecem congelados.
