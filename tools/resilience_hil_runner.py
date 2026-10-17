@@ -92,21 +92,30 @@ class ExclusiveSerialPort:
         self.is_open = False
         self.bytes_written = 0
         self._original_termios = None
+        self._modem_mask = 0
+        self._original_modem_lines = None
         flags = os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK | getattr(os, "O_CLOEXEC", 0)
         self._fd = os.open(path, flags)
         try:
             fcntl.flock(self._fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             if hasattr(termios, "TIOCEXCL"):
                 fcntl.ioctl(self._fd, termios.TIOCEXCL)
-            # Do not assert modem-control lines: some ESP32 adapters use DTR/RTS
-            # to enter the ROM bootloader when a terminal opens.
-            if hasattr(termios, "TIOCMBIC") and hasattr(termios, "TIOCM_DTR") and hasattr(termios, "TIOCM_RTS"):
+            # Some adapters use DTR/RTS for ROM bootloader entry. Clear them
+            # only when the original state can be read and restored exactly.
+            modem_constants = ("TIOCMGET", "TIOCMBIC", "TIOCMBIS", "TIOCM_DTR", "TIOCM_RTS")
+            if all(hasattr(termios, name) for name in modem_constants):
+                self._modem_mask = termios.TIOCM_DTR | termios.TIOCM_RTS
                 try:
-                    fcntl.ioctl(self._fd, termios.TIOCMBIC,
-                                struct.pack("I", termios.TIOCM_DTR | termios.TIOCM_RTS))
+                    modem_state = array.array("i", [0])
+                    fcntl.ioctl(self._fd, termios.TIOCMGET, modem_state, True)
                 except OSError as error:
                     if error.errno not in (errno.ENOTTY, errno.EINVAL):
                         raise
+                else:
+                    self._original_modem_lines = modem_state[0] & self._modem_mask
+                    asserted = self._original_modem_lines
+                    if asserted:
+                        fcntl.ioctl(self._fd, termios.TIOCMBIC, struct.pack("I", asserted))
             import copy
             attrs = termios.tcgetattr(self._fd)
             self._original_termios = copy.deepcopy(attrs)
@@ -122,8 +131,7 @@ class ExclusiveSerialPort:
             self.is_open = True
         except BaseException:
             try:
-                if self._original_termios is not None:
-                    termios.tcsetattr(self._fd, termios.TCSANOW, self._original_termios)
+                self._restore_device_state()
             finally:
                 os.close(self._fd)
             raise
@@ -161,13 +169,38 @@ class ExclusiveSerialPort:
     def flush(self):
         self._termios.tcdrain(self._fd)
 
+    def _restore_device_state(self):
+        restore_error = None
+        if self._original_termios is not None:
+            try:
+                self._termios.tcsetattr(self._fd, self._termios.TCSANOW,
+                                        self._original_termios)
+            except BaseException as error:
+                restore_error = error
+        if self._original_modem_lines is not None:
+            try:
+                current = self._array.array("i", [0])
+                self._fcntl.ioctl(self._fd, self._termios.TIOCMGET, current, True)
+                current_lines = current[0] & self._modem_mask
+                to_clear = current_lines & ~self._original_modem_lines
+                to_set = self._original_modem_lines & ~current_lines
+                if to_clear:
+                    self._fcntl.ioctl(self._fd, self._termios.TIOCMBIC,
+                                      self._struct.pack("I", to_clear))
+                if to_set:
+                    self._fcntl.ioctl(self._fd, self._termios.TIOCMBIS,
+                                      self._struct.pack("I", to_set))
+            except BaseException as error:
+                if restore_error is None:
+                    restore_error = error
+        if restore_error is not None:
+            raise restore_error
+
     def close(self):
         if self._fd < 0:
             return
         try:
-            if self._original_termios is not None:
-                self._termios.tcsetattr(self._fd, self._termios.TCSANOW,
-                                        self._original_termios)
+            self._restore_device_state()
         finally:
             try:
                 self._fcntl.flock(self._fd, self._fcntl.LOCK_UN)
@@ -222,7 +255,31 @@ def _observation_coverage(control_count: int, telemetry_count: int) -> dict:
     }
 
 
-def _execution_terminal_host_ns(serial_events: list[dict], item: dict) -> int | None:
+def _boot_number(value) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if 0 <= value < 1 << 64 else None
+    if isinstance(value, str) and 1 <= len(value) <= 16:
+        try:
+            result = int(value, 16)
+        except ValueError:
+            return None
+        return result if result < 1 << 64 else None
+    return None
+
+
+def _preflight_observation_coverage(control_times_by_boot: dict,
+                                    telemetry_times_by_boot: dict,
+                                    expected_boot: int) -> dict:
+    gate = _observation_coverage(
+        len(control_times_by_boot.get(expected_boot, [])),
+        len(telemetry_times_by_boot.get(expected_boot, [])))
+    gate["boot_id"] = f"{expected_boot:016x}"
+    return gate
+
+
+def _execution_terminal_event(serial_events: list[dict], item: dict) -> tuple[int, dict] | None:
     case = item["case_id"]
     if case in ("ENV-SIG", "ENV-HASH", "ENV-OLD"):
         terminal_names = {"update_rejected", "fault_execution_failed"}
@@ -240,25 +297,68 @@ def _execution_terminal_host_ns(serial_events: list[dict], item: dict) -> int | 
                            event.get("case_id") == case), None)
     if accepted_index is None:
         return None
-    for event in serial_events[accepted_index + 1:]:
+    for index, event in enumerate(serial_events[accepted_index + 1:], accepted_index + 1):
         host_ns = event.get("host_monotonic_ns")
         if (event.get("attempt_id") == item["attempt_id"] and
                 event.get("case_id") == case and
                 event.get("event") in terminal_names and
                 isinstance(host_ns, int) and not isinstance(host_ns, bool) and host_ns >= 0):
-            return host_ns
+            return index, event
     return None
 
 
 def _post_execution_coverage(serial_events: list[dict], item: dict,
-                             control_times: list[int], telemetry_times: list[int]) -> dict:
-    terminal_ns = _execution_terminal_host_ns(serial_events, item)
+                             control_times_by_boot: dict,
+                             telemetry_times_by_boot: dict,
+                             preflight_boot: int) -> dict:
+    terminal = _execution_terminal_event(serial_events, item)
+    if terminal is None:
+        terminal_ns = None
+        target_boot = None
+        terminal_name = None
+    else:
+        terminal_index, terminal_event = terminal
+        terminal_ns = terminal_event["host_monotonic_ns"]
+        terminal_name = terminal_event["event"]
+        accepted = next(event for event in reversed(serial_events[:terminal_index])
+                        if event.get("event") == "fault_accepted" and
+                        event.get("attempt_id") == item["attempt_id"] and
+                        event.get("case_id") == item["case_id"])
+        if item["case_id"] == "NAT-ABORT":
+            old_boot = _boot_number(terminal_event.get("boot_id"))
+            accepted_boot = _boot_number(accepted.get("boot_id"))
+            recovery_events = [event for event in serial_events[terminal_index + 1:]
+                               if event.get("event") in ("boot_observed", "control_recovery_completed")
+                               and event.get("attempt_id") == item["attempt_id"]
+                               and event.get("case_id") == item["case_id"]]
+            observed_boots = [_boot_number(event.get("boot_id")) for event in recovery_events
+                              if event.get("event") == "boot_observed"]
+            recovery_boots = [_boot_number(event.get("boot_id")) for event in recovery_events
+                              if event.get("event") == "control_recovery_completed"]
+            target_boot = observed_boots[0] if len(observed_boots) == 1 else None
+            if (target_boot is not None and
+                    (accepted_boot != preflight_boot or old_boot != accepted_boot or
+                     target_boot == old_boot or
+                     any(boot != target_boot for boot in recovery_boots if boot is not None))):
+                target_boot = None
+            if any(boot is None for boot in recovery_boots):
+                target_boot = None
+        else:
+            accepted_boot = _boot_number(accepted.get("boot_id"))
+            terminal_boot = _boot_number(terminal_event.get("boot_id"))
+            target_boot = (preflight_boot if accepted_boot == preflight_boot and
+                           terminal_boot == preflight_boot else None)
+    control_times = control_times_by_boot.get(target_boot, []) if target_boot is not None else []
+    telemetry_times = telemetry_times_by_boot.get(target_boot, []) if target_boot is not None else []
     if terminal_ns is None:
         gate = _observation_coverage(0, 0)
     else:
         gate = _observation_coverage(
-            sum(timestamp >= terminal_ns for timestamp in control_times),
-            sum(timestamp >= terminal_ns for timestamp in telemetry_times))
+            sum(timestamp > terminal_ns for timestamp in control_times),
+            sum(timestamp > terminal_ns for timestamp in telemetry_times))
+    gate["preflight_boot_id"] = f"{preflight_boot:016x}"
+    gate["recovery_boot_id"] = None if target_boot is None else f"{target_boot:016x}"
+    gate["execution_terminal_event"] = terminal_name
     gate["execution_terminal_event_host_monotonic_ns"] = terminal_ns
     return gate
 
@@ -624,7 +724,6 @@ def execute_trial(*, item: dict, preflight: dict, serial_port, udp, output: Path
     expected_boot_number = int(preflight["boot_id"], 16)
     preflight_coverage = None
     post_coverage = None
-    preflight_counts = None
     try:
         while True:
             now = time.monotonic_ns()
@@ -660,13 +759,10 @@ def execute_trial(*, item: dict, preflight: dict, serial_port, udp, output: Path
                         dispatch = {"dispatch_status": "not_sent_boot_mismatch"}
                         finish_deadline = time.monotonic_ns() + 100_000_000
                     else:
-                        preflight_counts = {
-                            "valid_controls": int(observer.success_by_boot.get(expected_boot_number, 0)),
-                            "valid_telemetry": len(observer.telemetry_times),
-                        }
-                        preflight_coverage = _observation_coverage(
-                            preflight_counts["valid_controls"],
-                            preflight_counts["valid_telemetry"])
+                        preflight_coverage = _preflight_observation_coverage(
+                            observer.success_times_by_boot,
+                            observer.telemetry_times_by_boot,
+                            expected_boot_number)
                         if preflight_coverage["passed"]:
                             dispatch = _dispatch(serial_port, requests_log, item)
                             status = "fault_request_sent" if dispatch["dispatch_status"] == "sent" else "dispatch_error"
@@ -681,12 +777,10 @@ def execute_trial(*, item: dict, preflight: dict, serial_port, udp, output: Path
                     observer.event("fault_request_not_sent", now, reason="no_boot_observed_before_deadline")
                     dispatch = {"dispatch_status": "not_sent_no_boot"}
                 else:
-                    preflight_counts = {
-                        "valid_controls": int(observer.success_by_boot.get(expected_boot_number, 0)),
-                        "valid_telemetry": len(observer.telemetry_times),
-                    }
-                    preflight_coverage = _observation_coverage(
-                        preflight_counts["valid_controls"], preflight_counts["valid_telemetry"])
+                    preflight_coverage = _preflight_observation_coverage(
+                        observer.success_times_by_boot,
+                        observer.telemetry_times_by_boot,
+                        expected_boot_number)
                     status = "insufficient_preflight_observation_coverage"
                     observer.event("fault_request_not_sent", now,
                                    reason="minimum_preflight_observation_coverage_not_met",
@@ -743,17 +837,15 @@ def execute_trial(*, item: dict, preflight: dict, serial_port, udp, output: Path
     serial_events = _read_serial_events(output / "serial.jsonl")
     udp_rows = _read_jsonl(output / "observations.jsonl")
     request_rows = _read_jsonl(output / "requests.jsonl")
-    if preflight_counts is None:
-        preflight_counts = {
-            "valid_controls": int(observer.success_by_boot.get(expected_boot_number, 0)),
-            "valid_telemetry": len(observer.telemetry_times),
-        }
     if preflight_coverage is None:
-        preflight_coverage = _observation_coverage(
-            preflight_counts["valid_controls"], preflight_counts["valid_telemetry"])
+        preflight_coverage = _preflight_observation_coverage(
+            observer.success_times_by_boot,
+            observer.telemetry_times_by_boot,
+            expected_boot_number)
     if post_deadline is not None:
         post_coverage = _post_execution_coverage(
-            serial_events, item, observer.success_times, observer.telemetry_times)
+            serial_events, item, observer.success_times_by_boot,
+            observer.telemetry_times_by_boot, expected_boot_number)
         if (not post_coverage["passed"] and status == "fault_request_sent"):
             status = "insufficient_post_execution_observation_coverage"
     coverage_gate = {

@@ -209,15 +209,19 @@ de abrir serial ou UDP, valida campanha, perfil, boot ID, ledger e floors. A
 primeira telemetria UDP também precisa apresentar o mesmo `boot_id` do
 preflight; em divergência ou ausência de boot, não envia `fault_request`.
 Antes de enviar, também exige pelo menos 30 controles e 30 telemetrias válidos
-no boot do preflight. Depois do evento serial que encerra a execução da falha,
-exige outros 30 de cada tipo dentro da janela pós-falha; se a amostra não for suficiente, a correlação fica marcada
+somente no boot do preflight. Depois do evento serial que encerra a execução da
+falha, exige outros 30 de cada tipo dentro da janela pós-falha, restritos ao
+mesmo boot em ENV/Wasm e ao novo boot de recuperação em `NAT-ABORT`; amostras de
+boots diferentes nunca se somam. Se a amostra não for suficiente, a correlação fica marcada
 como `insufficient_observation_coverage` e não produz classificação. Janelas
 menores que 30 períodos de controle são recusadas antes de abrir portas.
 Serial, datagramas, registros de envio e saídas são mantidos em arquivos
 privados (`0700` no diretório e `0600` nos arquivos), com serial bruta em
 Base64 e timestamp host `monotonic_ns`. Os bytes recebidos nunca vão para
 stdout. O runner fecha as portas ao terminar; não inicia nem para o serviço
-HTTPS.
+HTTPS. `termios` e as linhas DTR/RTS são restauradas no fechamento e em falha
+de inicialização; quando o host não consegue ler o estado original das linhas
+modem, o runner não as altera.
 
 O preflight é pequeno e não aceita campos de Wi-Fi, MAC ou credenciais. Este
 exemplo mostra o schema e valores ilustrativos; deve ser preenchido com leituras

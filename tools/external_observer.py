@@ -49,7 +49,9 @@ class Observer:
         self.tx_sequence = Counter()
         self.success_times = []
         self.success_by_boot = Counter()
+        self.success_times_by_boot = defaultdict(list)
         self.telemetry_times = []
+        self.telemetry_times_by_boot = defaultdict(list)
         self.last_sample = {}
         self.trigger = None
         self.accepted_ns = None
@@ -158,6 +160,7 @@ class Observer:
                            age_ms=packet.body["age_ms"])
             else:
                 self.telemetry_times.append(now)
+                self.telemetry_times_by_boot[packet.boot_id].append(now)
                 self.event("telemetry_valid", now, boot_id=packet.boot_id,
                            sequence=packet.sequence, sample_id=sample,
                            age_ms=packet.body["age_ms"])
@@ -221,6 +224,7 @@ class Observer:
             request["success"] = True
             self.success_times.append(now)
             self.success_by_boot[packet.boot_id] += 1
+            self.success_times_by_boot[packet.boot_id].append(now)
             self.event("control_valid", now, sample_id=packet.body["sample_id"], latency_ns=latency,
                        boot_id=packet.boot_id, module_version=version,
                        input_temperature_mC=request["packet"].body["input_temperature_mC"],

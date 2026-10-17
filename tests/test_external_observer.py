@@ -107,6 +107,8 @@ class ObserverTests(unittest.TestCase):
         self.assertEqual(result["control_unavailability_estimate_ns"], 400)
         self.assertEqual(result["lost_controls"], 0)
         self.assertEqual(self.observer.boot_id, 2)
+        self.assertEqual(self.observer.success_times_by_boot, {1: [110], 2: [610]})
+        self.assertEqual(self.observer.telemetry_times_by_boot, {1: [1], 2: [500]})
 
     def test_correlated_acceptance_allows_v2_and_detects_regression(self):
         self.observer.send_trigger(self.socket, 100, 2, 1)

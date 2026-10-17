@@ -1,11 +1,13 @@
 import contextlib
 from collections import Counter
+import fcntl
 import io
 import json
 import os
 import pty
 import select
 import socket
+import struct
 import tempfile
 import unittest
 from pathlib import Path
@@ -17,7 +19,8 @@ from tools.resilience_hil_runner import (
     CAMPAIGN_ID, PREFLIGHT_SCHEMA, HILInputError, _capture_serial,
     EXPECTED_FIRMWARE_SHA256, ExclusiveSerialPort, _dispatch,
     correlate_http_rows, correlate_http_snapshots,
-    _gate_report_classifications, _observation_coverage, _post_execution_coverage,
+    _gate_report_classifications, _observation_coverage,
+    _post_execution_coverage, _preflight_observation_coverage,
     execute_trial, load_plan, main,
     validate_preflight,
 )
@@ -103,7 +106,9 @@ class SparseObserver:
         self.retired_boots = set()
         self.success_by_boot = Counter({self.boot_id: self.initial_controls})
         self.success_times = [1] * self.initial_controls
+        self.success_times_by_boot = {self.boot_id: [1] * self.initial_controls}
         self.telemetry_times = [1] * self.initial_telemetry
+        self.telemetry_times_by_boot = {self.boot_id: [1] * self.initial_telemetry}
         self.requests = {
             index: {"sent_ns": 1, "success": True}
             for index in range(self.initial_controls)
@@ -135,6 +140,24 @@ class SparseObserver:
 
 
 class ResilienceHILRunnerTests(unittest.TestCase):
+    def _fake_modem_ioctl(self, initial_lines):
+        state = {"lines": initial_lines}
+        real_ioctl = fcntl.ioctl
+
+        def ioctl(fd, request, argument=0, mutate=False):
+            if request == termios.TIOCMGET:
+                argument[0] = state["lines"]
+                return 0
+            if request == termios.TIOCMBIC:
+                state["lines"] &= ~struct.unpack("I", argument)[0]
+                return 0
+            if request == termios.TIOCMBIS:
+                state["lines"] |= struct.unpack("I", argument)[0]
+                return 0
+            return real_ioctl(fd, request, argument, mutate)
+
+        return state, ioctl
+
     def test_plan_loader_requires_full_matrix(self):
         with tempfile.TemporaryDirectory() as temp_name:
             path = Path(temp_name) / "plan.jsonl"
@@ -213,17 +236,63 @@ class ResilienceHILRunnerTests(unittest.TestCase):
 
     def test_post_coverage_starts_at_matching_execution_terminal_and_gates_classification(self):
         item = row_for("ENV-SIG", "native")
+        expected_boot = int("0123456789abcdef", 16)
+        other_boot = int("fedcba9876543210", 16)
         events = [
             {"event": "fault_accepted", "attempt_id": item["attempt_id"],
-             "case_id": item["case_id"], "host_monotonic_ns": 100},
+             "case_id": item["case_id"], "boot_id": "0123456789abcdef",
+             "host_monotonic_ns": 100},
             {"event": "update_rejected", "attempt_id": item["attempt_id"],
-             "case_id": item["case_id"], "host_monotonic_ns": 200},
+             "case_id": item["case_id"], "boot_id": "0123456789abcdef",
+             "host_monotonic_ns": 200},
         ]
-        controls = [150] * 31 + list(range(200, 230))
-        telemetry = [150] * 31 + list(range(200, 230))
-        result = _post_execution_coverage(events, item, controls, telemetry)
+        pre_gate = _preflight_observation_coverage(
+            {expected_boot: [1], other_boot: list(range(40))},
+            {expected_boot: [1], other_boot: list(range(40))}, expected_boot)
+        self.assertFalse(pre_gate["passed"])
+        controls = {expected_boot: [150] * 31 + list(range(201, 231)),
+                    other_boot: list(range(200, 240))}
+        telemetry = {expected_boot: [150] * 31 + list(range(201, 231)),
+                     other_boot: list(range(200, 240))}
+        result = _post_execution_coverage(events, item, controls, telemetry, expected_boot)
         self.assertEqual(result["valid_control_count"], 30)
         self.assertEqual(result["valid_telemetry_count"], 30)
+        self.assertEqual(result["recovery_boot_id"], "0123456789abcdef")
+        self.assertTrue(result["passed"])
+
+        controls[expected_boot] = [150] + list(range(201, 202))
+        telemetry[expected_boot] = [150] + list(range(201, 202))
+        result = _post_execution_coverage(events, item, controls, telemetry, expected_boot)
+        self.assertFalse(result["passed"])
+        self.assertEqual(result["valid_control_count"], 1)
+
+    def test_nat_post_coverage_uses_only_the_recovery_boot(self):
+        item = row_for("NAT-ABORT", "native")
+        old_boot = int("0123456789abcdef", 16)
+        recovery_boot = int("fedcba9876543210", 16)
+        events = [
+            {"event": "fault_accepted", "attempt_id": item["attempt_id"],
+             "case_id": item["case_id"], "boot_id": "0123456789abcdef",
+             "host_monotonic_ns": 100},
+            {"event": "abort_marker", "attempt_id": item["attempt_id"],
+             "case_id": item["case_id"], "boot_id": "0123456789abcdef",
+             "host_monotonic_ns": 200},
+            {"event": "boot_observed", "attempt_id": item["attempt_id"],
+             "case_id": item["case_id"], "boot_id": "fedcba9876543210",
+             "host_monotonic_ns": 250},
+            {"event": "control_recovery_completed", "attempt_id": item["attempt_id"],
+             "case_id": item["case_id"], "boot_id": "fedcba9876543210",
+             "host_monotonic_ns": 300},
+        ]
+        controls = {old_boot: list(range(201, 240)), recovery_boot: [300]}
+        telemetry = {old_boot: list(range(201, 240)), recovery_boot: [300]}
+        result = _post_execution_coverage(events, item, controls, telemetry, old_boot)
+        self.assertFalse(result["passed"])
+        self.assertEqual(result["recovery_boot_id"], "fedcba9876543210")
+
+        controls[recovery_boot] = list(range(300, 330))
+        telemetry[recovery_boot] = list(range(300, 330))
+        result = _post_execution_coverage(events, item, controls, telemetry, old_boot)
         self.assertTrue(result["passed"])
 
         report = {"attempts": [{"classification": {"status": "candidate_passed"}}]}
@@ -328,6 +397,51 @@ class ResilienceHILRunnerTests(unittest.TestCase):
         finally:
             if port is not None:
                 port.close()
+            os.close(master_fd)
+            os.close(slave_fd)
+
+    def test_posix_serial_adapter_restores_original_dtr_rts_on_close(self):
+        master_fd, slave_fd = pty.openpty()
+        port = None
+        original_lines = termios.TIOCM_DTR
+        state, ioctl = self._fake_modem_ioctl(original_lines)
+        try:
+            with mock.patch.object(fcntl, "ioctl", side_effect=ioctl):
+                port = ExclusiveSerialPort(os.ttyname(slave_fd), 115200)
+                self.assertEqual(state["lines"] & (termios.TIOCM_DTR | termios.TIOCM_RTS), 0)
+                # Verify restoration reconciles both bits, including a line that
+                # was initially clear.
+                state["lines"] |= termios.TIOCM_RTS
+                port.close()
+            self.assertEqual(state["lines"] & (termios.TIOCM_DTR | termios.TIOCM_RTS),
+                             original_lines)
+        finally:
+            if port is not None:
+                port.close()
+            os.close(master_fd)
+            os.close(slave_fd)
+
+    def test_posix_serial_initialization_failure_restores_dtr_rts(self):
+        master_fd, slave_fd = pty.openpty()
+        original_lines = termios.TIOCM_DTR | termios.TIOCM_RTS
+        state, ioctl = self._fake_modem_ioctl(original_lines)
+        real_tcsetattr = termios.tcsetattr
+        first_set = {"pending": True}
+
+        def fail_initial_set_once(fd, when, attributes):
+            if first_set["pending"] and when == termios.TCSANOW:
+                first_set["pending"] = False
+                raise OSError("synthetic serial initialization failure")
+            return real_tcsetattr(fd, when, attributes)
+
+        try:
+            with mock.patch.object(fcntl, "ioctl", side_effect=ioctl), \
+                    mock.patch.object(termios, "tcsetattr", side_effect=fail_initial_set_once):
+                with self.assertRaisesRegex(OSError, "synthetic serial initialization failure"):
+                    ExclusiveSerialPort(os.ttyname(slave_fd), 115200)
+            self.assertEqual(state["lines"] & (termios.TIOCM_DTR | termios.TIOCM_RTS),
+                             original_lines)
+        finally:
             os.close(master_fd)
             os.close(slave_fd)
 
