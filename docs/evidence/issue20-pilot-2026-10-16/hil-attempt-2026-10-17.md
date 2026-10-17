@@ -16,7 +16,7 @@
 - O ESP iniciou o perfil nativo, associou-se à rede e respondeu a ping; esses
   fatos não substituem telemetria ou respostas de controle da aplicação.
 - Um dos 18 slots planejados iniciou a qualificação pré-disparo. O observador
-  não identificou `boot_id`, registrou 601 amostras `awaiting_boot` e enviou
+  não identificou `boot_id`, registrou 601 eventos `awaiting_boot` e enviou
   zero pedidos de controle. A entrada de despacho ficou com
   `dispatch_status=not_sent` e `attempt_id=null`; o observador mantém um ID de
   execução separado. Não houve `UPDATE_TRIGGER`, transferência HTTPS,
@@ -25,7 +25,10 @@
 - Classificação: `pre_window_failed`, com razões registradas
   `boot_not_stable_for_full_window`, `boot_changed_during_window`,
   `too_few_correct_controls` e `too_few_valid_telemetry_messages`. Nenhuma
-  causa de rede ou firmware foi inferida a partir dessas razões.
+  causa de rede ou firmware foi inferida a partir dessas razões. Como zero
+  boots foram observados, `boot_changed_during_window` significa apenas que
+  não houve exatamente um boot na janela; não indica que uma transição de boot
+  tenha sido vista.
 - Foram escritos somente a tabela de partições e o firmware de aplicação do
   slot. Esptool verificou os hashes desses dois intervalos.
 - Após a tentativa, a baseline integral aceita foi restaurada a partir da

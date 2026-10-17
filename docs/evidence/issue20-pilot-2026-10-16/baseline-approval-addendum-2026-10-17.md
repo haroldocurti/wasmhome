@@ -74,7 +74,7 @@ Até este ponto não houve gravação nem disparo de atualização.
 
 Depois deste preflight somente de leitura, um dos 18 slots planejados iniciou a
 qualificação de `B0001-native` na campanha
-`164c919d-d1d9-401b-9451-84c39ed930b9`. O observador registrou 601 amostras
+`164c919d-d1d9-401b-9451-84c39ed930b9`. O observador registrou 601 eventos
 `awaiting_boot`, enviou zero pedidos de controle e não recebeu `boot_id`. A
 entrada de despacho registrou `dispatch_status=not_sent` e `attempt_id=null`;
 isso não remove o ID de execução próprio do observador. Nenhum
