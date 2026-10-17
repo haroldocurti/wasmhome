@@ -417,3 +417,9 @@ before reset, then restores/verifies the entire accepted 16 MiB image in the
 existing finally/recovery path. `ESP_OTA_IMG_NEW` remains rejected by the
 signed-update reconciler. Earlier V1 app images and manifests must be rebuilt;
 see `issue22-hil-orchestrator.md` for the private generation sequence.
+
+The compile-time and V2 profile gates also require normal signed provisioning
+and fixture HTTPS endpoints to be identical on port 18445, with the same IP,
+TLS name and embedded CA. Both endpoints are embedded in the app marker and
+recorded in the manifest, so a stale normal-update port 8445 is rejected even
+when the fixture endpoint is already correct.

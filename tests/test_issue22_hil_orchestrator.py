@@ -63,7 +63,8 @@ class Issue22OrchestratorTests(unittest.TestCase):
         ca.write_bytes(ca_bytes)
         ca_hash = hashlib.sha256(ca_bytes).hexdigest()
 
-        def write_manifest(native_port=18445, native_rollback=True, module_rollback=True):
+        def write_manifest(native_port=18445, native_rollback=True, module_rollback=True,
+                           native_update_port=18445):
             profiles = {}
             for name in ("native", "interp", "aot"):
                 port = native_port if name == "native" else 18445
@@ -75,9 +76,12 @@ class Issue22OrchestratorTests(unittest.TestCase):
                                   'CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y\n'
                                   'CONFIG_PARTITION_TABLE_OFFSET=0x8000\n')
                 config_hash = hashlib.sha256(config.read_bytes()).hexdigest()
+                update_port = native_update_port if name == "native" else 18445
                 marker = ("WASMHOME_ISSUE22_BUILD_V2\n"
                     f"profile={name}\nfunctional_timeout_ms=450\nserver_ipv4=192.0.2.8\n"
                     f"server_port={port}\nserver_name=wasmhome-issue22.test\nca_sha256={ca_hash}\n"
+                    f"update_server_ipv4=192.0.2.8\nupdate_server_port={update_port}\n"
+                    "update_server_name=wasmhome-issue22.test\n"
                     f"sdkconfig_sha256={config_hash}\napp_rollback_enabled={1 if rollback else 0}\n"
                     "END_WASMHOME_ISSUE22_BUILD_V2")
                 header = bytearray(24)
@@ -108,6 +112,8 @@ class Issue22OrchestratorTests(unittest.TestCase):
                 "functional_timeout_ms": 450,
                 "endpoint": {"ipv4": "192.0.2.8", "port": 18445,
                     "server_name": "wasmhome-issue22.test", "ca_sha256": ca_hash},
+                "update_endpoint": {"ipv4": "192.0.2.8", "port": 18445,
+                    "server_name": "wasmhome-issue22.test", "ca_sha256": ca_hash},
                 "profiles": profiles,
                 "source_commit": "a" * 40,
             }))
@@ -126,6 +132,19 @@ class Issue22OrchestratorTests(unittest.TestCase):
         stale = write_manifest(native_port=8445)
         with self.assertRaisesRegex(orchestrator.OrchestratorError, "BIN-embedded"):
             orchestrator.validate_profile_manifest(stale, 450, "192.0.2.8",
+                18445, "wasmhome-issue22.test", ca)
+
+        stale_normal_update = write_manifest(native_update_port=8445)
+        with self.assertRaisesRegex(orchestrator.OrchestratorError, "BIN-embedded"):
+            orchestrator.validate_profile_manifest(stale_normal_update, 450, "192.0.2.8",
+                18445, "wasmhome-issue22.test", ca)
+
+        manifest = write_manifest()
+        data = json.loads(manifest.read_text())
+        data["update_endpoint"]["port"] = 8445
+        manifest.write_text(json.dumps(data))
+        with self.assertRaisesRegex(orchestrator.OrchestratorError, "manifest endpoints must match"):
+            orchestrator.validate_profile_manifest(manifest, 450, "192.0.2.8",
                 18445, "wasmhome-issue22.test", ca)
 
         rollback_disabled = write_manifest(native_rollback=False)

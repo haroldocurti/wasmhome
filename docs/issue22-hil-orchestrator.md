@@ -32,8 +32,12 @@ inputs validate:
    All configs must target ESP32-S3, 16 MiB flash and table offset 0x8000. Bootloader images
    must be valid S3 images smaller than 0x8000. Editing only the JSON cannot
    make a stale app pass. Schema v1 manifests and V1 BIN markers are rejected.
-4. A firmware endpoint matching the orchestrator's CT IPv4 address, HTTPS
-   port `18445`, TLS name and CA hash. Current packages built for `:8445` fail
+4. Both firmware endpoints (normal signed sequence-2 provisioning and
+   resilience fixtures) must match the orchestrator's CT IPv4 address, HTTPS
+   port `18445`, TLS name and shared CA hash. CMake rejects different
+   `WASMHOME_UPDATE_SERVER_*` and `WASMHOME_RESILIENCE_FIXTURE_SERVER_*`
+   settings. The V2 app marker records both; the profile manifest must contain
+   identical `endpoint` and `update_endpoint` records. Current packages built for `:8445` fail
    this gate. Rebuild and re-sign the campaign for `:18445`; the orchestrator
    will not terminate or replace a listener on `:8445`.
 5. A valid TLS certificate chain, a private TLS key, and the signed artifact
@@ -183,13 +187,19 @@ bootloader, app slots, partition table and NVS after the row. The restore
 leaves the board in the ROM loader so baseline runtime cannot mutate NVS
 between rows.
 
-After merging the final #20 source, rebuild the native, module-interp and
-module-aot bootstrap profiles in distinct ESP32-S3 build directories. Each
+After merging the final #20 source, rebuild four ESP32-S3 apps in distinct
+build directories: native bootstrap v1, native OTA candidate v2, module-interp
+bootstrap and module-aot bootstrap. The three bootstrap apps need the new V2
+marker and final timeout/endpoint/source. Native v2 must retain the same
+rollback, test hooks, timeout, trust and network settings as native v1, changing
+`APP_PROJECT_VER` and `WASMHOME_UPDATE_RELEASE_VERSION` from v1 to v2. Keep
+native `WASMHOME_CONTROL_VERSION=1` for the resilience protocol in both builds. Each
 build must use its own sdkconfig with the corresponding rollback mode (native
 requires `CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y`), 16 MiB flash, the repository
 partition table, the frozen timeout, the selected
 resilience test mode, and the verified CT endpoint/CA on port 18445. CMake now
-rejects rollback-disabled native #22 configs and embeds the exact sdkconfig SHA-256
+rejects rollback-disabled native #22 configs and mismatched normal/fixture
+endpoints, then embeds both endpoints and the exact sdkconfig SHA-256
 in each V2 app marker. Retain the completed build's `bootloader/bootloader.bin`
 and `bootloader/config/sdkconfig.h` together with the app and sdkconfig.
 Generate a new private manifest directly from those build directories:
@@ -204,17 +214,41 @@ python3 tools/issue22_profile_manifest.py \
   --output /private/campaign/issue22-profiles-v2.json
 ```
 
-The generator hashes the four artifacts per build, checks the app marker
-against the sdkconfig, and validates both rollback configs and the complete
+The generator hashes the four artifacts per bootstrap build, checks the app
+marker against the sdkconfig and the two endpoints, and validates both rollback
+configs and the complete
 manifest before writing it. It opens no serial port or network listener. The
 hash manifest records build provenance; it must be generated from trusted,
 completed local builds rather than assembled from unrelated bootloader files.
 The HIL coordinator snapshots all four artifacts and binds the manifest hash
-to its journal. Rebuild and re-sign the sequence-2 native package with the
-same final source/config, update registered app hashes in the resilience
-runner, and regenerate affected negative fixtures. Do not reuse earlier
-V1-profile packages, claims or journal directories for this configuration.
-Run static `check` with the V2 manifest before starting a fresh campaign.
+to its journal. Create a new signed six-artifact package containing the new
+native v1/v2 and the verified module v1/v2 payloads. Update the native release
+hash and size in `resilience_hil_runner.EXPECTED_RELEASE_ARTIFACTS` to the exact
+new v2 image; preserve module hashes only when their bytes still match.
+
+Changing the server port does not alter signed module envelopes or negative
+fixtures: their manifests contain campaign, version, sequence, payload digest
+and AOT identity, without an endpoint. The existing immutable module payloads
+and nine negative fixtures may be reused if campaign ID, trusted/untrusted
+keys, AOT identity and sequence plan remain identical and verification passes.
+The negative fixtures need not contain the currently active native v2 image;
+they must fail at the documented signature/hash/sequence stage without
+activation. Re-sign or regenerate affected envelopes/catalogs if any of those
+identities change. The existing sequence plan is old=1 and next=3 for all
+scenarios, after ordinary signed OTA establishes floor=2.
+
+Service-module and Wasm trap artifact provenance also binds the clean source
+revision. Refresh these generators' receipts after the final source commit
+before building, even if deterministic payload bytes remain unchanged. Keep
+the signed campaign ID fixed unless there is a reason to change its ledger
+namespace; a fresh HIL output directory and plan do not require a different
+signed artifact campaign ID. A campaign-ID change must also update the firmware
+configs, runner and NVS preflight constants, then re-sign all provisioning and
+fixture envelopes consistently.
+
+Run static `check` with the V2 manifest, signed set, nine-fixture catalog, frozen
+timeout proof and exact accepted baseline before starting a fresh campaign.
+Do not reuse earlier profile BIN markers, claims or journal directories.
 
 ## User-level CT HTTPS process
 

@@ -273,11 +273,13 @@ def _embedded_issue22_build_marker(data: bytes) -> dict:
         marker[key] = value
     require(set(marker) == {"profile", "functional_timeout_ms", "server_ipv4",
                             "server_port", "server_name", "ca_sha256",
-                            "sdkconfig_sha256", "app_rollback_enabled"},
+                            "sdkconfig_sha256", "app_rollback_enabled", "update_server_ipv4",
+                            "update_server_port", "update_server_name"},
             "embedded #22 provenance fields differ")
     try:
         marker["functional_timeout_ms"] = int(marker["functional_timeout_ms"], 10)
         marker["server_port"] = int(marker["server_port"], 10)
+        marker["update_server_port"] = int(marker["update_server_port"], 10)
     except ValueError as error:
         raise OrchestratorError("embedded #22 timeout/port is invalid") from error
     require(marker["app_rollback_enabled"] in {"0", "1"}
@@ -303,6 +305,8 @@ def validate_profile_manifest(path: Path, timeout_ms: int, server_ip: str,
             and endpoint["server_name"] == server_name
             and endpoint["ca_sha256"] == sha256_file(ca_path),
             "profile build HTTPS endpoint/CA differs from the user-level fixture server")
+    require(value.get("update_endpoint") == endpoint,
+            "normal signed provisioning and resilience fixture manifest endpoints must match")
     profiles = value.get("profiles")
     require(isinstance(profiles, dict) and set(profiles) == {"native", "interp", "aot"},
             "profile manifest must contain native/interp/aot bootstrap apps")
@@ -359,6 +363,8 @@ def validate_profile_manifest(path: Path, timeout_ms: int, server_ip: str,
         require(marker == {"profile": name, "functional_timeout_ms": timeout_ms,
                            "server_ipv4": server_ip, "server_port": server_port,
                            "server_name": server_name,
+                           "update_server_ipv4": server_ip, "update_server_port": server_port,
+                           "update_server_name": server_name,
                            "ca_sha256": sha256_file(ca_path),
                            "sdkconfig_sha256": config_digest,
                            "app_rollback_enabled": "1" if rollback_enabled else "0"},
@@ -376,7 +382,8 @@ def validate_profile_manifest(path: Path, timeout_ms: int, server_ip: str,
             and re.fullmatch(r"[0-9a-f]{40,64}", value["source_commit"]),
             "profile build manifest must identify its source commit")
     return {"schema": PROFILE_SCHEMA, "source_commit": value["source_commit"],
-            "functional_timeout_ms": timeout_ms, "endpoint": endpoint, "profiles": snapshots}
+            "functional_timeout_ms": timeout_ms, "endpoint": endpoint,
+            "update_endpoint": endpoint, "profiles": snapshots}
 
 
 def validate_tls_files(ca_path: Path, certificate: Path, private_key: Path,

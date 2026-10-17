@@ -31,6 +31,10 @@ def build_manifest(builds: dict[str, Path], source_commit: str) -> dict:
         hil.require(marker["profile"] == name, f"{name} build contains another profile")
         endpoint = {"ipv4": marker["server_ipv4"], "port": marker["server_port"],
                     "server_name": marker["server_name"], "ca_sha256": marker["ca_sha256"]}
+        update_endpoint = {"ipv4": marker["update_server_ipv4"], "port": marker["update_server_port"],
+                           "server_name": marker["update_server_name"], "ca_sha256": marker["ca_sha256"]}
+        hil.require(update_endpoint == endpoint,
+                    f"{name} signed provisioning and fixture endpoints differ")
         settings = (marker["functional_timeout_ms"], endpoint)
         hil.require(common is None or common == settings,
                     "profile build endpoints or functional timeouts differ")
@@ -40,7 +44,7 @@ def build_manifest(builds: dict[str, Path], source_commit: str) -> dict:
     hil.require(set(profiles) == {"native", "interp", "aot"}, "all three completed builds are required")
     return {"schema": hil.PROFILE_SCHEMA, "resilience_test_mode": True,
             "source_commit": source_commit, "functional_timeout_ms": common[0],
-            "endpoint": common[1], "profiles": profiles}
+            "endpoint": common[1], "update_endpoint": common[1], "profiles": profiles}
 
 
 def main() -> None:
