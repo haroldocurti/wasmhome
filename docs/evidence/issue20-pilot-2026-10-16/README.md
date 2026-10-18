@@ -1,6 +1,15 @@
 # Issue #20 — preparo e estado do piloto físico
 
-## Resultado atualizado da campanha r5 (17/10/2026)
+## Resultado final atualizado da campanha r8 (18/10/2026)
+
+A campanha r8 concluiu 18/18 slots, com seis atualizações aceitas, completas e
+com instrumentação válida em cada cenário (native, interp e AOT). O primeiro
+v2 correto chegou em até 16,870 s em todos os cenários; os aceites ficaram
+abaixo do timeout congelado de 300 ms. A baseline de 16 MiB foi restaurada e
+verificada após cada slot. Consulte o [relatório final](../issue20-pilot-2026-10-18/r8-hil-results.md)
+e a [agenda r8](../issue20-pilot-2026-10-18/r8-pilot-schedule.json).
+
+## Histórico: campanha diagnóstica r5 (17/10/2026)
 
 A campanha concluiu 18/18 slots, com seis tentativas por cenário. O cenário
 native teve 0/6 ativações V2; interp e AOT tiveram 6/6 cada, com medianas de
@@ -130,7 +139,7 @@ janela viva qualificada não foram confirmados na tentativa inicial.
   pré-disparo. `git diff --check` também passou. Essas verificações são locais e
   não representam teste físico.
 
-## Estado atual
+## Estado da campanha r5 (histórico)
 
 A campanha r5 foi diagnóstica e usou perfis legados; seus resultados não
 qualificam o perfil nativo completo nem contam para os aceites da issue. A
@@ -138,3 +147,11 @@ próxima rodada de aceitação deve usar o perfil schema 2, com bootloader,
 configuração gerada e app do mesmo build, artefatos assinados e restauração
 verificada após cada slot. Não atribuir à #20 os dados singulares de #16–#18
 nem as chamadas de microbenchmark da #19.
+
+## Estado atual
+
+A campanha r8 acima usou perfis compatíveis e foi adjudicada como concluída:
+6/6 atualizações completas por cenário, 18/18 slots válidos e restaurações
+integrais verificadas. O protocolo `issue20-v1.0` permanece congelado; consulte
+o [relatório final](../issue20-pilot-2026-10-18/r8-hil-results.md). A etapa
+seguinte é a campanha definitiva N=30, separada deste piloto.

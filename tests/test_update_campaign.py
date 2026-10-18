@@ -185,8 +185,8 @@ class UpdateCampaignTests(unittest.TestCase):
                 ("dtr", False), ("rts", False), ("open", "fake-device")])
             self.assertTrue(instances[0].closed)
             capture = output.read_text()
-            self.assertIn('"kind": "serial_open"', capture)
-            self.assertIn('"kind": "serial_closed"', capture)
+            rows = [json.loads(line) for line in capture.splitlines()]
+            self.assertEqual([row["kind"] for row in rows], ["serial_open", "serial_closed"])
 
     def test_serial_health_requires_real_fresh_uart_bytes(self):
         worker = Mock()

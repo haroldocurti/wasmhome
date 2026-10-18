@@ -72,6 +72,11 @@ def _json_bytes(value: object) -> bytes:
                        allow_nan=False) + "\n").encode("utf-8")
 
 
+def _jsonl_bytes(value: object) -> bytes:
+    return (json.dumps(value, sort_keys=True, ensure_ascii=False,
+                       allow_nan=False, separators=(",", ":")) + "\n").encode("utf-8")
+
+
 def _write_json(path: Path, value: object, *, exclusive: bool = False) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     mode = "xb" if exclusive else "wb"
@@ -480,9 +485,9 @@ def _start_serial_capture(port: str, baud: int, output: Path):
             serial_device.open()
             with output.open("xb") as stream:
                 opened_ns = time.monotonic_ns()
-                stream.write(_json_bytes({"kind": "serial_open", "host_monotonic_ns": opened_ns,
-                                          "clock_domain": _host_clock_domain("serial_laptop"),
-                                          "port_alias": Path(port).name, "baud": baud}))
+                stream.write(_jsonl_bytes({"kind": "serial_open", "host_monotonic_ns": opened_ns,
+                                           "clock_domain": _host_clock_domain("serial_laptop"),
+                                           "port_alias": Path(port).name, "baud": baud}))
                 stream.flush()
                 state["opened_ns"] = opened_ns
                 state["serial_bytes"] = 0
@@ -494,11 +499,11 @@ def _start_serial_capture(port: str, baud: int, output: Path):
                         data_ns = time.monotonic_ns()
                         row = {"kind": "serial_bytes", "host_monotonic_ns": data_ns,
                                "byte_count": len(data), "raw_base64": base64.b64encode(data).decode("ascii")}
-                        stream.write(_json_bytes(row))
+                        stream.write(_jsonl_bytes(row))
                         stream.flush()
                         state["serial_bytes"] += len(data)
                         state["last_data_ns"] = data_ns
-                stream.write(_json_bytes({"kind": "serial_closed", "host_monotonic_ns": time.monotonic_ns()}))
+                stream.write(_jsonl_bytes({"kind": "serial_closed", "host_monotonic_ns": time.monotonic_ns()}))
                 stream.flush()
         except Exception as exc:  # propagate background failures before dispatch
             state["error"] = exc

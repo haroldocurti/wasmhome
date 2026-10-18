@@ -1,12 +1,11 @@
 # Protocolo pré-registrado da campanha — issue #20
 
 **Revisão:** `issue20-v1.0`, 16/10/2026
-**Estado:** parâmetros congelados antes do piloto; execução física pendente. A
-substituição da imagem-base aprovada, sem alterar os demais parâmetros, está
-registrada no [adendo de 17/10/2026](evidence/issue20-pilot-2026-10-16/baseline-approval-addendum-2026-10-17.md).
+**Estado:** parâmetros congelados antes do piloto; execução r8 concluída em
+18/10/2026. Os resultados sanitizados estão no [relatório final do piloto](evidence/issue20-pilot-2026-10-18/r8-hil-results.md). A substituição da imagem-base aprovada, sem alterar os demais parâmetros, está registrada no [adendo de 17/10/2026](evidence/issue20-pilot-2026-10-16/baseline-approval-addendum-2026-10-17.md).
 **Base:** revisão do contrato existente, evidência física das issues #16–#18 e calibração da #19. O piloto avaliará se a bancada e a coleta cumprem este protocolo; não será usado para escolher um limite diferente depois de observar resultados.
 
-Este documento fixa as regras da campanha normal e do piloto. Ele não registra uma execução física. A situação da bancada e o inventário de evidências estão em [registro do piloto #20](evidence/issue20-pilot-2026-10-16/README.md).
+Este documento fixa as regras da campanha normal e do piloto. O resultado de hardware fica no [relatório final sanitizado](evidence/issue20-pilot-2026-10-18/r8-hil-results.md); o histórico de preparação está no [registro do piloto #20](evidence/issue20-pilot-2026-10-16/README.md).
 
 ## Origem da imagem-base
 
@@ -197,17 +196,11 @@ de flash.
 
 ## Status de execução
 
-Esta revisão congela o protocolo antes do piloto para impedir escolha de limites
-após conhecer resultados. Em 16/10/2026, o preflight identificou uma ESP32-S3
-QFN56 rev. 0.2 com flash de 16 MiB e obteve leitura integral, mas o hash vivo
-(`d29c…`) divergiu da imagem-base aprovada (`b66…`) em 7.920 bytes da NVS.
-A triagem semântica offline isolou uma mudança em um registro de calibração PHY,
-sem mudança lógica nos itens Wi-Fi ou no ledger NVS antirretorno da aplicação;
-os metadados também mostram rotação de página. Isso não estabelece a causa da
-mudança nem observa o estado eFuse relevante. Nenhuma gravação ou tentativa de
-piloto ocorreu; a baseline não pode ser reconciliada com segurança ainda e a
-porta de gravação permanece fechada. O `boot_id`, firmware ativo, sensor,
-GPIO5→GPIO6 e janela viva de observação continuam pendentes. A agenda registrada
-é planejamento, não observação. A conclusão da issue #20 depende de resolver
-essa divergência, executar pelo menos cinco atualizações completas aceitas por
-cenário, revisar os dados reais e preservar seus recibos.
+O preflight e a divergência de baseline de 16/10 são histórico, substituídos
+pela aprovação explícita da nova baseline integral em 17/10 e por sua leitura
+de volta antes/depois dos slots. A campanha r8 completou 18/18 slots, com seis
+aceitações completas e instrumentação válida por cenário; os resultados e as
+lacunas de observação estão no [relatório final](evidence/issue20-pilot-2026-10-18/r8-hil-results.md).
+O protocolo não foi ajustado após a coleta. O piloto está concluído; a campanha
+definitiva N=30 permanece como etapa separada e usa a agenda própria descrita
+neste protocolo.
