@@ -160,8 +160,12 @@ Cada leitura válida recebe um identificador e timestamp próprios.
 
 O módulo de telemetria publica a cada 100 ms a última temperatura válida, o
 identificador da leitura e sua idade. O observador também estimula o serviço de
-controle a cada 100 ms. O timeout inicial do piloto é 300 ms e será congelado ou
-ajustado antes da campanha definitiva.
+controle a cada 100 ms. O timeout funcional comum de 300 ms, o prazo de
+atualização de 60 s, a janela estável de 60 s e a janela posterior de 30 s estão
+congelados antes do piloto em
+[protocolo-campanha-issue20-v1.0.md](docs/protocolo-campanha-issue20-v1.0.md).
+O piloto físico ainda não foi executado nesta sessão; seus resultados não podem
+ser inferidos da calibração #19.
 
 ## Regra de controle
 

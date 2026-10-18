@@ -156,8 +156,9 @@ Corpo `!QQBBH`: `request_sequence:u64`, `target_sequence:u64`, `status:u8`,
   inicia uma tentativa da campanha normal. A campanha de resiliência tem disparo
   e contagem próprios, definidos em [Ensaios válidos de
   resiliência](research/ensaios-resiliencia.md#disparo-contagem-e-canal-de-eventos).
-  A janela de 300 ms é o timeout inicial do piloto, ainda a
-  confirmar antes de congelar o protocolo.
+  O timeout comum de 300 ms foi congelado para piloto e campanhas na revisão
+  [`issue20-v1.0`](protocolo-campanha-issue20-v1.0.md). O aceite inicia a
+  tentativa somente quando chega correlacionado dentro desse limite.
 
 `UPDATE_ACCEPTANCE` informa aceite ou recusa do comando, antes do download.
 Não informa validação de assinatura/hash, trap ou recuperação. Esses eventos

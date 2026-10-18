@@ -1,0 +1,156 @@
+{
+  "N": 6,
+  "generation_method": "sha256-seed/python-random/shuffle-six-permutations-v1",
+  "permutation_counts": {
+    "aot interp native": 1,
+    "aot native interp": 1,
+    "interp aot native": 1,
+    "interp native aot": 1,
+    "native aot interp": 1,
+    "native interp aot": 1
+  },
+  "permutations": [
+    [
+      "native",
+      "interp",
+      "aot"
+    ],
+    [
+      "native",
+      "aot",
+      "interp"
+    ],
+    [
+      "interp",
+      "native",
+      "aot"
+    ],
+    [
+      "interp",
+      "aot",
+      "native"
+    ],
+    [
+      "aot",
+      "native",
+      "interp"
+    ],
+    [
+      "aot",
+      "interp",
+      "native"
+    ]
+  ],
+  "schema_version": 1,
+  "seed": "wasmhome-issue20-pilot-2026-10-16-v1",
+  "slots": [
+    {
+      "block_id": "B0001",
+      "order_in_block": 1,
+      "scenario": "interp",
+      "slot_id": "B0001-interp"
+    },
+    {
+      "block_id": "B0001",
+      "order_in_block": 2,
+      "scenario": "aot",
+      "slot_id": "B0001-aot"
+    },
+    {
+      "block_id": "B0001",
+      "order_in_block": 3,
+      "scenario": "native",
+      "slot_id": "B0001-native"
+    },
+    {
+      "block_id": "B0002",
+      "order_in_block": 1,
+      "scenario": "native",
+      "slot_id": "B0002-native"
+    },
+    {
+      "block_id": "B0002",
+      "order_in_block": 2,
+      "scenario": "aot",
+      "slot_id": "B0002-aot"
+    },
+    {
+      "block_id": "B0002",
+      "order_in_block": 3,
+      "scenario": "interp",
+      "slot_id": "B0002-interp"
+    },
+    {
+      "block_id": "B0003",
+      "order_in_block": 1,
+      "scenario": "interp",
+      "slot_id": "B0003-interp"
+    },
+    {
+      "block_id": "B0003",
+      "order_in_block": 2,
+      "scenario": "native",
+      "slot_id": "B0003-native"
+    },
+    {
+      "block_id": "B0003",
+      "order_in_block": 3,
+      "scenario": "aot",
+      "slot_id": "B0003-aot"
+    },
+    {
+      "block_id": "B0004",
+      "order_in_block": 1,
+      "scenario": "aot",
+      "slot_id": "B0004-aot"
+    },
+    {
+      "block_id": "B0004",
+      "order_in_block": 2,
+      "scenario": "native",
+      "slot_id": "B0004-native"
+    },
+    {
+      "block_id": "B0004",
+      "order_in_block": 3,
+      "scenario": "interp",
+      "slot_id": "B0004-interp"
+    },
+    {
+      "block_id": "B0005",
+      "order_in_block": 1,
+      "scenario": "aot",
+      "slot_id": "B0005-aot"
+    },
+    {
+      "block_id": "B0005",
+      "order_in_block": 2,
+      "scenario": "interp",
+      "slot_id": "B0005-interp"
+    },
+    {
+      "block_id": "B0005",
+      "order_in_block": 3,
+      "scenario": "native",
+      "slot_id": "B0005-native"
+    },
+    {
+      "block_id": "B0006",
+      "order_in_block": 1,
+      "scenario": "native",
+      "slot_id": "B0006-native"
+    },
+    {
+      "block_id": "B0006",
+      "order_in_block": 2,
+      "scenario": "interp",
+      "slot_id": "B0006-interp"
+    },
+    {
+      "block_id": "B0006",
+      "order_in_block": 3,
+      "scenario": "aot",
+      "slot_id": "B0006-aot"
+    }
+  ]
+}

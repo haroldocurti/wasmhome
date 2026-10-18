@@ -75,7 +75,7 @@ podem acrescentar tempo. Não são datas de entrega contratadas.
 | E2. Observação do serviço | Gerador externo, respostas versionadas e coleta | Funcionamento estável sem atualização e interrupção conhecida detectada | E1 | 1–2 dias |
 | E3. OTA nativo | Atualização v1→v2, reboot e reconexão | Resposta correta da nova versão com intervalo completo registrado | E2 | 1–2 dias |
 | E4. Troca modular | Download, validação e substituição em B e C | Nova versão correta e continuidade do boot observada | E2 | 2–4 dias |
-| E5. Piloto | Pelo menos cinco tentativas normais aceitas por cenário e protocolo congelado | Mínimo de 15 tentativas aceitas rastreáveis; dispatches sem aceite ficam separados e podem exigir slots adicionais | E3 e E4 | 1–2 dias |
+| E5. Piloto pré-registrado | Pelo menos cinco atualizações normais aceitas por cenário; protocolo `issue20-v1.0` publicado | Mínimo de 15 atualizações aceitas rastreáveis; dispatches sem aceite ficam separados e podem exigir extensão de slots balanceada | E3 e E4 | 1–2 dias |
 | E6. Campanha | N blocos, um slot de A, B e C por bloco | 3N slots contabilizados; resultados por slot e por atualização aceita separados | E5 | 1–2 dias |
 | E7. Análise | Tabelas, gráficos, texto e pacote de reprodução | Campanhas normal e de resiliência contabilizadas, resultados rastreáveis e limitações explícitas | E6 e campanha complementar da #23 | 2–3 dias |
 
@@ -111,7 +111,9 @@ assinada ou disponibilidade dos serviços da campanha.
 Definir a transformação comum, a alteração v1/v2 e os dados de referência. O
 [contrato UDP v1](protocolo-observacao.md) fixa os campos das mensagens; a
 cadência de aquisição/observação é 500/100 ms conforme `CONTEXT.md`. O timeout
-inicial de 300 ms segue como candidato a congelar ou ajustar após o piloto.
+funcional comum de 300 ms, o prazo de atualização de 60 s e as janelas estão
+congelados em [`issue20-v1.0`](protocolo-campanha-issue20-v1.0.md); a execução
+física do piloto que validará o procedimento permanece pendente.
 
 ### E1. Comprovar viabilidade antes de construir o restante
 
@@ -181,11 +183,12 @@ Preparar a bateria complementar separada conforme a
 célula aplicável, totalizando 70 falhas e dois controles. Inclui assinatura,
 hash e sequência, traps Wasm e aborto nativo controlado, com limites de
 comparação explícitos. Implementar e comprovar os mecanismos no ticket #22;
-executar a matriz no ticket #23, após congelar o protocolo no piloto.
+executar a matriz no ticket #23 após concluir o piloto e reconfirmar o preparo
+da bancada.
 Usar o canal serial de ensaio para disparo/eventos e o UDP para disponibilidade
 funcional. Preservar rejeições e falhas segundo a contagem própria da bateria.
 
-### E5. Pilotar, corrigir e congelar
+### E5. Executar o piloto pré-registrado
 
 Executar pelo menos cinco tentativas normais aceitas por cenário, total mínimo
 de 15. Um slot que termine sem aceite não conta entre as cinco e deve permanecer
@@ -195,40 +198,34 @@ a coleta para distinguir campanha, slot, bloco, sessão, disparo e tentativa
 aceita; rejeitar evidências vazias ou malformadas; verificar a referência de
 resultado e a presença da matriz completa. Preservar todas as falhas.
 
-Congelar janela, cadência, timeout, condições iniciais, memória e sequência de
-eventos. O timeout funcional congelado aplica-se também à campanha de resiliência;
-300 ms é seu valor inicial, e 30 segundos permanece o limite operacional de
-recuperação dessa bateria. Ajustar o aquecimento ao serviço persistente. O comando atual executa
-ao boot, portanto esperar 60 segundos depois dele não aquece as medições já
-realizadas. A espera deve anteceder explicitamente o disparo medido.
+O protocolo congelado da #20 fixa o preparo, as janelas, as cadências, os
+timeouts, a restauração, a memória a registrar e a sequência de eventos. O
+timeout funcional de 300 ms também vale para a campanha de resiliência; seus 30
+segundos continuam sendo somente o limite de recuperação daquela bateria. Como
+o comando atual executa ao boot, a janela estável precede o disparo; esperar
+depois do comando não aquece observações já realizadas.
 
-Antes do piloto, registrar a regra para selecionar o timeout funcional e o tamanho
-amostral. Cinco tentativas aceitas por cenário servem para validar o procedimento,
-mas não estimam poder com precisão. Se não houver uma base independente para alterar N,
-manter 30 blocos por viabilidade e apresentar a análise como descritiva. Congelar
-N e a agenda antes da primeira coleta definitiva.
+O piloto requer no mínimo cinco atualizações aceitas por cenário. A agenda
+inicial de seis blocos cobre uma vez cada ordem A/B/C; recusas e timeouts de
+aceite ficam registrados e não satisfazem o mínimo. N=30 é mantido como escolha
+descritiva de viabilidade porque a calibração #19 contém uma atualização por
+cenário e não estima variância entre sessões. As cinco/seis atualizações do
+piloto também não sustentam cálculo preciso de poder.
 
 ### E6. Coletar por blocos
 
-A agenda por slots a seguir é proposta operacional. A referência anterior e
-o checklist dizem 30 tentativas por cenário, 90 no total, enquanto o contrato
-inicia uma tentativa normal após aceite. Com recusas, 90 slots podem gerar
-menos de 90 tentativas aceitas. Resolver no congelamento da #20 se o alvo será
-de slots ou de tentativas aceitas e registrar a agenda correspondente. Esta
-publicação não decide essa mudança; #21 permanece bloqueada até a conciliação.
+Usar N=30 blocos congelados, cada um com um slot planejado de A, B e C na mesma
+placa. Isso gera 90 slots, com cada uma das seis ordens aparecendo exatamente
+cinco vezes. O resultado primário é por slot; a contagem de atualizações
+aceitas válidas é publicada em separado. Registrar `slot_id`, `session_id`, a
+semente e o `schedule.json` congelado. A tentativa normal de atualização começa
+somente com `UPDATE_ACCEPTANCE=ACCEPTED` correlacionado. Chamadas de função são
+observações internas, não atualizações independentes.
 
-Usar N=30 blocos como referência, cada um com um slot planejado de A, B e C na
-mesma placa. Isso gera 90 slots, com cada uma das seis ordens aparecendo cinco
-vezes. Se N mudar, gerar 3N slots e distribuir as ordens com contagens que diferem
-no máximo em uma. Registrar `slot_id`, `session_id`, a semente e a agenda
-congelada. O slot é a oportunidade planejada; a tentativa normal de atualização
-começa somente com `UPDATE_ACCEPTANCE=ACCEPTED` correlacionado. Chamadas de função
-são observações internas, não atualizações independentes.
-
-Restaurar v1 antes de cada tentativa e aguardar estabilidade. Excluir esse
-preparo da janela de medição. Se houver contador antirretorno, usar pacote de
-preparação autenticado com sequência nova para a lógica v1, seguido de sequência
-maior para v2; não desativar a proteção durante a campanha.
+Restaurar a imagem-base integral, verificar a leitura e o piso antirretorno
+antes de cada slot. Aguardar 60 s de estabilidade e excluir esse preparo da
+janela de medição. Não apagar NVS isoladamente nem desativar a proteção durante
+a campanha.
 
 Todos os slots entram na taxa de conclusão por slot. Recusas e timeouts antes do
 aceite são resultados de despacho, não falhas de uma atualização aceita. Reportar
