@@ -1429,6 +1429,12 @@ def _validate_provisioning_acceptance(summary: dict, *, profile: str) -> None:
     ledger, registered payload hash/slot and fresh post-esptool boot evidence.
     """
     require(profile in {"native", "interp", "aot"}, "unknown provisioning profile")
+    boots = summary.get("boot_ids")
+    if not isinstance(boots, list) or not boots:
+        raise OrchestratorError(
+            "signed sequence-2 provisioning observed no device boot or UDP telemetry; "
+            "the trigger was not sent. Check Wi-Fi association, the device route, "
+            "and the local observer endpoint")
     accepted = summary.get("accepted_ns")
     require(type(accepted) is int and accepted >= 0,
             "signed sequence-2 OTA lacks timely trigger acceptance")

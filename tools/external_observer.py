@@ -29,6 +29,20 @@ def packet_json(packet):
     return value
 
 
+def _normalize_attempt_id(attempt_id):
+    if attempt_id is None or isinstance(attempt_id, uuid.UUID):
+        return attempt_id
+    if not isinstance(attempt_id, str):
+        raise ValueError("attempt_id must be a canonical lowercase UUID")
+    try:
+        parsed = uuid.UUID(attempt_id)
+    except (ValueError, TypeError, AttributeError) as error:
+        raise ValueError("attempt_id must be a canonical lowercase UUID") from error
+    if str(parsed) != attempt_id:
+        raise ValueError("attempt_id must be a canonical lowercase UUID")
+    return parsed
+
+
 class Observer:
     def __init__(self, log, peer, period_ns=100_000_000, timeout_ns=300_000_000,
                  initial_version=1, attempt_id=None, max_sample_age_ms=1000,
@@ -54,7 +68,9 @@ class Observer:
         self.stable_window_ns = stable_window_ns
         self.minimum_stable_controls = minimum_stable_controls
         self.minimum_stable_telemetry = minimum_stable_telemetry
-        self.attempt_id = attempt_id or uuid.uuid4()
+        self.attempt_id = _normalize_attempt_id(attempt_id)
+        if self.attempt_id is None:
+            self.attempt_id = uuid.uuid4()
         self.boot_id = None
         self.retired_boots = set()
         self.boots = []
@@ -70,6 +86,7 @@ class Observer:
         self.telemetry_times_by_boot = defaultdict(list)
         self.last_sample = {}
         self.trigger = None
+        self.trigger_not_sent_reason = None
         self.first_boot_seen_ns = None
         self.accepted_ns = None
         self.activated_ns = None
@@ -87,6 +104,8 @@ class Observer:
         self.record(kind, now, **values)
 
     def transmit(self, udp, kind, body, now, planned_ns=None):
+        if kind == MessageType.UPDATE_TRIGGER and self.boot_id is None:
+            raise ProtocolError("cannot transmit UPDATE_TRIGGER before observing a boot_id")
         self.tx_sequence[kind] += 1
         packet = Packet(kind, self.attempt_id, self.tx_sequence[kind], self.boot_id,
                         now // 1000, body)
@@ -114,6 +133,10 @@ class Observer:
                                     "response": False, "success": False}
 
     def send_trigger(self, udp, now, target_sequence, scenario):
+        if self.boot_id is None:
+            self.trigger_not_sent_reason = "no_boot_observed"
+            self.event("trigger_not_sent", now, reason=self.trigger_not_sent_reason)
+            return None
         packet, sent_ns = self.transmit(udp, MessageType.UPDATE_TRIGGER,
                                {"target_sequence": target_sequence, "scenario": scenario,
                                 "component": 1, "target_version": 2}, now)
@@ -334,6 +357,7 @@ class Observer:
                 for (boot, kind), maximum in self.highest.items()
             },
             "accepted_ns": self.accepted_ns, "activated_ns": self.activated_ns,
+            "trigger_not_sent_reason": self.trigger_not_sent_reason,
             "update_deadline_ns": self.deadline_ns,
             "update_deadline_expired_ns": self.deadline_expired_ns,
             "capture_end_ns": self.capture_end_ns,
@@ -389,15 +413,7 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
         raise ValueError("target sequence requires a trigger and must fit positive uint64")
     if scenario not in (1, 2, 3) or not 0 <= port <= 65535 or not 1 <= device_port <= 65535 or not 0 <= max_sample_age_ms < 65535:
         raise ValueError("invalid scenario, UDP port or sample freshness limit")
-    if attempt_id is not None:
-        try:
-            parsed_attempt_id = attempt_id if isinstance(attempt_id, uuid.UUID) else uuid.UUID(attempt_id)
-        except (ValueError, TypeError, AttributeError) as error:
-            raise ValueError("attempt_id must be a canonical UUID") from error
-        if str(parsed_attempt_id) != str(attempt_id):
-            raise ValueError("attempt_id must be a canonical lowercase UUID")
-    else:
-        parsed_attempt_id = None
+    parsed_attempt_id = _normalize_attempt_id(attempt_id)
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     with (output / "observations.jsonl").open("x", encoding="utf-8") as log, (output / "summary.json").open("x", encoding="utf-8") as summary_log, socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp:
@@ -467,12 +483,12 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
                                     _trigger_eligible_ns(start, trigger_after,
                                                          observer.stable_window_ns,
                                                          observer.first_boot_seen_ns))
-                # Without a stable window there is no pre-window gate, but an
-                # UPDATE_TRIGGER still needs an observed boot identity. Keep
+                # An UPDATE_TRIGGER always needs a boot identity, including
+                # when a stable-window qualification is configured. Keep
                 # waiting; a session without a boot ends trigger_not_sent_no_boot.
                 if (now < capture_end and trigger_after is not None and observer.trigger is None
                         and observer.pre_window is None and now >= trigger_eligible
-                        and (observer.stable_window_ns is not None or observer.boot_id is not None)):
+                        and observer.boot_id is not None):
                     qualification = observer.qualify_pre_window(now, start)
                     if qualification["passed"]:
                         # Check again at the dispatch boundary, including after
@@ -499,6 +515,11 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
             observer.event("observer_exception", time.monotonic_ns(),
                            error_type=type(error).__name__, error=str(error))
         observer.expire(time.monotonic_ns())
+        if (trigger_after is not None and observer.trigger is None
+                and observer.boot_id is None and observer.trigger_not_sent_reason is None):
+            observer.trigger_not_sent_reason = "no_boot_observed"
+            observer.event("trigger_not_sent", time.monotonic_ns(),
+                           reason=observer.trigger_not_sent_reason)
         result = observer.summary()
         result["clock_domain"] = clock_domain or {"name": "observer_local", "clock": "monotonic_ns"}
         result["instrument_aborted"] = bool(observer.counters.get("instrument_abort"))

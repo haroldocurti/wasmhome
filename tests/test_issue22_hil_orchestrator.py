@@ -855,7 +855,7 @@ class Issue22OrchestratorTests(unittest.TestCase):
 
     def test_native_provisioning_requires_acceptance_without_policy_version_change(self):
         valid = {"accepted_ns": 100, "activated_ns": None,
-                 "update_state": "accepted_without_v2"}
+                 "update_state": "accepted_without_v2", "boot_ids": [1]}
         orchestrator._validate_provisioning_acceptance(valid, profile="native")
         for invalid in ({**valid, "accepted_ns": None},
                         {**valid, "accepted_ns": True},
@@ -867,8 +867,17 @@ class Issue22OrchestratorTests(unittest.TestCase):
                 with self.assertRaises(orchestrator.OrchestratorError):
                     orchestrator._validate_provisioning_acceptance(invalid, profile="native")
 
+    def test_provisioning_without_boot_reports_network_gate_failure(self):
+        summary = {"boot_ids": [], "accepted_ns": None,
+                   "update_state": "trigger_not_sent_no_boot",
+                   "trigger_not_sent_reason": "no_boot_observed"}
+        with self.assertRaisesRegex(orchestrator.OrchestratorError,
+                                    "observed no device boot or UDP telemetry.*trigger was not sent"):
+            orchestrator._validate_provisioning_acceptance(summary, profile="native")
+
     def test_module_provisioning_requires_timely_acceptance_and_activation(self):
-        valid = {"accepted_ns": 100, "activated_ns": 200, "update_state": "activated"}
+        valid = {"accepted_ns": 100, "activated_ns": 200, "update_state": "activated",
+                 "boot_ids": [1]}
         for profile in ("interp", "aot"):
             orchestrator._validate_provisioning_acceptance(valid, profile=profile)
             for invalid in ({**valid, "accepted_ns": None},

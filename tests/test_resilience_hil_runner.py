@@ -9,6 +9,8 @@ import select
 import socket
 import struct
 import tempfile
+import threading
+import time
 import unittest
 import uuid
 from pathlib import Path
@@ -28,6 +30,7 @@ from tools.resilience_hil_runner import (
     validate_preflight,
 )
 from tools.resilience_hil_runner import UPDATE_RECORD_IDENTITY
+from tools.observation_protocol_v1 import NIL_UUID, MessageType, Packet, decode, encode
 
 
 def row_for(case, scenario):
@@ -314,6 +317,77 @@ class ResilienceHILRunnerTests(unittest.TestCase):
             self.assertEqual(_read_jsonl(output / "requests.jsonl"), [])
             self.assertFalse(result["fault_accepted_inferred"])
             self.assertTrue(serial_port.closed)
+
+    def test_execute_trial_transmits_control_with_canonical_plan_attempt_uuid(self):
+        item = row_for("ENV-SIG", "native")
+        boot_id = int("0123456789abcdef", 16)
+        device = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        device.bind(("127.0.0.1", 0))
+        device.setblocking(False)
+        udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        udp.bind(("127.0.0.1", 0))
+        client = udp.getsockname()
+        stop = threading.Event()
+        control_attempt_ids = []
+
+        def emulate_firmware():
+            telemetry_sequence = 0
+            control_sequence = 0
+            while not stop.is_set():
+                telemetry_sequence += 1
+                telemetry = Packet(MessageType.TELEMETRY, NIL_UUID, telemetry_sequence,
+                    boot_id, time.monotonic_ns() // 1000,
+                    {"sample_id": telemetry_sequence, "temperature_mC": 25_000,
+                     "age_ms": 0, "sensor_status": 0})
+                try:
+                    device.sendto(encode(telemetry), client)
+                except OSError:
+                    return
+                try:
+                    raw, peer = device.recvfrom(65535)
+                except BlockingIOError:
+                    pass
+                except OSError:
+                    return
+                else:
+                    try:
+                        request = decode(raw)
+                    except ValueError:
+                        request = None
+                    if request is not None and request.message_type == MessageType.CONTROL_REQUEST:
+                        control_attempt_ids.append(request.attempt_id)
+                        control_sequence += 1
+                        requested = int(request.body["input_temperature_mC"] > 25_000)
+                        response = Packet(MessageType.CONTROL_RESULT, request.attempt_id,
+                            control_sequence, boot_id, time.monotonic_ns() // 1000,
+                            {"sample_id": request.body["sample_id"], "module_version": 1,
+                             "requested_gpio": requested, "observed_gpio": requested,
+                             "status": 0})
+                        device.sendto(encode(response), peer)
+                time.sleep(0.0005)
+
+        serial_port = SelectableFakeSerial()
+        firmware = threading.Thread(target=emulate_firmware, daemon=True)
+        with tempfile.TemporaryDirectory() as temp_name:
+            output = Path(temp_name) / "attempt"
+            output.mkdir(mode=0o700)
+            try:
+                firmware.start()
+                result = execute_trial(
+                    item=item, preflight=preflight(item), serial_port=serial_port,
+                    udp=udp, output=output,
+                    bind_ip="127.0.0.1", device_ip="127.0.0.1",
+                    udp_port=client[1], device_port=device.getsockname()[1],
+                    pre_seconds=0.001, post_seconds=0.04, boot_wait_seconds=0.04,
+                    period_ms=1, timeout_ms=10, max_sample_age_ms=1000)
+            finally:
+                stop.set()
+                firmware.join(timeout=1)
+                device.close()
+
+        self.assertTrue(control_attempt_ids, "simulated device received no control request")
+        self.assertEqual(control_attempt_ids[0], uuid.UUID(item["attempt_id"]))
+        self.assertEqual(result["udp_observation_summary"]["attempt_id"], item["attempt_id"])
 
     def test_observation_coverage_requires_30_valid_samples_of_each_kind(self):
         self.assertFalse(_observation_coverage(1, 1)["passed"])
