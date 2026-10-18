@@ -310,7 +310,8 @@ def _validate_bootloader_bytes(data: bytes, profile: str) -> dict:
 
 
 def validate_profile_manifest(path: Path, timeout_ms: int, server_ip: str,
-                              server_port: int, server_name: str, ca_path: Path) -> dict:
+                              server_port: int, server_name: str, ca_path: Path,
+                              signing_public_key: Path | None = None) -> dict:
     value = load_json(path, "issue #22 profile build manifest", max_bytes=128 * 1024)
     require(value.get("schema") == PROFILE_SCHEMA and value.get("resilience_test_mode") is True,
             "profile manifest must attest opt-in issue #22 test hooks")
@@ -392,8 +393,10 @@ def validate_profile_manifest(path: Path, timeout_ms: int, server_ip: str,
         ca_bytes = Path(ca_path).read_bytes()
         require(0 < len(ca_bytes) <= 65536 and ca_bytes in app_bytes,
                 f"{name} bootstrap BIN does not contain the manifest's exact HTTPS CA bytes")
+        signing_identity = _profile_signing_identity(config_lines, app_bytes, signing_public_key)
         snapshots[name] = {"path": str(app), "sha256": digest, "bytes": app.stat().st_size,
                            "build_provenance": marker,
+                           "signing_identity": signing_identity,
                            "bootloader": {"path": str(bootloader), "sha256": bootloader_digest,
                                           "bytes": len(bootloader_data)},
                            "sdkconfig": {"path": str(config), "sha256": config_digest},
@@ -402,6 +405,48 @@ def validate_profile_manifest(path: Path, timeout_ms: int, server_ip: str,
             "source_tree": value["source_tree"],
             "functional_timeout_ms": timeout_ms, "endpoint": endpoint,
             "update_endpoint": endpoint, "profiles": snapshots}
+
+
+def _profile_signing_identity(config_lines: list[str], app_bytes: bytes,
+                              expected_public_key: Path | None = None) -> dict:
+    """Check the config hashed in the BIN marker and the actual embedded DER.
+
+    CMake copies the configured DER verbatim into EMBED_FILES. Reading its path
+    alone cannot prove its contents at build time; the bytes must also be in the
+    app. The existing marker binds the campaign setting without a rebuild.
+    """
+    def config_string(key: str) -> str:
+        values = [line[len(key) + 1:] for line in config_lines if line.startswith(key + "=")]
+        require(len(values) == 1, "profile signed-update identity config is missing or duplicated")
+        try:
+            value = json.loads(values[0])
+        except (ValueError, TypeError) as error:
+            raise OrchestratorError("profile signed-update identity config is invalid") from error
+        require(isinstance(value, str) and value, "profile signed-update identity config is invalid")
+        return value
+
+    campaign = config_string("CONFIG_WASMHOME_UPDATE_CAMPAIGN_ID")
+    require(campaign == hil_runner.CAMPAIGN_ID,
+            "profile compiled campaign differs from the signed provisioning/fixture campaign")
+    require(campaign.encode("ascii") + b"\0" in app_bytes,
+            "profile BIN does not contain its configured campaign identity")
+    key_path = Path(config_string("CONFIG_WASMHOME_UPDATE_SIGNING_PUBLIC_KEY_PATH"))
+    require(key_path.is_absolute() and key_path.is_file() and not key_path.is_symlink()
+            and 0 < key_path.stat().st_size <= 4096,
+            "profile configured signing public DER is missing or invalid")
+    key_bytes = key_path.read_bytes()
+    try:
+        public_der = signed_artifacts.public_der_from_key(key_path)
+        expected_der = (signed_artifacts.public_der_from_key(expected_public_key)
+                        if expected_public_key is not None else public_der)
+    except (OSError, ValueError) as error:
+        raise OrchestratorError("profile signing public key cannot be validated") from error
+    require(key_bytes == public_der, "profile configured signing public key must be DER")
+    require(public_der in app_bytes,
+            "profile BIN does not contain the configured signing public DER bytes")
+    require(public_der == expected_der,
+            "profile compiled signing key differs from the signed provisioning key")
+    return {"campaign_id": campaign, "signing_public_key_sha256": hashlib.sha256(public_der).hexdigest()}
 
 
 def validate_tls_files(ca_path: Path, certificate: Path, private_key: Path,
@@ -439,6 +484,8 @@ def validate_packages(package_root: Path, package_public_key: Path,
         raise OrchestratorError(f"signed OTA/fixture catalog validation failed: {error}") from error
     require(campaign == hil_runner.CAMPAIGN_ID and len(fixture_routes) == 24,
             "combined HTTPS allowlist must contain nine invalid fixtures plus three signed v2 releases")
+    require(package["signing_public_key_sha256"] == fixture_index["trusted_fixture_public_key_sha256"],
+            "signed provisioning key differs from the trusted fixture key; firmware embeds one signing key")
     verified_v2 = {(row["scenario"], row["version"], row["sequence"], row["payload_sha256"])
                    for row in package["verified"] if row["version"] == "v2"}
     require(len(verified_v2) == 3 and all((scenario, "v2", 2, expected[0]) in verified_v2
@@ -1374,7 +1421,8 @@ def execute(options: argparse.Namespace) -> dict:
     tls = validate_tls_files(options.tls_ca, options.tls_certificate,
                              options.tls_private_key, options.server_name)
     profile_data = validate_profile_manifest(options.profiles, options.timeout_ms,
-        options.server_ip, options.https_port, options.server_name, options.tls_ca)
+        options.server_ip, options.https_port, options.server_name, options.tls_ca,
+        options.ota_signing_public)
     package_data = validate_packages(options.ota_package_root, options.ota_signing_public,
         options.fixture_root, options.fixture_trusted_public, options.fixture_untrusted_public,
         options.aot_toolchain_id)
@@ -1612,7 +1660,7 @@ def validate_cli(options: argparse.Namespace) -> None:
                        options.tls_private_key, options.server_name)
     validate_profile_manifest(options.profiles, options.timeout_ms,
         str(ipaddress.IPv4Address(options.server_ip)), options.https_port,
-        options.server_name, options.tls_ca)
+        options.server_name, options.tls_ca, options.ota_signing_public)
     validate_packages(options.ota_package_root, options.ota_signing_public,
         options.fixture_root, options.fixture_trusted_public,
         options.fixture_untrusted_public, options.aot_toolchain_id)

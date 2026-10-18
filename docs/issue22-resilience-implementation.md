@@ -242,8 +242,8 @@ do slot.
 Os campos `reserved` explícitos do ledger e dos dois registros de recuperação
 precisam ser zero. O preflight não interpreta bytes de padding implícito do C.
 
-O exemplo mostra a forma do schema v4 e o artefato nativo v2 identificado na
-evidência da OTA assinada de 2026-10-16:
+O exemplo mostra o schema v4 e o novo release nativo v2 do perfil A registrado
+para #22 (916688 bytes). Essa identidade de entrada não declara validação HIL:
 
 ```json
 {
@@ -253,15 +253,15 @@ evidência da OTA assinada de 2026-10-16:
   "record_identity": {"scenario": 1, "component": "firmware"},
   "boot_id": "0123456789abcdef",
   "control_version": 1,
-  "release_artifact_sha256": "8df016fe253d58eb0b9073037e38cf6568162a0964c03aa2aa384d9185f44137",
+  "release_artifact_sha256": "224e0c01ae4843828a6faad010fc60f20d9795816fee1ca483f11412ff8c67cf",
   "native_state": {
     "ledger_present": true,
     "accepted_floor": 2,
     "ledger_active_target_version": 2,
     "ledger_active_sequence": 2,
     "active_slot": 131072,
-    "active_payload_size": 898832,
-    "active_payload_sha256": "8df016fe253d58eb0b9073037e38cf6568162a0964c03aa2aa384d9185f44137",
+    "active_payload_size": 916688,
+    "active_payload_sha256": "224e0c01ae4843828a6faad010fc60f20d9795816fee1ca483f11412ff8c67cf",
     "active_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     "pending": false
   },
@@ -273,8 +273,10 @@ evidência da OTA assinada de 2026-10-16:
 Para qualquer cenário, o runner exige o registro do campaign/profile correto,
 sem update pendente, floor 2, target version 2, sequência 2, slot OTA/module
 válido e hashes esperados de payload/manifest. `release_artifact_sha256` deve
-coincidir com o hash ativo no ledger e com o release v2 assinado registrado em
-[`issue16-native-ota-2026-10-16.json`](evidence/issue16-native-ota-2026-10-16.json).
+coincidir com o hash ativo no ledger e com o release v2 assinado registrado nos
+validadores `resilience_hil_runner` e `resilience_nvs_preflight`. A evidência
+[`issue16-native-ota-2026-10-16.json`](evidence/issue16-native-ota-2026-10-16.json)
+identifica um release anterior e não comprova a execução do novo perfil A.
 O controle nativo continua usando `control_version=1`; essa versão de protocolo
 não é comparada com target version/sequence do ledger. O dump NVS não recalcula
 os bytes do slot nem prova qual imagem está executando.

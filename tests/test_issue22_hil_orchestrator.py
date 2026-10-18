@@ -14,6 +14,12 @@ from tools.resilience_harness import resilience_preliminary_plan
 
 
 class Issue22OrchestratorTests(unittest.TestCase):
+    # Public P-256 generator point encoded as SubjectPublicKeyInfo (no private key).
+    SIGNING_DER = bytes.fromhex(
+        "3059301306072a8648ce3d020106082a8648ce3d03010703420004"
+        "6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296"
+        "4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5")
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
@@ -83,9 +89,11 @@ class Issue22OrchestratorTests(unittest.TestCase):
         ca_bytes = b"-----BEGIN CERTIFICATE-----\nsynthetic test CA\n-----END CERTIFICATE-----\n"
         ca.write_bytes(ca_bytes)
         ca_hash = hashlib.sha256(ca_bytes).hexdigest()
+        signing_key = self.root / "signing-public.der"
+        signing_key.write_bytes(self.SIGNING_DER)
 
         def write_manifest(native_port=18445, native_rollback=True, module_rollback=True,
-                           native_update_port=18445):
+                           native_update_port=18445, campaign=None, embed_signing_key=True):
             profiles = {}
             for name in ("native", "interp", "aot"):
                 port = native_port if name == "native" else 18445
@@ -95,7 +103,9 @@ class Issue22OrchestratorTests(unittest.TestCase):
                                    '# CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE is not set\n') +
                                   'CONFIG_IDF_TARGET="esp32s3"\n'
                                   'CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y\n'
-                                  'CONFIG_PARTITION_TABLE_OFFSET=0x8000\n')
+                                  'CONFIG_PARTITION_TABLE_OFFSET=0x8000\n' +
+                                  f'CONFIG_WASMHOME_UPDATE_CAMPAIGN_ID={json.dumps(campaign or orchestrator.hil_runner.CAMPAIGN_ID)}\n' +
+                                  f'CONFIG_WASMHOME_UPDATE_SIGNING_PUBLIC_KEY_PATH={json.dumps(str(signing_key))}\n')
                 config_hash = hashlib.sha256(config.read_bytes()).hexdigest()
                 update_port = native_update_port if name == "native" else 18445
                 marker = ("WASMHOME_ISSUE22_BUILD_V2\n"
@@ -111,7 +121,9 @@ class Issue22OrchestratorTests(unittest.TestCase):
                 header[1] = 1
                 header[12:14] = (9).to_bytes(2, "little")
                 app = self.root / f"{name}.bin"
-                app_bytes = bytes(header) + marker.encode() + ca_bytes
+                app_bytes = (bytes(header) + marker.encode() + ca_bytes +
+                    (campaign or orchestrator.hil_runner.CAMPAIGN_ID).encode() + b"\0" +
+                    (self.SIGNING_DER if embed_signing_key else b""))
                 app.write_bytes(app_bytes)
                 bootloader = self.root / f"{name}-bootloader.bin"
                 bootloader.write_bytes(self.valid_bootloader_bytes())
@@ -146,6 +158,9 @@ class Issue22OrchestratorTests(unittest.TestCase):
         value = orchestrator.validate_profile_manifest(manifest, 450, "192.0.2.8",
             18445, "wasmhome-issue22.test", ca)
         self.assertEqual(value["profiles"]["native"]["build_provenance"]["server_port"], 18445)
+        self.assertEqual(value["profiles"]["native"]["signing_identity"], {
+            "campaign_id": orchestrator.hil_runner.CAMPAIGN_ID,
+            "signing_public_key_sha256": hashlib.sha256(self.SIGNING_DER).hexdigest()})
 
         native_app = Path(json.loads(manifest.read_text())["profiles"]["native"]["v1_app"]["path"])
         with self.assertRaisesRegex(orchestrator.OrchestratorError, "exactly one"):
@@ -160,6 +175,24 @@ class Issue22OrchestratorTests(unittest.TestCase):
                     orchestrator.validate_profile_manifest(manifest, 450, "192.0.2.8",
                         18445, "wasmhome-issue22.test", ca)
                 manifest.write_text(json.dumps(original))
+
+        mismatched_campaign = write_manifest(campaign="different-campaign")
+        with self.assertRaisesRegex(orchestrator.OrchestratorError, "compiled campaign differs"):
+            orchestrator.validate_profile_manifest(mismatched_campaign, 450, "192.0.2.8",
+                18445, "wasmhome-issue22.test", ca)
+
+        missing_embedded_key = write_manifest(embed_signing_key=False)
+        with self.assertRaisesRegex(orchestrator.OrchestratorError, "BIN does not contain.*DER bytes"):
+            orchestrator.validate_profile_manifest(missing_embedded_key, 450, "192.0.2.8",
+                18445, "wasmhome-issue22.test", ca)
+
+        manifest = write_manifest()
+        # A replaced file at the configured path cannot relabel an existing BIN.
+        signing_key.write_bytes(self.SIGNING_DER[:-1] + bytes((self.SIGNING_DER[-1] ^ 1,)))
+        with self.assertRaises(orchestrator.OrchestratorError):
+            orchestrator.validate_profile_manifest(manifest, 450, "192.0.2.8",
+                18445, "wasmhome-issue22.test", ca)
+        signing_key.write_bytes(self.SIGNING_DER)
 
         module_without_app_rollback = write_manifest(module_rollback=False)
         compatible = orchestrator.validate_profile_manifest(module_without_app_rollback, 450,
@@ -206,6 +239,36 @@ class Issue22OrchestratorTests(unittest.TestCase):
         with self.assertRaisesRegex(orchestrator.OrchestratorError, "fields differ"):
             orchestrator.validate_profile_manifest(manifest, 450, "192.0.2.8",
                 18445, "wasmhome-issue22.test", ca)
+
+    def test_profile_rejects_signing_key_different_from_provisioning(self):
+        configured = self.root / "configured.der"
+        configured.write_bytes(self.SIGNING_DER)
+        expected = self.root / "expected.der"
+        expected.write_bytes(bytes.fromhex(
+            "3059301306072a8648ce3d020106082a8648ce3d03010703420004"
+            "7cf27b188d034f7e8a52380304b51ac3c08969e277f21b35a60b48fc47669978"
+            "07775510db8ed040293d9ac69f7430dbba7dade63ce982299e04b79d227873d1"))
+        config = [f'CONFIG_WASMHOME_UPDATE_CAMPAIGN_ID="{orchestrator.hil_runner.CAMPAIGN_ID}"',
+                  f'CONFIG_WASMHOME_UPDATE_SIGNING_PUBLIC_KEY_PATH={json.dumps(str(configured))}']
+        app = orchestrator.hil_runner.CAMPAIGN_ID.encode() + b"\0" + self.SIGNING_DER
+        with self.assertRaisesRegex(orchestrator.OrchestratorError, "compiled signing key differs"):
+            orchestrator._profile_signing_identity(config, app, expected)
+
+    def test_packages_require_one_trusted_key_for_provisioning_and_fixtures(self):
+        package = {"signing_public_key_sha256": "a" * 64, "verified": [
+            {"scenario": scenario, "version": "v2", "sequence": 2,
+             "payload_sha256": orchestrator.hil_runner.EXPECTED_RELEASE_ARTIFACTS[profile][0]}
+            for scenario, profile in ((1, "native"), (2, "module-interp"), (3, "module-aot"))]}
+        fixture_index = {"trusted_fixture_public_key_sha256": "b" * 64}
+        with mock.patch.object(orchestrator.signed_artifacts, "verify_set", return_value=package), \
+             mock.patch.object(orchestrator.fixture_server, "load_allowlist", return_value=(
+                 self.root, orchestrator.hil_runner.CAMPAIGN_ID, list(range(24)), fixture_index)), \
+             mock.patch.object(orchestrator, "sha256_file", return_value="c" * 64):
+            with self.assertRaisesRegex(orchestrator.OrchestratorError, "provisioning key differs"):
+                orchestrator.validate_packages(*(self.root for _ in range(5)), "toolchain")
+            fixture_index["trusted_fixture_public_key_sha256"] = "a" * 64
+            result = orchestrator.validate_packages(*(self.root for _ in range(5)), "toolchain")
+            self.assertEqual(result["package_signing_key_sha256"], result["fixture_trusted_key_sha256"])
 
     def test_overlay_installs_bootloader_before_apps_and_verifies_before_reset(self):
         app = self.root / "app.bin"

@@ -36,6 +36,14 @@ inputs validate:
    trailer, corrupted image or application masquerading as a bootloader is
    rejected. Editing only the JSON cannot
    make a stale app pass. Schema v1 manifests and V1 BIN markers are rejected.
+   The sdkconfig whose hash is embedded in the marker must also declare the
+   registered signed campaign. That campaign string and the exact configured
+   P-256 signing public DER bytes must occur in the app BIN. The configured DER
+   file must remain available and unchanged; its path alone is insufficient.
+   `check` and `run` compare that embedded key with `--ota-signing-public`, and
+   require the provisioning package and trusted fixtures to use the same key,
+   because firmware embeds one signing key. These checks reuse the existing V2
+   marker and do not require rebuilding otherwise compatible firmware.
 4. Both firmware endpoints (normal signed sequence-2 provisioning and
    resilience fixtures) must match the orchestrator's CT IPv4 address, HTTPS
    port `18445`, TLS name and shared CA hash. CMake rejects different
@@ -49,6 +57,9 @@ inputs validate:
    three scenarios. The firmware hashes in
    `tools/resilience_hil_runner.py` must be updated together with the final
    post-#20 builds; the earlier local package hashes are preliminary.
+   The registered native profile-A v2 is now 916688 bytes, SHA-256
+   `224e0c01ae4843828a6faad010fc60f20d9795816fee1ca483f11412ff8c67cf`.
+   This registration is an input identity, not a claim of physical validation.
 6. The nine closed negative fixtures and all six payload/manifest files from
    the signed sequence-2 package. The CT server validates one merged allowlist
    containing 24 exact routes before binding.

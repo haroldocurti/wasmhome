@@ -48,9 +48,9 @@ PROFILES = {
         "scenario": 1,
         "component": "firmware",
         "control_version": 1,
-        # Signed v2 release artifact from the independently recorded issue #16 OTA.
-        "release_artifact_sha256": "8df016fe253d58eb0b9073037e38cf6568162a0964c03aa2aa384d9185f44137",
-        "release_artifact_size": 898832,
+        # Newly signed issue #22 profile-A native v2 release artifact.
+        "release_artifact_sha256": "224e0c01ae4843828a6faad010fc60f20d9795816fee1ca483f11412ff8c67cf",
+        "release_artifact_size": 916688,
         "recovery": "native",
     },
     "module-interp": {
