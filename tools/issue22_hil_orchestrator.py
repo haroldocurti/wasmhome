@@ -1827,7 +1827,10 @@ def _rehearse_row(options, row: dict, root: Path, board: Board, profile_data: di
         result["operation"] = str(operation)
         result["seconds"] = round(time.monotonic() - started, 1)
         journal.setdefault("rehearsals", []).append(result)
-        journal.update(state="rehearsal_row_done", restore_required=False)
+        # The fixture manager accepts ready only after restoration. Keep the
+        # rehearsal flag/history for isolation, while using its existing safe
+        # handoff state before the next profile's before_child check.
+        journal.update(state="ready", restore_required=False)
         write_json(journal_path, journal)
     if failure is not None and (not isinstance(failure, Exception)
                                 or result["state"] == "setup_passed"):

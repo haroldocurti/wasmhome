@@ -996,6 +996,37 @@ class Issue22OrchestratorTests(unittest.TestCase):
         self.assertFalse(saved["restore_required"])
         self.assertEqual(saved["next_index"], 1)
 
+    def test_three_rehearsals_handoff_through_real_fixture_manager_gate(self):
+        campaign = self.root / "rehearsal"
+        orchestrator.private_directory(campaign)
+        baseline = self.root / "baseline.bin"
+        baseline.write_bytes(b"baseline")
+        baseline_hash = hashlib.sha256(b"baseline").hexdigest()
+        journal_path = campaign / "journal.json"
+        orchestrator.write_json(journal_path, {
+            "schema": orchestrator.JOURNAL_SCHEMA, "state": "ready", "rehearsal": True,
+            "restore_required": False, "next_index": 0, "slots": [],
+        }, exclusive=True)
+        board = mock.Mock()
+        board.read.side_effect = lambda _offset, _size, path: path.write_bytes(b"nvs")
+        rows = resilience_preliminary_plan("rehearsal-handoff")
+        with mock.patch.object(orchestrator, "_verify_nvs_not_already_updated"), \
+             mock.patch.object(orchestrator, "_prepare_profile", return_value={
+                 "boot_id": "0000000000000001", "prepared_flash_sha256": "a" * 64}):
+            for scenario in ("native", "interp", "aot"):
+                orchestrator.user_server_manager.safe_journal(journal_path, "issue22-fixture")
+                row = next(row for row in rows if row["scenario"] == scenario)
+                result = orchestrator._rehearse_row(object(), row, campaign, board,
+                                                    {}, object(), baseline, baseline_hash)
+                self.assertEqual(result["state"], "setup_passed")
+                saved = orchestrator.user_server_manager.safe_journal(journal_path, "issue22-fixture")
+                self.assertTrue(saved["rehearsal"])
+                self.assertEqual(saved["next_index"], 0)
+                self.assertEqual(saved["slots"], [])
+        self.assertEqual([r["scenario"] for r in saved["rehearsals"]], ["native", "interp", "aot"])
+        self.assertEqual(board.restore.call_count, 3)
+        self.assertFalse((campaign / "claims").exists())
+
     def test_rehearsal_restores_records_failure_and_never_claims(self):
         self._check_rehearsal_restore(False)
 

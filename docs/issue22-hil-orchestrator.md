@@ -153,8 +153,10 @@ Use a fresh private `--output-root`, with the same inputs as `run`, after a
 rebuild and before starting a new campaign. Results and preparation errors are
 stored in `journal.json` under `rehearsals`. A failed restore keeps
 `restore_required=true`; use `--action recover --output-root ...`. Rehearsal
-roots cannot be resumed or reused as campaign roots. A successful rehearsal is
-a setup check, not physical acceptance of any matrix row.
+roots cannot be resumed or reused as campaign roots. After each restored profile,
+the journal returns to `ready`, the fixture manager's existing safe handoff
+state, while retaining `rehearsal=true` and its per-profile history. A successful
+rehearsal is a setup check, not physical acceptance of any matrix row.
 
 ## CLI
 
