@@ -162,10 +162,18 @@ class ResilienceHarnessTests(unittest.TestCase):
 
     def test_serial_parser_requires_correlation_fields_and_prefix(self):
         self.assertIsNone(parse_serial_event(b"normal ESP-IDF log\r\n"))
+        self.assertIsNone(parse_serial_event(b"normal ESP-IDF log \xff\xfe\r\n"))
         event = serial_event("fault_accepted")
         parsed = parse_serial_event("I (100) test: WASMHOME_RESILIENCE," +
                                     json.dumps(event) + "\r\n")
         self.assertEqual(parsed, event)
+        # Invalid bytes before an ASCII event marker are unrelated UART output;
+        # the recognized JSON payload itself still has to be UTF-8.
+        raw_event = (b"\xffboot noise I (100) test: WASMHOME_RESILIENCE," +
+                     json.dumps(event).encode("ascii") + b"\r\n")
+        self.assertEqual(parse_serial_event(raw_event), event)
+        with self.assertRaisesRegex(ResilienceFormatError, "not UTF-8"):
+            parse_serial_event(b"WASMHOME_RESILIENCE,{\xff}")
         event.pop("boot_id")
         with self.assertRaises(ResilienceFormatError):
             parse_serial_event("WASMHOME_RESILIENCE," + json.dumps(event))
@@ -570,15 +578,18 @@ class ResilienceHarnessTests(unittest.TestCase):
     def test_update_campaign_serial_capture_is_decoded_with_host_clock(self):
         event = serial_event("fault_accepted", case="NAT-ABORT")
         device_lines = (
-            "WASMHOME_RESILIENCE," + json.dumps(event, separators=(",", ":")) + "\r\n" +
-            "resilience:controlled_abort attempt_id=" + ATTEMPT +
-            " case_id=NAT-ABORT boot_id=0123456789abcdef monotonic_us=20\r\n"
-        ).encode("ascii")
+            b"\xff\x00unrelated UART bytes\r\n" +
+            ("WASMHOME_RESILIENCE," + json.dumps(event, separators=(",", ":")) + "\r\n" +
+             "resilience:controlled_abort attempt_id=" + ATTEMPT +
+             " case_id=NAT-ABORT boot_id=0123456789abcdef monotonic_us=20\r\n").encode("ascii")
+        )
+        # Keep the capture's original byte evidence, including non-UTF-8 data.
+        encoded_capture = base64.b64encode(device_lines).decode("ascii")
         rows = [
             {"kind": "serial_open", "host_monotonic_ns": 10},
             {"kind": "serial_bytes", "host_monotonic_ns": 20,
              "byte_count": len(device_lines),
-             "raw_base64": base64.b64encode(device_lines).decode("ascii")},
+             "raw_base64": encoded_capture},
             {"kind": "serial_closed", "host_monotonic_ns": 30},
         ]
         capture = "\n".join(json.dumps(row, indent=2) for row in rows) + "\n"
@@ -586,9 +597,12 @@ class ResilienceHarnessTests(unittest.TestCase):
             path = pathlib.Path(tmp) / "serial.jsonl"
             path.write_text(capture, encoding="utf-8")
             events = _read_serial_events(path)
+            saved_capture = path.read_text(encoding="utf-8")
         self.assertEqual([item["event"] for item in events],
                          ["fault_accepted", "abort_marker"])
         self.assertEqual([item["host_monotonic_ns"] for item in events], [20, 20])
+        self.assertEqual(saved_capture, capture)
+        self.assertEqual(base64.b64decode(rows[1]["raw_base64"]), device_lines)
 
     def test_invalid_uuid_and_duplicate_event_fields_are_rejected(self):
         bad = serial_event("fault_accepted", attempt_id="not-a-uuid")

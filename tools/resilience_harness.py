@@ -194,6 +194,18 @@ def resilience_preliminary_plan(seed: str) -> list[dict]:
 def parse_serial_event(raw_line: bytes | str) -> dict | None:
     """Decode one prefixed event; return None for unrelated serial output."""
     if isinstance(raw_line, bytes):
+        abort_marker = ABORT_MARKER_PREFIX.encode("ascii")
+        serial_marker = SERIAL_PREFIX.encode("ascii")
+        abort_at = raw_line.find(abort_marker)
+        serial_at = raw_line.find(serial_marker)
+        if abort_at >= 0:
+            raw_line = raw_line[abort_at:]
+        elif serial_at >= 0:
+            raw_line = raw_line[serial_at:]
+        else:
+            # UART capture is raw evidence and can contain arbitrary bytes.
+            # Only bytes belonging to a recognized event need to be UTF-8.
+            return None
         try:
             line = raw_line.decode("utf-8", errors="strict")
         except UnicodeDecodeError as error:
