@@ -7,6 +7,7 @@ from pathlib import Path
 import struct
 import tempfile
 import unittest
+from contextlib import nullcontext
 from unittest.mock import Mock, patch
 
 from tools import issue20_hil_orchestrator as hil
@@ -49,7 +50,7 @@ def bootloader_bytes(*, chip_id=9):
     return image
 
 
-def config_bytes(*, rollback=True):
+def config_bytes(*, rollback=True, server_port=None):
     text = ('#define CONFIG_IDF_TARGET "esp32s3"\n'
             '#define CONFIG_IDF_TARGET_ESP32S3 1\n'
             '#define CONFIG_ESPTOOLPY_FLASHSIZE "16MB"\n'
@@ -57,13 +58,16 @@ def config_bytes(*, rollback=True):
             '#define CONFIG_PARTITION_TABLE_OFFSET 0x8000\n')
     if rollback:
         text += '#define CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE 1\n'
+    if server_port is not None:
+        text += f'#define CONFIG_WASMHOME_UPDATE_SERVER_PORT {server_port}\n'
     return text.encode()
 
 
-def profile_files(root, *, app_rollback=True, bootloader_rollback=True):
+def profile_files(root, *, app_rollback=True, bootloader_rollback=True, server_port=8446):
     result = {}
     for kind, data in (("bootloader", bootloader_bytes()), ("partition_table", table_bytes()),
-                       ("app", image_bytes()), ("app_config", config_bytes(rollback=app_rollback)),
+                       ("app", image_bytes()),
+                       ("app_config", config_bytes(rollback=app_rollback, server_port=server_port)),
                        ("bootloader_config", config_bytes(rollback=bootloader_rollback))):
         path = root / (kind + (".h" if kind.endswith("_config") else ".bin"))
         path.write_bytes(data)
@@ -72,6 +76,36 @@ def profile_files(root, *, app_rollback=True, bootloader_rollback=True):
 
 
 class HilArtifactTests(unittest.TestCase):
+    def test_frozen_https_port_comes_from_sha_pinned_app_profiles(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            profiles = {}
+            for scenario in hil.campaign.SCENARIOS:
+                scenario_root = root / scenario
+                scenario_root.mkdir()
+                profiles[scenario] = profile_files(scenario_root, server_port=8446)
+            profiles_path = root / "profiles.json"
+            profiles_path.write_text(json.dumps({"schema_version": 2, "profiles": profiles}))
+            campaign_value = {"metadata": {"hil_profiles_sha256": hil.digest(profiles_path)}}
+            self.assertEqual(hil.frozen_https_port(campaign_value, profiles_path), 8446)
+
+            profiles["aot"] = profile_files(root / "aot", server_port=8447)
+            profiles_path.write_text(json.dumps({"schema_version": 2, "profiles": profiles}))
+            campaign_value["metadata"]["hil_profiles_sha256"] = hil.digest(profiles_path)
+            with self.assertRaisesRegex(hil.HilError, "disagree on the HTTPS server port"):
+                hil.frozen_https_port(campaign_value, profiles_path)
+
+    def test_frozen_https_port_rejects_profiles_not_pinned_by_campaign(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            profile = profile_files(root)
+            profiles_path = root / "profiles.json"
+            profiles_path.write_text(json.dumps({"schema_version": 2,
+                "profiles": {scenario: profile for scenario in hil.campaign.SCENARIOS}}))
+            campaign_value = {"metadata": {"hil_profiles_sha256": "0" * 64}}
+            with self.assertRaisesRegex(hil.HilError, "not frozen in campaign metadata"):
+                hil.frozen_https_port(campaign_value, profiles_path)
+
     def test_offsets_layout_and_table_sector_are_strict(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "table.bin"
@@ -343,10 +377,13 @@ class HilOrchestrationTests(unittest.TestCase):
         self.stack.enter_context(patch.object(hil.os, "geteuid", return_value=1000))
         self.stack.enter_context(patch.object(hil, "_new_journal", return_value=self.journal))
         self.stack.enter_context(patch.object(hil.campaign, "_load_campaign", return_value=(
-            {"campaign_id": "campaign"}, {"slots": self.slots}, {})))
+            {"campaign_id": "campaign", "metadata": {"artifact_campaign_id": "signed-campaign"}},
+            {"slots": self.slots}, {})))
         self.stack.enter_context(patch.object(hil.campaign, "_validate_repository"))
         self.stack.enter_context(patch.object(hil, "validate_profile"))
+        self.stack.enter_context(patch.object(hil, "frozen_https_port", return_value=8446))
         self.stack.enter_context(patch("tools.remote_observer.validate_options"))
+        self.preflight = self.stack.enter_context(patch("tools.ct107_user_preflight.verify_server"))
 
     def run_hil(self):
         return hil.execute(self.options, board_factory=lambda *_: self.board, invoke_slot=self.invoke)
@@ -355,6 +392,32 @@ class HilOrchestrationTests(unittest.TestCase):
         path = self.root / "hil-orchestrator/journal.json"
         self.assertEqual(path.stat().st_mode & 0o777, 0o600)
         return json.loads(path.read_text())
+
+    def test_preflight_uses_artifact_id_and_runs_before_journal_or_serial(self):
+        self.assertNotEqual(self.journal["campaign_id"], "signed-campaign")
+        self.preflight.side_effect = ValueError("CT107 preflight refused")
+        with self.assertRaisesRegex(ValueError, "CT107 preflight refused"):
+            self.run_hil()
+        self.assertEqual(self.preflight.call_args.kwargs["campaign_id"], "signed-campaign")
+        self.assertEqual(self.preflight.call_args.kwargs["expected_port"], 8446)
+        self.assertFalse((self.root / "hil-orchestrator").exists())
+        self.board.identify.assert_not_called()
+        self.board.read_hash.assert_not_called()
+        self.invoke.assert_not_called()
+
+    def test_recover_does_not_need_ct107_preflight(self):
+        journal_root = hil.private_directory(self.root / "hil-orchestrator")
+        self.journal.update(state="preparing", restore_required=True)
+        hil.write_private(journal_root / "journal.json", self.journal)
+        self.options.action = "recover"
+        self.preflight.side_effect = ValueError("CT107 offline")
+        result = self.run_hil()
+        self.assertEqual(result["state"], "recovered_interruption")
+        self.preflight.assert_not_called()
+        self.board.restore.assert_called_once()
+
+    def test_tooling_snapshot_covers_ct107_preflight(self):
+        self.assertIn("ct107_user_preflight.py", hil.tooling_snapshot())
 
     def test_ordered_slots_restore_before_and_after_every_capture(self):
         result = self.run_hil()
@@ -424,6 +487,225 @@ class HilOrchestrationTests(unittest.TestCase):
         self.assertEqual(result["state"], "recovered_interruption")
         self.assertEqual(self.invoke.call_count, 1)
         self.assertFalse(self.stored()["restore_required"])
+        self.assertFalse(self.board.restore.call_args.kwargs["boot"])
+
+    def recovered_claim(self, index=0):
+        self.journal.update(state="recovered_interruption", restore_required=False, next_index=index,
+                            current_slot=self.slots[index]["slot_id"])
+        claims = hil.private_directory(self.root / "hil-orchestrator" / "claims")
+        path = claims / (self.slots[index]["slot_id"] + ".json")
+        hil.write_private(path, {"slot": self.slots[index], "retry_permitted": False})
+        return path
+
+    def test_recovered_claim_is_retired_once_and_only_next_slot_runs(self):
+        claim = self.recovered_claim()
+        self.run_hil()
+        self.assertEqual([call.args[1]["slot_id"] for call in self.invoke.call_args_list],
+                         [self.slots[1]["slot_id"]])
+        event = self.stored()["events"][0]
+        self.assertEqual(event["state"], "interrupted_not_accepted")
+        self.assertIs(event["accepted"], False)
+        self.assertIs(event["capture_started"], False)
+        self.assertIs(event["retry_permitted"], False)
+        self.assertEqual(event["claim_sha256"], hil.digest(claim))
+        self.assertEqual(event["tooling_sha256"], hil.tooling_snapshot())
+        self.assertEqual(self.stored()["next_index"], 2)
+        self.run_hil()
+        self.assertEqual(self.invoke.call_count, 1)
+        self.assertEqual(len(self.stored()["events"]), 2)
+
+    def test_recovered_last_claim_checks_live_flash_without_starting_capture(self):
+        self.recovered_claim(index=1)
+        def read_baseline(_path):
+            self.assertTrue(self.stored()["restore_required"])
+            self.assertEqual(self.stored()["next_index"], 1)
+            self.assertEqual(self.stored()["events"], [])
+            return hil.BASELINE_SHA256
+        self.board.read_hash.side_effect = read_baseline
+        self.run_hil()
+        self.assertEqual(self.stored()["next_index"], 2)
+        self.board.identify.assert_called_once()
+        self.board.read_hash.assert_called_once()
+        self.board.restore.assert_not_called()
+        self.invoke.assert_not_called()
+
+    def test_recovered_drift_restores_and_verifies_baseline_before_retiring_claim(self):
+        self.recovered_claim(index=1)
+        self.board.read_hash.return_value = "0" * 64
+        def restore_verified(*args, **kwargs):
+            self.assertTrue(self.stored()["restore_required"])
+            self.assertEqual(self.stored()["next_index"], 1)
+            self.assertEqual(self.stored()["events"], [])
+            self.assertIs(kwargs["boot"], False)
+        self.board.restore.side_effect = restore_verified
+        self.run_hil()
+        self.board.restore.assert_called_once()
+        proof = self.stored()["events"][0]["baseline_verification"]
+        self.assertTrue(proof["restored"])
+        self.assertEqual(proof["live_sha256"], "0" * 64)
+        self.assertEqual(proof["verified_sha256"], hil.BASELINE_SHA256)
+        self.assertIs(proof["boot"], False)
+
+    def test_recovered_live_read_or_restore_failure_keeps_claim_recoverable(self):
+        self.recovered_claim(index=1)
+        for method in ("identify", "read_hash", "restore"):
+            with self.subTest(method=method):
+                self.journal.update(state="recovered_interruption", restore_required=False,
+                                    next_index=1, current_slot=self.slots[1]["slot_id"], events=[])
+                hil.write_private(self.root / "hil-orchestrator/journal.json", self.journal)
+                self.board.reset_mock(side_effect=True)
+                self.board.read_hash.return_value = "0" * 64
+                getattr(self.board, method).side_effect = OSError("simulated live proof failure")
+                with self.assertRaisesRegex(hil.HilError, "claim not retired"):
+                    self.run_hil()
+                self.assertEqual(self.stored()["state"], "restore_failed")
+                self.assertTrue(self.stored()["restore_required"])
+                self.assertEqual(self.stored()["next_index"], 1)
+                self.assertEqual(self.stored()["events"], [])
+        self.invoke.assert_not_called()
+
+    def test_recovered_claim_with_partial_raw_is_never_skipped_or_retried(self):
+        self.recovered_claim()
+        (self.root / "raw" / "slots" / self.slots[0]["slot_id"]).mkdir(parents=True)
+        with self.assertRaisesRegex(hil.HilError, "partial raw evidence"):
+            self.run_hil()
+        self.assertEqual(self.stored()["next_index"], 0)
+        self.board.identify.assert_not_called()
+        self.invoke.assert_not_called()
+
+    def test_recovered_current_slot_must_match_schedule_index(self):
+        self.recovered_claim()
+        self.journal["current_slot"] = self.slots[1]["slot_id"]
+        with self.assertRaisesRegex(hil.HilError, "does not match"):
+            self.run_hil()
+        self.board.identify.assert_not_called()
+
+    def test_recovered_claim_requires_exact_slot_and_false_retry_flag(self):
+        claim = self.recovered_claim()
+        for value in ({"slot": self.slots[1], "retry_permitted": False},
+                      {"slot": self.slots[0], "retry_permitted": True},
+                      {"slot": self.slots[0], "retry_permitted": 0}):
+            with self.subTest(value=value):
+                hil.write_private(claim, value)
+                with self.assertRaisesRegex(hil.HilError, "differs from its slot"):
+                    self.run_hil()
+                self.assertEqual(self.stored()["next_index"], 0)
+        self.board.identify.assert_not_called()
+
+    def test_recovered_claim_must_remain_private(self):
+        claim = self.recovered_claim()
+        claim.chmod(0o644)
+        with self.assertRaisesRegex(hil.HilError, "private regular"):
+            self.run_hil()
+        self.board.identify.assert_not_called()
+
+    def test_recovered_claim_missing_or_already_adjudicated_cannot_advance(self):
+        claim = self.recovered_claim()
+        claim.unlink()
+        with self.assertRaisesRegex(hil.HilError, "private regular"):
+            self.run_hil()
+        hil.write_private(claim, {"slot": self.slots[0], "retry_permitted": False})
+        value = self.stored()
+        value["events"].append({"slot_id": self.slots[0]["slot_id"], "state": "interrupted_not_accepted"})
+        hil.write_private(self.root / "hil-orchestrator/journal.json", value)
+        with self.assertRaisesRegex(hil.HilError, "terminal event"):
+            self.run_hil()
+        self.assertEqual(self.stored()["next_index"], 0)
+        self.board.identify.assert_not_called()
+
+    def test_failed_skip_audit_write_never_starts_next_slot(self):
+        self.recovered_claim()
+        original = hil.write_private
+        def fail_audit(path, value, **kwargs):
+            if value.get("events") and value["events"][0].get("state") == "interrupted_not_accepted":
+                raise OSError("audit write failed")
+            return original(path, value, **kwargs)
+        with patch.object(hil, "write_private", side_effect=fail_audit):
+            with self.assertRaisesRegex(hil.HilError, "claim not retired"):
+                self.run_hil()
+        self.assertEqual(self.stored()["state"], "restore_failed")
+        self.assertTrue(self.stored()["restore_required"])
+        self.assertEqual(self.stored()["next_index"], 0)
+        self.invoke.assert_not_called()
+
+    def test_existing_claim_refuses_before_any_hardware_access(self):
+        claims = hil.private_directory(self.root / "hil-orchestrator" / "claims")
+        hil.write_private(claims / (self.slots[0]["slot_id"] + ".json"),
+                          {"slot": self.slots[0], "retry_permitted": False})
+        with self.assertRaisesRegex(hil.HilError, "already has a claim"):
+            self.run_hil()
+        self.assertEqual(self.stored()["state"], "claiming")
+        self.assertTrue(self.stored()["restore_required"])
+        self.board.identify.assert_not_called()
+        self.invoke.assert_not_called()
+
+    def test_crash_before_claim_file_can_recover_intent_without_retry(self):
+        original = hil.write_private
+        def interrupt_claim(path, value, **kwargs):
+            if Path(path).parent.name == "claims":
+                self.assertEqual(self.stored()["state"], "claiming")
+                self.assertTrue(self.stored()["restore_required"])
+                raise OSError("claim file was not created")
+            return original(path, value, **kwargs)
+        with patch.object(hil, "write_private", side_effect=interrupt_claim):
+            with self.assertRaisesRegex(OSError, "claim file was not created"):
+                self.run_hil()
+        claim = self.root / "hil-orchestrator/claims" / (self.slots[0]["slot_id"] + ".json")
+        self.assertFalse(claim.exists())
+        self.assertEqual(self.stored()["next_index"], 0)
+        self.board.restore.assert_not_called()
+        self.options.action = "recover"
+        self.run_hil()
+        self.assertEqual(json.loads(claim.read_text()), {"slot": self.slots[0], "retry_permitted": False})
+        self.assertEqual(self.stored()["state"], "recovered_interruption")
+        self.options.action = "run"
+        self.run_hil()
+        self.assertEqual(self.invoke.call_count, 1)
+        self.assertEqual(self.invoke.call_args.args[1]["slot_id"], self.slots[1]["slot_id"])
+
+    def test_legacy_orphan_claim_is_adopted_and_recovers_without_overwriting_claim(self):
+        claims = hil.private_directory(self.root / "hil-orchestrator/claims")
+        claim = claims / (self.slots[0]["slot_id"] + ".json")
+        hil.write_private(claim, {"slot": self.slots[0], "retry_permitted": False})
+        before = hil.digest(claim)
+        with self.assertRaisesRegex(hil.HilError, "recovery required"):
+            self.run_hil()
+        self.board.identify.assert_not_called()
+        self.options.action = "recover"
+        self.run_hil()
+        self.assertEqual(hil.digest(claim), before)
+        self.options.action = "run"
+        self.run_hil()
+        self.assertEqual(hil.digest(claim), before)
+        self.assertEqual(self.invoke.call_count, 1)
+
+    def test_failed_claim_intent_write_cannot_create_orphan_claim(self):
+        original = hil.write_private
+        def fail_intent(path, value, **kwargs):
+            if value.get("state") == "claiming":
+                raise OSError("intent write failed")
+            return original(path, value, **kwargs)
+        with patch.object(hil, "write_private", side_effect=fail_intent):
+            with self.assertRaisesRegex(OSError, "intent write failed"):
+                self.run_hil()
+        self.assertEqual(self.stored()["state"], "ready")
+        self.assertFalse(list((self.root / "hil-orchestrator/claims").glob("*.json")))
+        self.board.restore.assert_not_called()
+        self.invoke.assert_not_called()
+
+    def test_recovery_rejects_mismatched_claim_intent_before_hardware_or_claim_creation(self):
+        self.journal.update(state="claiming", restore_required=True,
+                            current_slot=self.slots[0]["slot_id"],
+                            claim_intent={"slot": self.slots[1], "retry_permitted": False})
+        root = hil.private_directory(self.root / "hil-orchestrator")
+        hil.write_private(root / "journal.json", self.journal)
+        self.options.action = "recover"
+        with self.assertRaisesRegex(hil.HilError, "claim intent does not match"):
+            self.run_hil()
+        self.assertTrue(self.stored()["restore_required"])
+        self.assertEqual(self.stored()["next_index"], 0)
+        self.board.identify.assert_not_called()
+        self.invoke.assert_not_called()
 
     def test_keyboard_interrupt_restores_and_preserves_claim(self):
         self.invoke.side_effect = KeyboardInterrupt()
@@ -470,6 +752,182 @@ class HilOrchestrationTests(unittest.TestCase):
         self.options.read_timeout_seconds = 900
         self.run_hil()
         self.assertEqual(self.invoke.call_count, 2)
+
+
+class TerminalFailureAdjudicationTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.hil_root = self.root / "hil-orchestrator"
+        self.hil_root.mkdir(mode=0o700)
+        self.inputs = self.hil_root / "inputs"
+        self.inputs.mkdir(mode=0o700)
+        self.baseline = self.inputs / "baseline.bin"
+        self._sparse_flash(self.baseline)
+        self.slots = [{"slot_id": "B0004-native", "scenario": "native", "order_in_block": 1},
+                      {"slot_id": "B0005-interp", "scenario": "interp", "order_in_block": 2}]
+        self.journal = {"schema_version": 1, "campaign_id": "fixture-campaign", "git_commit": "fixture-commit",
+                        "state": "slot_failed", "restore_required": False, "next_index": 1,
+                        "current_slot": self.slots[0]["slot_id"], "slots": self.slots,
+                        "baseline": str(self.baseline),
+                        "claim_intent": {"slot": self.slots[0], "retry_permitted": False},
+                        "events": [{"slot_id": self.slots[0]["slot_id"], "state": "slot_failed",
+                                    "error": "RemoteObserverError"}]}
+        self.journal_path = self.hil_root / "journal.json"
+        self._write_json(self.journal_path, self.journal)
+        claims = self.hil_root / "claims"
+        claims.mkdir(mode=0o700)
+        self.claim_path = claims / (self.slots[0]["slot_id"] + ".json")
+        self._write_json(self.claim_path, {"slot": self.slots[0], "retry_permitted": False})
+        operation = self.hil_root / ("operation-" + "1" * 32)
+        operation.mkdir(mode=0o700)
+        self.readback = operation / (self.slots[0]["slot_id"] + "-after.bin")
+        self._sparse_flash(self.readback)
+        self.raw_dir = self.root / "raw" / "slots" / self.slots[0]["slot_id"]
+        self.raw_dir.mkdir(mode=0o700, parents=True)
+        self.session_id = "12345678-1234-4234-9234-123456789abc"
+        self._write_json(self.raw_dir / "remote-session.json", {
+            "schema": "wasmhome-remote-observer-v1", "session_id": self.session_id,
+            "config": {"context": {"campaign_id": self.journal["campaign_id"],
+                                     "slot_id": self.slots[0]["slot_id"],
+                                     "git_commit": self.journal["git_commit"]}}})
+        self._write_json(self.raw_dir / "remote-start-claim.json", {"session_id": self.session_id})
+        self._write_json(self.raw_dir / "remote-status.json", {
+            "schema": "wasmhome-remote-observer-v1", "session_id": self.session_id, "state": "running"})
+        self._write_json(self.raw_dir / "remote-transport-error.json", {
+            "session_id": self.session_id, "reason": "SSH status timed out", "retry_permitted": False})
+        self._write_file(self.raw_dir / "device.jsonl", b"serial capture preserved\n")
+        raw_files = {}
+        for path in sorted(self.raw_dir.iterdir()):
+            raw_files[path.name] = {"sha256": hil.campaign._sha256_file(path),
+                                    "size_bytes": path.stat().st_size}
+        self.terminal_error = {
+            "kind": "capture_failed",
+            "error": "RemoteObserverError: SSH status did not complete: Command timed out after 5 seconds",
+            "automatic_retry_permitted": False, "raw_files": raw_files}
+        self._write_json(self.raw_dir / "terminal-error.json", self.terminal_error)
+        old_tooling = {name: "a" * 64 for name in hil.tooling_snapshot()}
+        self.batch_path = self.hil_root / "batch.json"
+        self._write_json(self.batch_path, {
+            "state": "blocked", "restore_required": False, "next_index": 1,
+            "tooling_sha256": old_tooling,
+            "events": [{"before_index": 0, "after_index": 1, "exit_code": 1}]})
+        self.real_digest = hil.digest
+        self.stack = []
+        self.stack.append(patch.object(hil.os, "geteuid", return_value=1000))
+        self.stack.append(patch.object(hil, "hardware_lock", lambda: nullcontext()))
+        self.stack.append(patch.object(hil, "digest", side_effect=self._fixture_digest))
+        for item in self.stack:
+            item.start()
+        self.addCleanup(self._stop_patches)
+
+    def _stop_patches(self):
+        for item in self.stack:
+            item.stop()
+
+    def _fixture_digest(self, path):
+        if Path(path) in {self.baseline, self.readback}:
+            return hil.BASELINE_SHA256
+        return self.real_digest(path)
+
+    def _sparse_flash(self, path):
+        with path.open("wb") as stream:
+            stream.truncate(hil.FLASH_BYTES)
+        path.chmod(0o600)
+
+    def _write_file(self, path, data):
+        with path.open("xb") as stream:
+            stream.write(data)
+        path.chmod(0o600)
+
+    def _write_json(self, path, value):
+        hil.campaign._write_json(path, value)
+        path.chmod(0o600)
+
+    def _stored(self):
+        return json.loads(self.journal_path.read_text())
+
+    def test_rejects_wrong_baseline_and_wrong_full_flash_hash(self):
+        with patch.object(hil, "digest", side_effect=lambda path: "0" * 64
+                          if Path(path) == self.baseline else self._fixture_digest(path)):
+            with self.assertRaisesRegex(hil.HilError, "baseline snapshot hash/size"):
+                hil.adjudicate_terminal_failure(self.root)
+        self.assertEqual(self._stored()["state"], "slot_failed")
+        with patch.object(hil, "digest", side_effect=lambda path: "0" * 64
+                          if Path(path) == self.readback else self._fixture_digest(path)):
+            with self.assertRaisesRegex(hil.HilError, "readback does not match"):
+                hil.adjudicate_terminal_failure(self.root)
+        self.assertFalse((self.hil_root / "adjudications").exists())
+
+    def test_rejects_slot_claim_mismatch(self):
+        self._write_json(self.claim_path, {"slot": self.slots[1], "retry_permitted": False})
+        with self.assertRaisesRegex(hil.HilError, "claim mismatch"):
+            hil.adjudicate_terminal_failure(self.root)
+        self.assertEqual(self._stored()["next_index"], 1)
+        self.assertFalse((self.hil_root / "adjudications").exists())
+
+    def test_rejects_capture_or_restore_still_pending(self):
+        self.journal["restore_required"] = True
+        self._write_json(self.journal_path, self.journal)
+        with self.assertRaisesRegex(hil.HilError, "restoration complete"):
+            hil.adjudicate_terminal_failure(self.root)
+        self.journal["restore_required"] = False
+        self._write_json(self.journal_path, self.journal)
+        (self.raw_dir / "terminal-error.json").unlink()
+        with self.assertRaisesRegex(hil.HilError, "terminal error"):
+            hil.adjudicate_terminal_failure(self.root)
+        self._write_json(self.raw_dir / "terminal-error.json", self.terminal_error)
+        self.readback.unlink()
+        with self.assertRaisesRegex(hil.HilError, "readback is missing"):
+            hil.adjudicate_terminal_failure(self.root)
+        self.assertEqual(self._stored()["state"], "slot_failed")
+
+    def test_rejects_tampered_raw_remote_status(self):
+        self._write_json(self.raw_dir / "remote-status.json", {
+            "schema": "wasmhome-remote-observer-v1", "session_id": self.session_id, "state": "failed"})
+        with self.assertRaisesRegex(hil.HilError, "raw evidence hash/size mismatch"):
+            hil.adjudicate_terminal_failure(self.root)
+        self.assertEqual(self._stored()["state"], "slot_failed")
+
+    def test_accepts_verified_failure_without_repeating_or_advancing_index(self):
+        before_claim = self.real_digest(self.claim_path)
+        before_raw = {path.name: self.real_digest(path) for path in self.raw_dir.iterdir()}
+        result = hil.adjudicate_terminal_failure(self.root)
+        stored = self._stored()
+        self.assertEqual(result["state"], "ready")
+        self.assertEqual(result["next_index"], 1)
+        self.assertEqual(stored["state"], "ready")
+        self.assertEqual(stored["next_index"], 1)
+        self.assertEqual(stored["events"][-1]["state"], "terminal_failure_adjudicated")
+        self.assertIs(stored["events"][-1]["retry_permitted"], False)
+        receipt_path = Path(result["receipt"])
+        self.assertEqual(receipt_path.stat().st_mode & 0o777, 0o600)
+        receipt = json.loads(receipt_path.read_text())
+        self.assertEqual(receipt["next_index_before"], receipt["next_index_after"])
+        self.assertIs(receipt["post_restore_readback"]["matches_baseline"], True)
+        self.assertEqual(receipt["tooling_sha256_before"], {name: "a" * 64 for name in hil.tooling_snapshot()})
+        self.assertEqual(receipt["tooling_sha256_after"], hil.tooling_snapshot())
+        self.assertEqual(self.real_digest(self.claim_path), before_claim)
+        self.assertEqual({path.name: self.real_digest(path) for path in self.raw_dir.iterdir()}, before_raw)
+
+    def test_reuses_matching_private_receipt_if_journal_write_needs_retry(self):
+        original = hil.write_private
+
+        def fail_ready_journal(path, value, **kwargs):
+            if Path(path) == self.journal_path and value.get("state") == "ready":
+                raise OSError("simulated journal write failure")
+            return original(path, value, **kwargs)
+
+        with patch.object(hil, "write_private", side_effect=fail_ready_journal):
+            with self.assertRaisesRegex(OSError, "journal write failure"):
+                hil.adjudicate_terminal_failure(self.root)
+        receipt = self.hil_root / "adjudications" / (self.slots[0]["slot_id"] + ".json")
+        self.assertTrue(receipt.is_file())
+        self.assertEqual(self._stored()["state"], "slot_failed")
+        result = hil.adjudicate_terminal_failure(self.root)
+        self.assertEqual(result["state"], "ready")
+        self.assertEqual(self._stored()["next_index"], 1)
 
 
 class HilLockTests(unittest.TestCase):

@@ -2,11 +2,13 @@
 """Restore, prepare and capture ordered issue20 slots as an ordinary user.
 
 The baseline and raw flash never leave the private campaign directory. Recovery
-only restores; it cannot repeat an observer run or advance the schedule.
+only restores. A later run can retire one recovered claim without raw evidence;
+it cannot repeat an observer run or a claimed slot.
 """
 from __future__ import annotations
 
 import argparse
+import copy
 from contextlib import contextmanager
 import fcntl
 import hashlib
@@ -214,12 +216,13 @@ def checked_file(row):
     return path
 
 
-def validate_generated_config(path):
+def validate_generated_config(path, *, return_definitions=False):
     """Read frozen build output, never the editable input sdkconfig."""
     require(Path(path).stat().st_size <= 1024 * 1024, "generated config is too large")
     required = {"CONFIG_IDF_TARGET", "CONFIG_IDF_TARGET_ESP32S3",
                 "CONFIG_ESPTOOLPY_FLASHSIZE", "CONFIG_ESPTOOLPY_FLASHSIZE_16MB",
-                "CONFIG_PARTITION_TABLE_OFFSET", "CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE"}
+                "CONFIG_PARTITION_TABLE_OFFSET", "CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE",
+                "CONFIG_WASMHOME_UPDATE_SERVER_PORT"}
     definitions = {}
     source = Path(path).read_text(encoding="utf-8")
     lines, in_block_comment = [], False
@@ -295,6 +298,8 @@ def validate_generated_config(path):
             "generated config partition table offset differs from the frozen layout")
     rollback = definitions.get("CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE", "0")
     require(rollback in {"0", "1"}, "invalid rollback definition in generated config")
+    if return_definitions:
+        return definitions
     return rollback == "1"
 
 
@@ -313,8 +318,21 @@ def validate_profile(profile, *, scenario):
     return files
 
 
-def load_profiles(path):
-    value = campaign._read_json(Path(path), "HIL profiles")
+def load_profiles(path, *, expected_sha256=None):
+    path = Path(path)
+    if expected_sha256 is None:
+        value = campaign._read_json(path, "HIL profiles")
+    else:
+        require(path.is_file() and not path.is_symlink(),
+                "frozen HIL profiles must be a regular non-symlink file")
+        source = path.read_bytes()
+        require(hashlib.sha256(source).hexdigest() == expected_sha256,
+                "profiles.json SHA-256 is not frozen in campaign metadata")
+        try:
+            value = campaign._json_loads_strict(source.decode("utf-8"), "HIL profiles")
+        except UnicodeError as exc:
+            raise HilError("HIL profiles: cannot read valid UTF-8 JSON") from exc
+        require(isinstance(value, dict), "HIL profiles: top-level JSON value must be an object")
     require(set(value) == {"schema_version", "profiles"} and value["schema_version"] == 2,
             "unsupported HIL profiles schema")
     require(isinstance(value["profiles"], dict) and set(value["profiles"]) == set(campaign.SCENARIOS),
@@ -322,6 +340,29 @@ def load_profiles(path):
     for scenario, profile in value["profiles"].items():
         validate_profile(profile, scenario=scenario)
     return value
+
+
+def frozen_https_port(campaign_value, profiles_path):
+    """Read the HTTPS port from profile configs pinned by campaign metadata."""
+    metadata = campaign_value.get("metadata")
+    expected_sha256 = metadata.get("hil_profiles_sha256") if isinstance(metadata, dict) else None
+    require(isinstance(expected_sha256, str) and re.fullmatch(r"[0-9a-f]{64}", expected_sha256),
+            "campaign metadata lacks a valid frozen profiles SHA-256")
+    profiles = load_profiles(profiles_path, expected_sha256=expected_sha256)
+    ports = {}
+    for scenario, profile in profiles["profiles"].items():
+        definitions = validate_generated_config(profile["app_config"]["path"],
+                                                return_definitions=True)
+        value = definitions.get("CONFIG_WASMHOME_UPDATE_SERVER_PORT")
+        require(isinstance(value, str) and re.fullmatch(r"[0-9]+", value) is not None,
+                f"{scenario} generated app config lacks a numeric HTTPS server port")
+        port = int(value)
+        require(1024 <= port <= 65535,
+                f"{scenario} generated app config HTTPS server port must be unprivileged")
+        ports[scenario] = port
+    require(len(set(ports.values())) == 1,
+            "frozen HIL profiles disagree on the HTTPS server port")
+    return next(iter(ports.values()))
 
 
 class Board:
@@ -424,6 +465,355 @@ def _invoke_slot(options, slot):
         remote_server_log=Path(options.remote_server_log))
 
 
+def tooling_snapshot():
+    root = Path(__file__).resolve().parent
+    return {name: digest(root / name) for name in
+            ("issue20_hil_orchestrator.py", "issue20_hil_batch.py",
+             "ct107_user_preflight.py") if (root / name).is_file()}
+
+
+def current_claim(journal, journal_path):
+    index = journal["next_index"]
+    require(type(index) is int and 0 <= index < len(journal["slots"]),
+            "recovered interruption has no current schedule slot")
+    slot = journal["slots"][index]
+    require(journal.get("current_slot") == slot["slot_id"],
+            "recovered current_slot does not match slots[next_index]")
+    claim = Path(journal_path).parent / "claims" / (slot["slot_id"] + ".json")
+    require(claim.parent.is_dir() and not claim.parent.is_symlink()
+            and claim.parent.stat().st_uid == os.getuid()
+            and stat.S_IMODE(claim.parent.stat().st_mode) == 0o700,
+            "recovered claim directory is not private")
+    require(claim.is_file() and not claim.is_symlink()
+            and claim.stat().st_uid == os.getuid()
+            and stat.S_ISREG(claim.stat().st_mode)
+            and stat.S_IMODE(claim.stat().st_mode) == 0o600,
+            "recovered claim must be a private regular 0600 file")
+    value = campaign._read_json(claim, "recovered slot claim")
+    require(set(value) == {"slot", "retry_permitted"} and value["slot"] == slot
+            and value["retry_permitted"] is False,
+            "recovered claim differs from its slot or permits retry")
+    return slot, claim
+
+
+def recovered_claim(journal, journal_path, campaign_root):
+    require(journal["state"] == "recovered_interruption" and journal["restore_required"] is False,
+            "only a verified recovered interruption can retire a claim")
+    slot, claim = current_claim(journal, journal_path)
+    raw = Path(campaign_root) / "raw" / "slots" / slot["slot_id"]
+    require(not any(path.is_symlink() for path in (raw, raw.parent, raw.parent.parent))
+            and not os.path.lexists(raw),
+            "recovered slot has partial raw evidence; preserve it and stop for adjudication")
+    require(isinstance(journal["events"], list)
+            and not any(event.get("slot_id") == slot["slot_id"] for event in journal["events"]),
+            "recovered slot already has a terminal event")
+    return slot, claim
+
+
+def retire_recovered_claim(journal, journal_path, campaign_root, *, baseline_verification):
+    """Persist the rejected claim only after a live full-flash proof."""
+    slot, claim = recovered_claim(journal, journal_path, campaign_root)
+    require(baseline_verification.get("verified_sha256") == BASELINE_SHA256,
+            "retiring a claim requires a verified full-flash baseline")
+    journal["events"].append({
+        "slot_id": slot["slot_id"], "state": "interrupted_not_accepted",
+        "error": "recovered_interruption", "accepted": False, "retry_permitted": False,
+        "capture_started": False, "claim_sha256": digest(claim),
+        "recorded_at_utc": campaign._utc_now(), "tooling_sha256": tooling_snapshot(),
+        "campaign_git_commit": journal["git_commit"],
+        "baseline_verification": baseline_verification,
+    })
+    journal.update(state="complete", next_index=journal["next_index"] + 1)
+    write_private(journal_path, journal)
+
+
+def resume_recovered_claim(journal, journal_path, campaign_root, board, receipt):
+    recovered_claim(journal, journal_path, campaign_root)
+    journal.update(state="rechecking_recovery", restore_required=True)
+    write_private(journal_path, journal)
+    try:
+        board.identify()
+        live = board.read_hash(receipt / "resume-live-readback.bin")
+        restored = live != BASELINE_SHA256
+        if restored:
+            # Board.restore verifies all 16 MiB before returning, without boot.
+            board.restore(Path(journal["baseline"]), receipt / "resume-restored-readback.bin", boot=False)
+        verified = copy.deepcopy(journal)
+        verified.update(state="recovered_interruption", restore_required=False)
+        retire_recovered_claim(verified, journal_path, campaign_root,
+            baseline_verification={"live_sha256": live, "verified_sha256": BASELINE_SHA256,
+                                   "restored": restored, "boot": False})
+        journal.clear()
+        journal.update(verified)
+    except BaseException as exc:
+        # The original index/events are untouched even if the terminal audit
+        # write fails. The durable intent precedes every serial operation.
+        journal.update(state="restore_failed", restore_required=True, error=type(exc).__name__)
+        write_private(journal_path, journal)
+        raise HilError("recovered baseline verification failed; claim not retired; use recover") from exc
+
+
+def repair_claim_intent(journal, journal_path, campaign_root):
+    """Complete a durable claim intent after a crash before its file existed."""
+    index = journal["next_index"]
+    require(type(index) is int and 0 <= index < len(journal["slots"]), "invalid claim intent index")
+    slot = journal["slots"][index]
+    expected = {"slot": slot, "retry_permitted": False}
+    require(journal.get("current_slot") == slot["slot_id"] and journal.get("claim_intent") == expected
+            and journal["claim_intent"]["retry_permitted"] is False,
+            "claim intent does not match the current schedule slot")
+    claims = private_directory(Path(journal_path).parent / "claims")
+    claim = claims / (slot["slot_id"] + ".json")
+    if not os.path.lexists(claim):
+        require(not os.path.lexists(Path(campaign_root) / "raw" / "slots" / slot["slot_id"]),
+                "missing claim has raw evidence; preserve it for adjudication")
+        write_private(claim, expected, exclusive=True)
+    current_claim(journal, journal_path)
+
+
+def _adjudication_file(path, label):
+    path = Path(path)
+    require(not any(part.is_symlink() for part in (path, *path.parents)),
+            f"{label} path contains a symlink")
+    require(path.is_file() and stat.S_ISREG(path.stat().st_mode)
+            and path.stat().st_uid == os.getuid()
+            and stat.S_IMODE(path.stat().st_mode) == 0o600,
+            f"{label} must be a private regular 0600 file")
+    return path
+
+
+def _adjudication_directory(path, label):
+    path = Path(path)
+    require(not any(part.is_symlink() for part in (path, *path.parents)),
+            f"{label} path contains a symlink")
+    require(path.is_dir() and path.stat().st_uid == os.getuid()
+            and stat.S_IMODE(path.stat().st_mode) == 0o700,
+            f"{label} must be a private 0700 directory")
+    return path
+
+
+@contextmanager
+def adjudication_lock(root):
+    """Serialize adjudication with both the batch supervisor and HIL child."""
+    with hardware_lock():
+        descriptor = os.open(Path(root) / "batch.lock",
+                             os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        try:
+            info = os.fstat(descriptor)
+            require(stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid()
+                    and stat.S_IMODE(info.st_mode) == 0o600,
+                    "unsafe batch lock")
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise HilError("batch supervisor is active; adjudication refused") from exc
+            yield
+        finally:
+            os.close(descriptor)
+
+
+def _adjudication_raw_evidence(raw_dir, slot, campaign_id, git_commit):
+    raw_dir = _adjudication_directory(raw_dir, "failed slot evidence directory")
+    require(not os.path.lexists(raw_dir / "slot.json"),
+            "slot already has a completed record; terminal-failure adjudication refused")
+    terminal_path = _adjudication_file(raw_dir / "terminal-error.json", "terminal error")
+    terminal = campaign._read_json(terminal_path, "terminal error")
+    message = terminal.get("error")
+    require(terminal.get("kind") == "capture_failed"
+            and terminal.get("automatic_retry_permitted") is False
+            and isinstance(message, str) and message.startswith("RemoteObserverError:")
+            and "SSH" in message and "timed out" in message.lower(),
+            "terminal error is not the recorded non-retryable SSH timeout")
+    raw_files = terminal.get("raw_files")
+    required = {"device.jsonl", "remote-session.json", "remote-start-claim.json",
+                "remote-status.json", "remote-transport-error.json"}
+    require(isinstance(raw_files, dict) and required <= set(raw_files),
+            "terminal error does not seal the required serial/remote evidence")
+    direct_files = {path.name for path in raw_dir.iterdir()
+                    if path.is_file() and path.name != "terminal-error.json"}
+    require(direct_files == set(raw_files),
+            "terminal error raw-file inventory differs from the preserved capture")
+    verified = {}
+    for name, expected in raw_files.items():
+        require(isinstance(name, str) and Path(name).name == name and name not in {".", ".."}
+                and isinstance(expected, dict)
+                and type(expected.get("size_bytes")) is int
+                and expected["size_bytes"] >= 0
+                and isinstance(expected.get("sha256"), str)
+                and re.fullmatch(r"[0-9a-f]{64}", expected["sha256"]),
+                "terminal error contains invalid raw-file metadata")
+        path = _adjudication_file(raw_dir / name, f"raw evidence {name}")
+        actual = {"size_bytes": path.stat().st_size, "sha256": campaign._sha256_file(path)}
+        require(actual == expected, f"raw evidence hash/size mismatch: {name}")
+        verified[name] = actual
+
+    session = campaign._read_json(raw_dir / "remote-session.json", "remote session")
+    session_id = session.get("session_id")
+    context = ((session.get("config") or {}).get("context") or {})
+    require(session.get("schema") == "wasmhome-remote-observer-v1"
+            and isinstance(session_id, str)
+            and context.get("campaign_id") == campaign_id
+            and context.get("slot_id") == slot["slot_id"]
+            and context.get("git_commit") == git_commit,
+            "remote session identity differs from the failed scheduled slot")
+    require(str(uuid.UUID(session_id)) == session_id,
+            "remote session ID is not a canonical UUID")
+    start_claim = campaign._read_json(raw_dir / "remote-start-claim.json", "remote start claim")
+    require(start_claim.get("session_id") == session_id,
+            "remote start claim belongs to another session")
+    status = campaign._read_json(raw_dir / "remote-status.json", "remote status")
+    require(status.get("schema") == "wasmhome-remote-observer-v1"
+            and status.get("session_id") == session_id
+            and status.get("state") in {"prepared", "launching", "running", "complete", "aborted", "failed"},
+            "remote status is missing or belongs to another session")
+    transport = campaign._read_json(raw_dir / "remote-transport-error.json", "remote transport error")
+    require(transport.get("session_id") == session_id
+            and transport.get("retry_permitted") is False
+            and isinstance(transport.get("reason"), str)
+            and "SSH" in transport["reason"],
+            "remote transport error is not a non-retryable SSH failure")
+    return {"terminal_error": {"path": str(terminal_path), "sha256": campaign._sha256_file(terminal_path)},
+            "session_id": session_id, "remote_state": status["state"], "raw_files": verified}
+
+
+def adjudicate_terminal_failure(campaign_root):
+    """Adjudicate one already-restored terminal capture failure, offline only."""
+    os.umask(0o077)
+    require(os.geteuid() != 0, "HIL must run as an ordinary user")
+    campaign_root = Path(campaign_root).absolute()
+    journal_root = campaign_root / "hil-orchestrator"
+    _adjudication_directory(journal_root, "HIL journal directory")
+    journal_path = _adjudication_file(journal_root / "journal.json", "HIL journal")
+    with adjudication_lock(journal_root):
+        journal = campaign._read_json(journal_path, "HIL journal")
+        require(journal.get("state") == "slot_failed" and journal.get("restore_required") is False,
+                "only a terminal slot_failed journal with restoration complete can be adjudicated")
+        slots = journal.get("slots")
+        next_index = journal.get("next_index")
+        require(isinstance(slots, list) and type(next_index) is int
+                and 1 <= next_index < len(slots),
+                "journal has no next unclaimed slot to release")
+        failed_index = next_index - 1
+        failed_slot = slots[failed_index]
+        next_slot = slots[next_index]
+        require(isinstance(failed_slot, dict) and isinstance(next_slot, dict)
+                and isinstance(failed_slot.get("slot_id"), str)
+                and isinstance(next_slot.get("slot_id"), str),
+                "journal schedule contains invalid slot rows")
+        require(journal.get("current_slot") == failed_slot["slot_id"],
+                "journal failed slot does not match next_index")
+        expected_intent = {"slot": failed_slot, "retry_permitted": False}
+        require(journal.get("claim_intent") == expected_intent,
+                "failed slot claim intent differs from schedule or permits retry")
+        events = journal.get("events")
+        require(isinstance(events, list) and events
+                and events[-1].get("slot_id") == failed_slot["slot_id"]
+                and events[-1].get("state") == "slot_failed"
+                and events[-1].get("error") == "RemoteObserverError",
+                "journal has no matching terminal RemoteObserverError event")
+
+        claims_dir = _adjudication_directory(journal_root / "claims", "claim directory")
+        claim_path = _adjudication_file(claims_dir / (failed_slot["slot_id"] + ".json"), "failed slot claim")
+        claim = campaign._read_json(claim_path, "failed slot claim")
+        require(set(claim) == {"slot", "retry_permitted"}
+                and claim["slot"] == failed_slot and claim["retry_permitted"] is False,
+                "failed slot claim mismatch or retry is permitted")
+        require(not os.path.lexists(claims_dir / (next_slot["slot_id"] + ".json"))
+                and not os.path.lexists(campaign_root / "raw" / "slots" / next_slot["slot_id"]),
+                "next schedule index is already claimed or has raw evidence")
+
+        baseline = _adjudication_file(journal.get("baseline", ""), "approved baseline snapshot")
+        require(baseline.parent == journal_root / "inputs" and baseline.name == "baseline.bin"
+                and baseline.stat().st_size == FLASH_BYTES
+                and digest(baseline) == BASELINE_SHA256,
+                "approved baseline snapshot hash/size mismatch")
+        operation_dirs = [path for path in journal_root.iterdir()
+                          if path.name.startswith("operation-")
+                          and (path / f"{failed_slot['slot_id']}-after.bin").exists()]
+        require(len(operation_dirs) == 1
+                and re.fullmatch(r"operation-[0-9a-f]{32}", operation_dirs[0].name),
+                "post-restoration readback is missing or ambiguous")
+        operation_dir = _adjudication_directory(operation_dirs[0], "restoration receipt directory")
+        readback = _adjudication_file(operation_dir / f"{failed_slot['slot_id']}-after.bin",
+                                      "post-restoration readback")
+        require(readback.stat().st_size == FLASH_BYTES and digest(readback) == BASELINE_SHA256,
+                "post-restoration full-flash readback does not match the approved baseline")
+
+        evidence = _adjudication_raw_evidence(
+            campaign_root / "raw" / "slots" / failed_slot["slot_id"], failed_slot,
+            journal["campaign_id"], journal["git_commit"])
+        batch_path = _adjudication_file(journal_root / "batch.json", "blocked batch status")
+        batch = campaign._read_json(batch_path, "blocked batch status")
+        old_tools = batch.get("tooling_sha256")
+        new_tools = tooling_snapshot()
+        require(batch.get("state") == "blocked" and batch.get("restore_required") is False
+                and batch.get("next_index") == next_index
+                and isinstance(old_tools, dict) and set(old_tools) == set(new_tools)
+                and all(isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value)
+                        for value in old_tools.values()),
+                "blocked batch does not prove the old tool snapshot and failed index")
+        batch_events = batch.get("events")
+        require(isinstance(batch_events, list) and batch_events
+                and batch_events[-1].get("before_index") == failed_index
+                and batch_events[-1].get("after_index") == next_index
+                and type(batch_events[-1].get("exit_code")) is int
+                and batch_events[-1]["exit_code"] != 0,
+                "blocked batch event does not match the terminal slot failure")
+
+        adjudications = private_directory(journal_root / "adjudications")
+        receipt_path = adjudications / (failed_slot["slot_id"] + ".json")
+        receipt = {
+            "schema_version": 1,
+            "adjudication": "terminal_failure_restored_not_accepted",
+            "campaign_id": journal["campaign_id"],
+            "git_commit": journal["git_commit"],
+            "slot_id": failed_slot["slot_id"],
+            "failed_index": failed_index,
+            "next_index_before": next_index,
+            "next_index_after": next_index,
+            "retry_permitted": False,
+            "journal_transition": {"from": "slot_failed", "to": "ready"},
+            "claim": {"path": str(claim_path), "sha256": digest(claim_path)},
+            "terminal_evidence": evidence,
+            "baseline": {"path": str(baseline), "size_bytes": baseline.stat().st_size,
+                         "sha256": digest(baseline)},
+            "post_restore_readback": {"path": str(readback), "size_bytes": readback.stat().st_size,
+                                       "sha256": digest(readback), "matches_baseline": True},
+            "batch_status": {"path": str(batch_path), "sha256": digest(batch_path),
+                             "state": batch["state"]},
+            "tooling_sha256_before": old_tools,
+            "tooling_sha256_after": new_tools,
+            "recorded_at_utc": campaign._utc_now(),
+        }
+        if os.path.lexists(receipt_path):
+            prior_receipt = campaign._read_json(
+                _adjudication_file(receipt_path, "existing adjudication receipt"),
+                "existing adjudication receipt")
+            comparable = copy.deepcopy(receipt)
+            previous = copy.deepcopy(prior_receipt)
+            comparable.pop("recorded_at_utc", None)
+            recorded_at = previous.pop("recorded_at_utc", None)
+            require(isinstance(recorded_at, str) and previous == comparable,
+                    "existing adjudication receipt does not match the verified evidence")
+            receipt = prior_receipt
+        else:
+            write_private(receipt_path, receipt, exclusive=True)
+        receipt_sha256 = digest(receipt_path)
+        updated = copy.deepcopy(journal)
+        updated["events"].append({
+            "slot_id": failed_slot["slot_id"], "state": "terminal_failure_adjudicated",
+            "error": "RemoteObserverError", "accepted": False, "retry_permitted": False,
+            "next_index_before": next_index, "next_index_after": next_index,
+            "receipt": str(receipt_path), "receipt_sha256": receipt_sha256,
+            "tooling_sha256_before": old_tools, "tooling_sha256_after": new_tools,
+        })
+        updated["state"] = "ready"
+        require(updated["next_index"] == next_index, "adjudication must not move the schedule index")
+        write_private(journal_path, updated)
+        return {"state": updated["state"], "slot_id": failed_slot["slot_id"],
+                "next_index": updated["next_index"], "receipt": str(receipt_path)}
+
+
 def execute(options, *, board_factory=Board, invoke_slot=_invoke_slot):
     os.umask(0o077)
     require(os.geteuid() != 0, "HIL must run as an ordinary user")
@@ -437,9 +827,21 @@ def execute(options, *, board_factory=Board, invoke_slot=_invoke_slot):
     from importlib import import_module
     remote = import_module("tools.remote_observer" if __package__ else "remote_observer")
     if options.action == "run":
-        remote.validate_options({"target": options.remote_observer, "known_hosts": options.remote_known_hosts,
-                                 "identity": options.remote_identity, "root": options.remote_root,
-                                 "ssh_port": options.remote_ssh_port})
+        remote_options = {"target": options.remote_observer,
+                          "known_hosts": options.remote_known_hosts,
+                          "identity": options.remote_identity,
+                          "root": options.remote_root,
+                          "ssh_port": options.remote_ssh_port}
+        remote.validate_options(remote_options)
+        preflight = import_module("tools.ct107_user_preflight" if __package__
+                                  else "ct107_user_preflight")
+        planned, _, _ = campaign._load_campaign(Path(options.campaign_root))
+        artifact_campaign_id = planned.get("metadata", {}).get("artifact_campaign_id")
+        expected_https_port = frozen_https_port(planned, options.profiles)
+        preflight.verify_server(remote_options, bind_ip=options.bind_ip,
+                                server_log=options.remote_server_log,
+                                campaign_id=artifact_campaign_id,
+                                expected_port=expected_https_port)
     with hardware_lock():
         root = private_directory(Path(options.campaign_root) / "hil-orchestrator")
         journal_path = root / "journal.json"
@@ -459,9 +861,11 @@ def execute(options, *, board_factory=Board, invoke_slot=_invoke_slot):
         board = board_factory(options, receipt)
         if options.action == "recover":
             require(journal["restore_required"], "journal does not require recovery")
+            if journal["state"] == "claiming":
+                repair_claim_intent(journal, journal_path, options.campaign_root)
             board.identify()
             try:
-                board.restore(Path(journal["baseline"]), receipt / "recovered-readback.bin")
+                board.restore(Path(journal["baseline"]), receipt / "recovered-readback.bin", boot=False)
             except BaseException:
                 journal["state"] = "restore_failed"
                 write_private(journal_path, journal)
@@ -469,7 +873,8 @@ def execute(options, *, board_factory=Board, invoke_slot=_invoke_slot):
             journal.update(state="recovered_interruption", restore_required=False)
             write_private(journal_path, journal)
             return {"state": journal["state"], "slot_retry_permitted": False}
-        require(journal["state"] in {"ready", "complete"} and not journal["restore_required"],
+        require(journal["state"] in {"ready", "complete", "recovered_interruption"}
+                and not journal["restore_required"],
                 "interrupted/failed journal: recover only; never repeat a claimed slot")
         require(journal.get("profiles_schema_version") == 2,
                 "legacy preparation profiles: register a new campaign with bootloaders; recover remains available")
@@ -488,20 +893,36 @@ def execute(options, *, board_factory=Board, invoke_slot=_invoke_slot):
                 "HIL configuration changed; start a separately registered campaign")
         for scenario, profile in journal["profiles"].items():
             validate_profile(profile, scenario=scenario)
+        if journal["state"] == "recovered_interruption":
+            resume_recovered_claim(journal, journal_path, options.campaign_root, board, receipt)
         for index in range(journal["next_index"], min(len(journal["slots"]), journal["next_index"] + options.max_slots)):
             slot = journal["slots"][index]
             require(index == journal["next_index"], "slot ordering mismatch")
-            require(not (Path(options.campaign_root) / "raw/slots" / slot["slot_id"]).exists(),
+            claim = root / "claims" / (slot["slot_id"] + ".json")
+            if os.path.lexists(claim):
+                # Adopt an older orphan claim into durable recovery state; it
+                # can never become a fresh attempt, including with partial raw.
+                adopted = copy.deepcopy(journal)
+                adopted["current_slot"] = slot["slot_id"]
+                current_claim(adopted, journal_path)
+                adopted.update(state="claiming", restore_required=True,
+                               claim_intent={"slot": slot, "retry_permitted": False})
+                write_private(journal_path, adopted)
+                raise HilError("slot already has a claim; recovery required; no retry allowed")
+            require(not os.path.lexists(Path(options.campaign_root) / "raw/slots" / slot["slot_id"]),
                     "slot already has capture evidence; no retry allowed")
             board.identify()
             require(board.read_hash(receipt / f"{slot['slot_id']}-before.bin") == BASELINE_SHA256,
                     "live full flash differs from approved baseline; refusing writes")
             claims = private_directory(root / "claims")
-            write_private(claims / (slot["slot_id"] + ".json"), {"slot": slot, "retry_permitted": False}, exclusive=True)
-            journal.update(state="preparing", restore_required=True, current_slot=slot["slot_id"])
+            journal.update(state="claiming", restore_required=True, current_slot=slot["slot_id"],
+                           claim_intent={"slot": slot, "retry_permitted": False})
             write_private(journal_path, journal)
+            write_private(claim, journal["claim_intent"], exclusive=True)
             failure = None
             try:
+                journal["state"] = "preparing"
+                write_private(journal_path, journal)
                 # Restore is explicit even if the initial read already matched.
                 board.restore(Path(journal["baseline"]), receipt / f"{slot['slot_id']}-prepared-readback.bin", boot=False)
                 board.overlay(journal["profiles"][slot["scenario"]], scenario=slot["scenario"])
@@ -557,10 +978,24 @@ def parser():
     return result
 
 
+def adjudication_parser():
+    result = argparse.ArgumentParser(
+        description="Adjudicate one terminal failed slot after an independently recorded baseline restore")
+    result.add_argument("action", choices=("adjudicate",))
+    result.add_argument("--campaign-root", required=True)
+    return result
+
+
 def main():
     os.umask(0o077)
     try:
-        print(json.dumps(execute(parser().parse_args()), sort_keys=True))
+        arguments = sys.argv[1:]
+        if arguments and arguments[0] == "adjudicate":
+            options = adjudication_parser().parse_args(arguments)
+            result = adjudicate_terminal_failure(options.campaign_root)
+        else:
+            result = execute(parser().parse_args(arguments))
+        print(json.dumps(result, sort_keys=True))
     except (HilError, campaign.CampaignError, OSError, subprocess.SubprocessError, ValueError) as exc:
         print(f"HIL stopped: {exc}", file=sys.stderr)
         return 1
