@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+from argparse import Namespace
 from contextlib import contextmanager
 from pathlib import Path
 import stat
@@ -48,15 +49,29 @@ class Issue22OrchestratorTests(unittest.TestCase):
         return body + hashlib.sha256(body).digest()
 
     @staticmethod
-    def valid_partition_table():
+    def valid_partition_table(names=None, overrides=None):
         import csv
 
         entries = []
         with (orchestrator.ROOT / "partitions.csv").open(newline="", encoding="utf-8") as stream:
             for row in csv.reader(line for line in stream if line.strip() and not line.lstrip().startswith("#")):
-                name, _kind, _subtype, offset, size, *_ = (item.strip() for item in row)
-                entries.append(struct.pack("<HBBII16sI", 0x50AA, 1, 0, int(offset, 0),
-                                           int(size, 0), name.encode().ljust(16, b"\0"), 0))
+                name, kind_name, subtype_name, offset, size, flags = (item.strip() for item in row)
+                if names is not None and name not in names:
+                    continue
+                start, length = (overrides or {}).get(name, (int(offset, 0), int(size, 0)))
+                type_codes = {"app": 0, "data": 1}
+                subtype_codes = {
+                    ("data", "nvs"): 2, ("data", "ota"): 0, ("data", "phy"): 1,
+                    ("app", "ota_0"): 0x10, ("app", "ota_1"): 0x11,
+                }
+                kind = type_codes[kind_name]
+                subtype = (subtype_codes[(kind_name, subtype_name)]
+                           if (kind_name, subtype_name) in subtype_codes
+                           else int(subtype_name, 0) if subtype_name.startswith("0x") else None)
+                if subtype is None or flags:
+                    raise ValueError(f"unsupported fixture partition declaration: {row!r}")
+                entries.append(struct.pack("<HBBII16sI", 0x50AA, kind, subtype, start,
+                                           length, name.encode().ljust(16, b"\0"), 0))
         body = b"".join(entries)
         md5 = b"\xeb\xeb" + b"\xff" * 14 + hashlib.md5(body).digest()
         return body + md5 + b"\xff" * (orchestrator.TABLE_BYTES - len(body) - len(md5))
@@ -81,8 +96,106 @@ class Issue22OrchestratorTests(unittest.TestCase):
         digest = hashlib.sha256(data).hexdigest()
         result = orchestrator.validate_accepted_baseline(image, digest)
         self.assertEqual(result["sha256"], digest)
+        self.assertEqual(result["missing_profile_partitions"], [])
         with self.assertRaisesRegex(orchestrator.OrchestratorError, "SHA-256"):
             orchestrator.validate_accepted_baseline(image, "0" * 64)
+
+    def test_partition_table_requires_md5_to_terminate_the_table(self):
+        valid = self.valid_partition_table()
+        md5_offset = next(offset for offset in range(0, len(valid), 32)
+                          if valid[offset:offset + 2] == b"\xeb\xeb")
+        extra_entry = valid[:32]
+        malformed = (valid[:md5_offset + 32] + extra_entry
+                     + b"\xff" * (len(valid) - md5_offset - 64))
+        with self.assertRaisesRegex(orchestrator.OrchestratorError, "data after MD5"):
+            orchestrator.validate_partition_table(malformed)
+
+    def test_partition_table_checks_type_subtype_and_flags(self):
+        valid = self.valid_partition_table()
+        md5_offset = next(offset for offset in range(0, len(valid), 32)
+                          if valid[offset:offset + 2] == b"\xeb\xeb")
+        for field_offset, encoded in ((2, b"\x00"), (3, b"\x00"), (28, b"\x01\x00\x00\x00")):
+            with self.subTest(field_offset=field_offset):
+                malformed = bytearray(valid)
+                malformed[field_offset:field_offset + len(encoded)] = encoded
+                malformed[md5_offset + 16:md5_offset + 32] = hashlib.md5(
+                    malformed[:md5_offset]).digest()
+                with self.assertRaisesRegex(orchestrator.OrchestratorError,
+                                            "live flash partition table differs"):
+                    orchestrator.validate_partition_table(bytes(malformed))
+
+    def test_resume_accepts_private_baseline_snapshot_but_pins_its_hash_and_options(self):
+        saved = {"action": "run", "accepted_baseline": "/accepted/original.bin",
+                 "accepted_baseline_sha256": "a" * 64, "device_ip": "192.0.2.5",
+                 "timeout_ms": 300}
+        options = Namespace(action="run", accepted_baseline=self.root / "inputs" / "accepted-full-flash.bin",
+                            accepted_baseline_sha256="a" * 64, device_ip="192.0.2.5",
+                            timeout_ms=300)
+        orchestrator._validate_resume_options(saved, options)
+        options.accepted_baseline_sha256 = "b" * 64
+        with self.assertRaisesRegex(orchestrator.OrchestratorError,
+                                    "resume configuration changed for accepted_baseline_sha256"):
+            orchestrator._validate_resume_options(saved, options)
+        options.accepted_baseline_sha256 = "a" * 64
+        options.device_ip = "192.0.2.6"
+        with self.assertRaisesRegex(orchestrator.OrchestratorError,
+                                    "resume configuration changed for device_ip"):
+            orchestrator._validate_resume_options(saved, options)
+
+    def test_manager_fingerprint_refresh_requires_verified_zero_slot_recovery(self):
+        baseline_hash = "a" * 64
+        journal = {
+            "server_manager": {"tool_sha256": {"orchestrator": "old"}},
+            "state": "interrupted_recovered", "restore_required": False,
+            "next_index": 0, "slots": [], "current_attempt": None,
+            "current_plan_index": None,
+            "recoveries": [{"baseline_sha256": baseline_hash,
+                            "claimed_through": 0, "next_index": 0,
+                            "flash_rewritten": False}],
+        }
+        current = {"tool_sha256": {"orchestrator": "new"}}
+        self.assertTrue(orchestrator._refresh_manager_fingerprint_after_recovery(
+            journal, current, 0, baseline_hash))
+        self.assertEqual(journal["server_manager"], current)
+        self.assertEqual(len(journal["tooling_rebindings"]), 1)
+
+        for update in ({"restore_required": True}, {"next_index": 1},
+                       {"slots": [{"slot_id": "B0001"}]},
+                       {"state": "ready"}):
+            with self.subTest(update=update):
+                rejected = json.loads(json.dumps({
+                    "server_manager": {"tool_sha256": {"orchestrator": "old"}},
+                    "state": "interrupted_recovered", "restore_required": False,
+                    "next_index": 0, "slots": [], "current_attempt": None,
+                    "current_plan_index": None,
+                    "recoveries": [{"baseline_sha256": baseline_hash,
+                                    "claimed_through": 0, "next_index": 0,
+                                    "flash_rewritten": False}],
+                }))
+                rejected.update(update)
+                with self.assertRaisesRegex(orchestrator.OrchestratorError,
+                                            "inputs changed after issue #22 slots began"):
+                    orchestrator._refresh_manager_fingerprint_after_recovery(
+                        rejected, current, 0, baseline_hash)
+
+    def test_accepted_legacy_baseline_allows_only_nonoverlapping_module_slots(self):
+        image = self.root / "accepted-legacy.bin"
+        legacy_names = {"nvs", "otadata", "phy_init", "ota_0", "ota_1"}
+        data = bytearray(b"\xff" * orchestrator.FLASH_BYTES)
+        table = self.valid_partition_table(names=legacy_names)
+        data[orchestrator.TABLE_OFFSET:orchestrator.TABLE_OFFSET + orchestrator.TABLE_BYTES] = table
+        image.write_bytes(data)
+        image.chmod(0o600)
+        result = orchestrator.validate_accepted_baseline(image, hashlib.sha256(data).hexdigest())
+        self.assertEqual(result["missing_profile_partitions"], [
+            "aot_slot_a", "aot_slot_b", "interp_slot_a", "interp_slot_b"])
+
+        changed = bytearray(data)
+        changed[orchestrator.TABLE_OFFSET:orchestrator.TABLE_OFFSET + orchestrator.TABLE_BYTES] = self.valid_partition_table(
+            names=legacy_names, overrides={"nvs": (0x9000, 0x5000)})
+        image.write_bytes(changed)
+        with self.assertRaisesRegex(orchestrator.OrchestratorError, "changed an existing"):
+            orchestrator.validate_accepted_baseline(image, hashlib.sha256(changed).hexdigest())
 
     def test_profile_manifest_binds_endpoint_timeout_and_ca_to_app_bytes(self):
         ca = self.root / "ca.pem"
@@ -95,6 +208,10 @@ class Issue22OrchestratorTests(unittest.TestCase):
         def write_manifest(native_port=18445, native_rollback=True, module_rollback=True,
                            native_update_port=18445, campaign=None, embed_signing_key=True):
             profiles = {}
+            partition_table = self.root / "partition-table.bin"
+            table_bytes = self.valid_partition_table()
+            last_non_erased = max(index for index, value in enumerate(table_bytes) if value != 0xFF)
+            partition_table.write_bytes(table_bytes[:last_non_erased + 1])
             for name in ("native", "interp", "aot"):
                 port = native_port if name == "native" else 18445
                 config = self.root / f"{name}-sdkconfig"
@@ -148,6 +265,8 @@ class Issue22OrchestratorTests(unittest.TestCase):
                     "server_name": "wasmhome-issue22.test", "ca_sha256": ca_hash},
                 "update_endpoint": {"ipv4": "192.0.2.8", "port": 18445,
                     "server_name": "wasmhome-issue22.test", "ca_sha256": ca_hash},
+                "partition_table": {"path": str(partition_table),
+                    "sha256": hashlib.sha256(partition_table.read_bytes()).hexdigest()},
                 "profiles": profiles,
                 "source_commit": "a" * 40,
                 "source_tree": "c" * 40,
@@ -158,6 +277,8 @@ class Issue22OrchestratorTests(unittest.TestCase):
         value = orchestrator.validate_profile_manifest(manifest, 450, "192.0.2.8",
             18445, "wasmhome-issue22.test", ca)
         self.assertEqual(value["profiles"]["native"]["build_provenance"]["server_port"], 18445)
+        self.assertEqual(value["partition_table"]["bytes"],
+                         (self.root / "partition-table.bin").stat().st_size)
         self.assertEqual(value["profiles"]["native"]["signing_identity"], {
             "campaign_id": orchestrator.hil_runner.CAMPAIGN_ID,
             "signing_public_key_sha256": hashlib.sha256(self.SIGNING_DER).hexdigest()})
@@ -269,23 +390,35 @@ class Issue22OrchestratorTests(unittest.TestCase):
             fixture_index["trusted_fixture_public_key_sha256"] = "a" * 64
             result = orchestrator.validate_packages(*(self.root for _ in range(5)), "toolchain")
             self.assertEqual(result["package_signing_key_sha256"], result["fixture_trusted_key_sha256"])
+            self.assertEqual(result["ota_v2"], [
+                [1, orchestrator.hil_runner.EXPECTED_RELEASE_ARTIFACTS["native"][0]],
+                [2, orchestrator.hil_runner.EXPECTED_RELEASE_ARTIFACTS["module-interp"][0]],
+                [3, orchestrator.hil_runner.EXPECTED_RELEASE_ARTIFACTS["module-aot"][0]],
+            ])
+            self.assertEqual(json.loads(json.dumps(result)), result)
 
     def test_overlay_installs_bootloader_before_apps_and_verifies_before_reset(self):
         app = self.root / "app.bin"
         bootloader = self.root / "bootloader.bin"
+        partition_table = self.root / "partition-table.bin"
         app.write_bytes(b"A" * 24)
         bootloader.write_bytes(self.valid_bootloader_bytes())
+        partition_table.write_bytes(self.valid_partition_table())
         board = orchestrator.Board(object(), self.root)
 
-        def readback(_offset, _size, path, **_kwargs):
-            path.write_bytes(bootloader.read_bytes())
+        def readback(offset, _size, path, **_kwargs):
+            path.write_bytes(partition_table.read_bytes() if offset == orchestrator.TABLE_OFFSET
+                             else bootloader.read_bytes())
 
         with mock.patch.object(board, "command") as command, \
              mock.patch.object(board, "read", side_effect=readback) as read:
-            board.overlay_profile(app, bootloader)
+            board.overlay_profile(app, bootloader, partition_table)
         self.assertEqual(command.call_args.args, ("write_flash", "0x0", str(bootloader),
+            hex(orchestrator.TABLE_OFFSET), str(partition_table),
             hex(orchestrator.OTA_OFFSETS[0]), str(app), hex(orchestrator.OTA_OFFSETS[1]), str(app)))
-        self.assertEqual(read.call_args.args[:2], (0, len(self.valid_bootloader_bytes())))
+        self.assertEqual(read.call_args_list[0].args[:2], (orchestrator.TABLE_OFFSET,
+            orchestrator.TABLE_BYTES))
+        self.assertEqual(read.call_args_list[1].args[:2], (0, len(self.valid_bootloader_bytes())))
 
         def wrong_readback(_offset, _size, path, **_kwargs):
             path.write_bytes(b"C" * 24)
@@ -293,8 +426,25 @@ class Issue22OrchestratorTests(unittest.TestCase):
         with mock.patch.object(board, "command") as command, \
              mock.patch.object(board, "read", side_effect=wrong_readback):
             with self.assertRaisesRegex(orchestrator.OrchestratorError, "refusing reset"):
-                board.overlay_profile(app, bootloader)
+                board.overlay_profile(app, bootloader, partition_table)
         self.assertEqual(command.call_count, 1)
+
+    def test_remote_staging_directory_creation_uses_private_umask(self):
+        ssh = mock.Mock()
+        server = orchestrator.RemoteFixtureServer(
+            ssh, fixture_root=self.root / "fixtures", package_root=self.root / "package",
+            fixture_trusted=self.root / "trusted.der", fixture_untrusted=self.root / "untrusted.der",
+            ota_public=self.root / "ota.der", certificate=self.root / "server.crt",
+            private_key=self.root / "server.key", campaign_root=self.root / "campaign",
+            server_ip="192.0.2.8", port=18445, server_name="wasmhome-issue22.test",
+            toolchain="wamr-test")
+        target = self.root / "campaign" / "fixtures" / "resilience" / "scenario-1"
+        server._stage_mkdir_private(None, target)
+        command = ssh.run.call_args.args[0]
+        self.assertEqual(command[:2], ["python3", "-c"])
+        self.assertIn("os.umask(0o077)", command[2])
+        self.assertIn("mkdir(mode=0o700, parents=True, exist_ok=True)", command[2])
+        self.assertEqual(command[-1], str(target))
 
     def test_bootloader_requires_complete_segments_checksum_digest_and_no_tail(self):
         data = self.valid_bootloader_bytes()
@@ -525,7 +675,10 @@ class Issue22OrchestratorTests(unittest.TestCase):
         post_boot = {"boot_ids": [13], "valid_controls_by_boot": {"13": 1},
                      "counters": {"telemetry_valid": 1}, "initial_version": 1}
         preflight = {"sentinel": "real ledger validation remains mandatory"}
-        profiles = {"profiles": {"native": {"path": "/unused/app.bin",
+        partition_table = self.root / "partition-table.bin"
+        partition_table.write_bytes(self.valid_partition_table())
+        profiles = {"partition_table": {"path": str(partition_table)},
+                    "profiles": {"native": {"path": "/unused/app.bin",
                     "bootloader": {"path": "/unused/bootloader.bin"}}}}
         with mock.patch.object(orchestrator, "FLASH_BYTES", flash_size), \
              mock.patch.object(orchestrator, "_observer_once", side_effect=[accepted, post_boot]), \

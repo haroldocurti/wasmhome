@@ -5,11 +5,17 @@ Para executar HIL físico sem root, consulte o
 passos operacionais manuais de `systemd`, `root@Proxmox` e runner isolado
 descritos nas revisões anteriores deste documento.
 
-Status em 2026-10-17: **integração opt-in implementada, suíte host aprovada e
-builds locais `module-interp`/`module-aot` aprovados; HIL ainda pendente**. A
-issue #22 requer uma prova preliminar de 16 tentativas físicas. A matriz completa
-de 70 falhas + 2 controles pertence à issue #23 e não é critério de fechamento
-da #22.
+Status em 2026-10-18: **integração opt-in implementada, suíte host aprovada,
+builds locais `module-interp`/`module-aot` aprovados e timeout funcional de
+300 ms congelado após a conclusão do piloto #20**. A campanha preliminar da #22
+foi encerrada após uma falha de configuração do coletor antes da injeção: uma
+única linha foi reservada, sem `fault_request` ou pedido HTTPS de fixture. A
+baseline integral foi restaurada e verificada. Os critérios de prova física da
+#22 permanecem pendentes; veja o [relato sanitizado](evidence/issue22-hil-2026-10-18-preflight.md).
+
+A issue #22 requer uma prova preliminar de 16 tentativas físicas. A matriz
+completa de 70 falhas + 2 controles pertence à issue #23 e não é critério de
+fechamento da #22.
 
 ## Implementado no código
 
@@ -396,15 +402,14 @@ aceitação de artefato nem recuperação funcional.
   orquestrador, como processo de `wasmhome` em porta alta `18445`. Nenhuma unit
   de sistema, linger, `sudo` ou acesso `root@Proxmox` é necessário. Os listeners
   `8443`, `8444` e `8445` ficam intocados; porta ocupada bloqueia o ensaio.
-- Fazer o piloto #20 e congelar o timeout antes de atribuir limite funcional;
-  `300 ms` não é ainda critério empírico aprovado.
-- Executar primeiro o piloto #20 e depois a prova preliminar de 16 tentativas
-  da #22, confirmando ambiente, `boot_id`, release, identidade da placa e estado
-  inicial antes de cada execução. O runner exige `--plan-scope preliminary`
-  para esse arquivo de 16 linhas e mantém `full` como escopo padrão para as 72
-  linhas da #23. Só depois da revisão do resultado preliminar pode começar a
-  matriz #23. Builds locais não contam como tentativas aceitas nem como células
-  HIL.
+- Retomar a prova preliminar da #22 com campanha, agenda e IDs novos, depois de
+  confirmar o caminho de observação CT→máquina local. A linha encerrada não deve
+  ser repetida nem retomada. Confirmar ambiente, `boot_id`, release, identidade
+  da placa e estado inicial antes de cada execução. O runner exige
+  `--plan-scope preliminary` para o arquivo de 16 linhas e mantém `full` como
+  escopo padrão para as 72 linhas da #23. Só depois da revisão do resultado
+  preliminar pode começar a matriz #23. Builds locais não contam como tentativas
+  aceitas nem como células HIL.
 
 ## Bootloader compatibility gate (2026-10-17)
 

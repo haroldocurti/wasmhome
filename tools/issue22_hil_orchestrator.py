@@ -39,7 +39,7 @@ TABLE_OFFSET, TABLE_BYTES = 0x8000, 0x1000
 LOCK_DIR = Path.home() / ".local/state/wasmhome-hil"
 LOCK_FILE = LOCK_DIR / "hardware.lock"
 DEFAULT_TIMEOUT_SCHEMA = "wasmhome-issue20-frozen-timeout-v1"
-PROFILE_SCHEMA = "wasmhome-issue22-bootstrap-profiles-v2"
+PROFILE_SCHEMA = "wasmhome-issue22-bootstrap-profiles-v3"
 BOOTLOADER_OFFSET, BOOTLOADER_BYTES = 0x0, TABLE_OFFSET
 JOURNAL_SCHEMA = "wasmhome-issue22-hil-orchestrator-v1"
 PORT = 18445
@@ -241,8 +241,10 @@ def validate_accepted_baseline(path: Path, expected_hash: str) -> dict:
     with image.open("rb") as stream:
         stream.seek(TABLE_OFFSET)
         table = stream.read(TABLE_BYTES)
-    validate_partition_table(table)
-    return {"path": image, "sha256": expected_hash, "bytes": FLASH_BYTES}
+    missing = validate_accepted_baseline_partition_table(table)
+    return {"path": image, "sha256": expected_hash, "bytes": FLASH_BYTES,
+            "missing_profile_partitions": missing,
+            "partition_table_sha256": hashlib.sha256(table).hexdigest()}
 
 
 def _artifact_row(row: object, label: str, *, max_bytes: int) -> tuple[Path, str]:
@@ -329,6 +331,13 @@ def validate_profile_manifest(path: Path, timeout_ms: int, server_ip: str,
             "profile build HTTPS endpoint/CA differs from the user-level fixture server")
     require(value.get("update_endpoint") == endpoint,
             "normal signed provisioning and resilience fixture manifest endpoints must match")
+    table_path, table_digest = _artifact_row(value.get("partition_table"),
+        "profile partition table", max_bytes=TABLE_BYTES)
+    table_bytes = table_path.read_bytes()
+    require(0 < len(table_bytes) <= TABLE_BYTES,
+            "profile partition table image must fit one 4 KiB sector")
+    table_sector = table_bytes + b"\xff" * (TABLE_BYTES - len(table_bytes))
+    validate_partition_table(table_sector)
     profiles = value.get("profiles")
     require(isinstance(profiles, dict) and set(profiles) == {"native", "interp", "aot"},
             "profile manifest must contain native/interp/aot bootstrap apps")
@@ -404,7 +413,10 @@ def validate_profile_manifest(path: Path, timeout_ms: int, server_ip: str,
     return {"schema": PROFILE_SCHEMA, "source_commit": value["source_commit"],
             "source_tree": value["source_tree"],
             "functional_timeout_ms": timeout_ms, "endpoint": endpoint,
-            "update_endpoint": endpoint, "profiles": snapshots}
+            "update_endpoint": endpoint,
+            "partition_table": {"path": str(table_path), "sha256": table_digest,
+                                "bytes": len(table_bytes)},
+            "profiles": snapshots}
 
 
 def _profile_signing_identity(config_lines: list[str], app_bytes: bytes,
@@ -496,7 +508,11 @@ def validate_packages(package_root: Path, package_public_key: Path,
     return {"campaign_id": campaign, "package_signing_key_sha256": package["signing_public_key_sha256"],
             "fixture_index_sha256": sha256_file(Path(fixture_root) / "fixture-index.json"),
             "fixture_trusted_key_sha256": fixture_index["trusted_fixture_public_key_sha256"],
-            "ota_v2": sorted((scenario, digest) for scenario, version, sequence, digest in verified_v2)}
+            # Fingerprints persist through JSON in the journal. Use lists so
+            # the exact value compares equal after reload, rather than tuples
+            # that JSON silently converts to lists and makes resume impossible.
+            "ota_v2": [[scenario, digest]
+                       for scenario, _version, _sequence, digest in sorted(verified_v2)]}
 
 
 def strict_ssh_args(target: str, identity: Path, known_hosts: Path,
@@ -642,6 +658,15 @@ class RemoteFixtureServer:
                      transport=getattr(reservation, "transport", None))
         self._check_reservation(reservation)
 
+    def _stage_mkdir_private(self, reservation, path: Path) -> None:
+        # GNU mkdir -p applies its requested mode only to the leaf; ancestor
+        # directories inherit the CT account's umask and may become group
+        # writable. Create the complete new chain under a private umask.
+        script = ("import os,pathlib,sys\n"
+                  "os.umask(0o077)\n"
+                  "pathlib.Path(sys.argv[1]).mkdir(mode=0o700, parents=True, exist_ok=True)\n")
+        self._stage_run(reservation, ["python3", "-c", script, str(path)], timeout=20)
+
     def _stage_scp(self, reservation, source: Path, destination: str) -> None:
         self._check_reservation(reservation)
         self.ssh.scp(source, destination,
@@ -724,14 +749,13 @@ class RemoteFixtureServer:
             children = _safe_tree(source)
             # Check the complete path before mkdir can follow an existing symlink.
             self._validate_remote_path(destination, "dir", reservation)
-            self._stage_run(reservation, ["mkdir", "-m", "700", "-p", str(destination)], timeout=20)
+            self._stage_mkdir_private(reservation, destination)
             self._validate_remote_path(destination, "dir", reservation)
             for child in children:
                 relative = child.relative_to(source)
                 remote_parent = destination / relative.parent
                 self._validate_remote_path(remote_parent, "dir", reservation)
-                self._stage_run(reservation,
-                                ["mkdir", "-m", "700", "-p", str(remote_parent)], timeout=20)
+                self._stage_mkdir_private(reservation, remote_parent)
                 self._validate_remote_path(remote_parent, "dir", reservation)
                 remote_file = remote_parent / child.name
                 self._validate_remote_path(remote_file, "file", reservation)
@@ -753,11 +777,10 @@ class RemoteFixtureServer:
         server_py = TOOLS / "resilience_fixture_https_server.py"
         signed_py = TOOLS / "signed_artifacts.py"
         code_root = self.root / "tools"
-        # Validate before every mkdir -p to prevent traversal through a
+        # Validate before each directory creation to prevent traversal through a
         # pre-existing symlink component.
         self._validate_remote_path(code_root, "dir", reservation)
-        self._stage_run(reservation,
-                        ["mkdir", "-m", "700", "-p", str(code_root)], timeout=20)
+        self._stage_mkdir_private(reservation, code_root)
         self._validate_remote_path(code_root, "dir", reservation)
         for source in (server_py, signed_py):
             target = code_root / source.name
@@ -871,23 +894,36 @@ class Board:
         require(destination.stat().st_size == size, "esptool readback size differs")
         return output
 
-    def overlay_profile(self, app: Path, bootloader: Path) -> None:
+    def overlay_profile(self, app: Path, bootloader: Path,
+                        partition_table: Path) -> None:
         require(app.is_file() and not app.is_symlink()
                 and 24 <= app.stat().st_size <= OTA_SLOT_BYTES,
                 "profile bootstrap app is invalid")
         require(bootloader.is_file() and not bootloader.is_symlink()
                 and 24 <= bootloader.stat().st_size < BOOTLOADER_BYTES,
                 "profile bootloader is invalid")
+        require(partition_table.is_file() and not partition_table.is_symlink()
+                and 0 < partition_table.stat().st_size <= TABLE_BYTES,
+                "profile partition table is invalid")
         _validate_bootloader_bytes(bootloader.read_bytes(), "selected")
+        table_data = partition_table.read_bytes()
+        table_sector = table_data + b"\xff" * (TABLE_BYTES - len(table_data))
+        validate_partition_table(table_sector)
         bootloader_hash = sha256_file(bootloader)
-        # The accepted baseline's bootloader has rollback disabled. Use the
-        # matching bootloader from this profile build until full restoration.
-        # Identical v1 app copies to both OTA slots make startup independent of
-        # prior OTA metadata. The signed sequence-2 transition itself remains
-        # the only update operation; no NVS offset is passed to write_flash.
+        # The accepted #20 image predates the four empty module partitions.
+        # Add only the signed build's validated table during this row; the
+        # original 16 MiB baseline (including NVS and its table) is restored
+        # in the row's finally path. No NVS offset is passed to write_flash.
+        # Matching bootloader and v1 app copies make startup independent of
+        # prior OTA metadata until signed sequence 2 is tested.
         self.command("write_flash", hex(BOOTLOADER_OFFSET), str(bootloader),
+                     hex(TABLE_OFFSET), str(partition_table),
                      hex(OTA_OFFSETS[0]), str(app),
                      hex(OTA_OFFSETS[1]), str(app), timeout=300)
+        table_readback = self.operation / f"partition-table-overlay-{uuid.uuid4().hex}.bin"
+        self.read(TABLE_OFFSET, TABLE_BYTES, table_readback)
+        require(table_readback.read_bytes() == table_sector,
+                "profile partition-table readback differs; refusing reset")
         readback = self.operation / f"bootloader-overlay-{uuid.uuid4().hex}.bin"
         self.read(BOOTLOADER_OFFSET, bootloader.stat().st_size, readback)
         require(sha256_file(readback) == bootloader_hash,
@@ -907,41 +943,120 @@ class Board:
 
 
 def validate_partition_table(data: bytes) -> None:
-    require(len(data) == TABLE_BYTES, "partition table must be exactly one 4 KiB sector")
+    rows = decode_partition_table(data)
+    expected = expected_partition_rows()
+    require(rows == expected, "live flash partition table differs from this checkout")
+    require(rows.get("nvs", (None, None, None, None, None))[2:] == (NVS_OFFSET, NVS_BYTES, 0)
+            and rows.get("ota_0", (None, None, None, None, None))[2:] == (OTA_OFFSETS[0], OTA_SLOT_BYTES, 0)
+            and rows.get("ota_1", (None, None, None, None, None))[2:] == (OTA_OFFSETS[1], OTA_SLOT_BYTES, 0),
+            "live NVS/OTA layout differs from the pinned issue #22 map")
+
+
+def _partition_type_code(value: str) -> int:
+    names = {"app": 0x00, "data": 0x01}
+    value = value.strip().lower()
+    code = names.get(value)
+    if code is None:
+        try:
+            code = int(value, 0)
+        except ValueError as error:
+            raise OrchestratorError(f"unsupported partition type {value!r}") from error
+    require(0 <= code <= 0xFF, "partition type is outside its encoded range")
+    return code
+
+
+def _partition_subtype_code(kind: int, value: str) -> int:
+    names = {
+        0x00: {"factory": 0x00, "ota_0": 0x10, "ota_1": 0x11},
+        0x01: {"ota": 0x00, "phy": 0x01, "nvs": 0x02},
+    }
+    value = value.strip().lower()
+    code = names.get(kind, {}).get(value)
+    if code is None:
+        try:
+            code = int(value, 0)
+        except ValueError as error:
+            raise OrchestratorError(f"unsupported partition subtype {value!r}") from error
+    require(0 <= code <= 0xFF, "partition subtype is outside its encoded range")
+    return code
+
+
+def _partition_flags_code(value: str) -> int:
+    # The checked-in table currently uses no flags. Fail closed for any new
+    # syntax until its encoded semantics are explicitly reviewed here.
+    value = value.strip().lower()
+    require(not value, f"unsupported partition flags {value!r}")
+    return 0
+
+
+def expected_partition_rows() -> dict[str, tuple[int, int, int, int, int]]:
     expected = {}
     import csv
     with (ROOT / "partitions.csv").open(newline="", encoding="utf-8") as stream:
         for row in csv.reader(line for line in stream if line.strip() and not line.lstrip().startswith("#")):
-            name, kind, subtype, offset, size, *_ = (item.strip() for item in row)
-            expected[name] = (int(offset, 0), int(size, 0))
+            require(len(row) == 6, "partition CSV row must contain six columns")
+            name, type_name, subtype_name, offset, size, flags = (item.strip() for item in row)
+            kind = _partition_type_code(type_name)
+            expected[name] = (kind, _partition_subtype_code(kind, subtype_name),
+                              int(offset, 0), int(size, 0), _partition_flags_code(flags))
+    return expected
+
+
+def decode_partition_table(data: bytes) -> dict[str, tuple[int, int, int, int, int]]:
+    require(len(data) == TABLE_BYTES, "partition table must be exactly one 4 KiB sector")
     rows = {}
     checked_md5 = False
+    terminated = False
     for offset in range(0, TABLE_BYTES, 32):
         entry = data[offset:offset + 32]
         if entry == b"\xff" * 32:
             require(data[offset:] == b"\xff" * (TABLE_BYTES - offset),
                     "partition table has data after terminator")
+            terminated = True
             break
         if entry[:2] == b"\xeb\xeb":
             require(not checked_md5 and entry[2:16] == b"\xff" * 14
                     and entry[16:] == hashlib.md5(data[:offset]).digest(),
                     "partition table MD5 differs")
+            require(data[offset + 32:] == b"\xff" * (TABLE_BYTES - offset - 32),
+                    "partition table has data after MD5")
             checked_md5 = True
-            continue
-        magic, _kind, _subtype, start, size, label, flags = __import__("struct").unpack(
+            terminated = True
+            break
+        magic, kind, subtype, start, size, label, flags = __import__("struct").unpack(
             "<HBBII16sI", entry)
-        require(magic == 0x50AA and flags == 0, "unsupported partition-table entry")
+        require(magic == 0x50AA, "unsupported partition-table entry")
         try:
             name = label.rstrip(b"\0").decode("ascii")
         except UnicodeError as error:
             raise OrchestratorError("partition name is not ASCII") from error
         require(name not in rows, "duplicate partition name")
-        rows[name] = (start, size)
-    require(checked_md5 and rows == expected, "live flash partition table differs from this checkout")
-    require(rows.get("nvs") == (NVS_OFFSET, NVS_BYTES)
-            and rows.get("ota_0") == (OTA_OFFSETS[0], OTA_SLOT_BYTES)
-            and rows.get("ota_1") == (OTA_OFFSETS[1], OTA_SLOT_BYTES),
-            "live NVS/OTA layout differs from the pinned issue #22 map")
+        rows[name] = (kind, subtype, start, size, flags)
+    require(checked_md5 and terminated, "partition table is missing its MD5 record or terminator")
+    return rows
+
+
+def validate_accepted_baseline_partition_table(data: bytes) -> list[str]:
+    """Allow #20's exact original map, then add only #22 module slots per row."""
+    rows = decode_partition_table(data)
+    expected = expected_partition_rows()
+    required = {"nvs", "otadata", "phy_init", "ota_0", "ota_1"}
+    module_slots = {"interp_slot_a", "interp_slot_b", "aot_slot_a", "aot_slot_b"}
+    require(required <= set(rows) and set(rows) <= set(expected),
+            "#20 baseline partition map has unknown or missing required partitions")
+    missing = set(expected) - set(rows)
+    require(missing <= module_slots,
+            "#20 baseline is missing a partition outside the four #22 module slots")
+    require(all(rows[name] == expected[name] for name in rows),
+            "#20 baseline changed an existing NVS, OTA or data-partition boundary")
+    for name, (_kind, _subtype, start, size, _flags) in expected.items():
+        require(0 <= start < FLASH_BYTES and 0 < size <= FLASH_BYTES - start,
+                f"#22 partition {name} lies outside the registered flash")
+    ranges = sorted((start, start + size, name)
+                    for name, (_kind, _subtype, start, size, _flags) in expected.items())
+    require(all(left[1] <= right[0] for left, right in zip(ranges, ranges[1:])),
+            "#22 module partitions overlap an existing partition")
+    return sorted(missing)
 
 
 def _observer_once(options, output: Path, *, seconds: float, profile: str,
@@ -1190,6 +1305,44 @@ def _manager_tool_fingerprints() -> dict:
     return {name: sha256_file(path) for name, path in paths.items()}
 
 
+def _refresh_manager_fingerprint_after_recovery(journal: dict, fingerprint: dict,
+                                               claimed: int, baseline_sha256: str) -> bool:
+    previous = journal.get("server_manager")
+    if previous is None:
+        journal["server_manager"] = fingerprint
+        return True
+    if previous == fingerprint:
+        return False
+    recoveries = journal.get("recoveries")
+    safe = (journal.get("state") == "interrupted_recovered"
+            and journal.get("restore_required") is False
+            and journal.get("next_index") == 0 and claimed == 0
+            and journal.get("slots") == []
+            and journal.get("current_attempt") is None
+            and journal.get("current_plan_index") is None
+            and isinstance(recoveries, list) and bool(recoveries))
+    recovery = recoveries[-1] if safe else None
+    safe = (safe and isinstance(recovery, dict)
+            and recovery.get("baseline_sha256") == baseline_sha256
+            and recovery.get("claimed_through") == 0
+            and recovery.get("next_index") == 0
+            and type(recovery.get("flash_rewritten")) is bool)
+    require(safe,
+            "frozen user-owned server manager inputs changed after issue #22 slots began")
+    history = journal.get("tooling_rebindings", [])
+    require(isinstance(history, list), "tooling rebind history is malformed")
+    history.append({"time_unix_ns": time.time_ns(),
+                    "baseline_sha256": baseline_sha256,
+                    "previous_sha256": hashlib.sha256(
+                        user_server_manager.canonical(previous).encode()).hexdigest(),
+                    "current_sha256": hashlib.sha256(
+                        user_server_manager.canonical(fingerprint).encode()).hexdigest(),
+                    "claimed_through": 0})
+    journal["tooling_rebindings"] = history
+    journal["server_manager"] = fingerprint
+    return True
+
+
 def _freeze_server_manager(options, root: Path, fixture_root: Path) -> tuple[Path, Path, str, dict]:
     remote_root = _remote_staging_root(options, root)
     spec = user_server_manager.build_issue22_fixture_spec(
@@ -1236,7 +1389,9 @@ def _prepare_profile(options, board: Board, row: dict, profile_data: dict,
     app_path = Path(profile_data["profiles"][row["scenario"]]["path"])
     board.restore(baseline, baseline_hash, operation / f"{row['plan_index']:02d}-restore-before.bin")
     # Ensure every row begins from the same v1 app profile and exact NVS baseline.
-    board.overlay_profile(app_path, Path(profile_data["profiles"][row["scenario"]]["bootloader"]["path"]))
+    board.overlay_profile(app_path,
+        Path(profile_data["profiles"][row["scenario"]]["bootloader"]["path"]),
+        Path(profile_data["partition_table"]["path"]))
     board.run()
     provision_id = str(uuid.uuid5(uuid.UUID(row["attempt_id"]), "signed-sequence-2-provision"))
     provision_dir = _private_output(operation, "ota-provisioning")
@@ -1384,7 +1539,11 @@ def _clone_inputs(options, root: Path, profile_data: dict) -> dict:
             _ensure_snapshot_artifact(Path(artifact["path"]), artifact_target, artifact["sha256"])
             auxiliary[kind] = {**artifact, "path": str(artifact_target)}
         profiles[name] = {**profile, "path": str(target), **auxiliary}
-    return {**profile_data, "profiles": profiles}
+    table = profile_data["partition_table"]
+    table_target = snapshots / "profile-partition-table.bin"
+    _ensure_snapshot_artifact(Path(table["path"]), table_target, table["sha256"])
+    return {**profile_data, "partition_table": {**table, "path": str(table_target)},
+            "profiles": profiles}
 
 
 def _board_operations(root: Path) -> Path:
@@ -1412,6 +1571,15 @@ def _initial_journal(root: Path, options: argparse.Namespace,
             "tls_fingerprint": tls,
             "immutable_options": {key: str(value) if isinstance(value, Path) else value
                                   for key, value in vars(options).items()}}
+
+
+def _validate_resume_options(saved: dict, options: argparse.Namespace) -> None:
+    for key, value in vars(options).items():
+        if key in {"action", "timeout_ms", "accepted_baseline"} or key not in saved:
+            continue
+        normalized = str(value) if isinstance(value, Path) else value
+        require(saved[key] == normalized,
+                f"resume configuration changed for {key}; use --action resume")
 
 
 def execute(options: argparse.Namespace) -> dict:
@@ -1463,12 +1631,7 @@ def execute(options: argparse.Namespace) -> dict:
                     and journal.get("tls_fingerprint") == tls,
                     "signed OTA/profile/TLS inputs differ from the campaign journal")
             saved = journal.get("immutable_options", {})
-            for key, value in vars(options).items():
-                if key in {"action", "timeout_ms"} or key not in saved:
-                    continue
-                normalized = str(value) if isinstance(value, Path) else value
-                require(saved[key] == normalized,
-                        f"resume configuration changed for {key}; use --action resume")
+            _validate_resume_options(saved, options)
         else:
             journal = _initial_journal(root, options, profile_data, timeout_proof,
                                        baseline_data, package_data, tls)
@@ -1504,11 +1667,8 @@ def execute(options: argparse.Namespace) -> dict:
         manager_fingerprint = {"server_kind": "issue22-fixture",
                                "spec_sha256": spec_sha256,
                                "tool_sha256": tool_fingerprints}
-        if "server_manager" in journal:
-            require(journal["server_manager"] == manager_fingerprint,
-                    "frozen user-owned server manager inputs changed")
-        else:
-            journal["server_manager"] = manager_fingerprint
+        if _refresh_manager_fingerprint_after_recovery(
+                journal, manager_fingerprint, claimed, baseline_data["sha256"]):
             write_json(journal_path, journal, exclusive=False)
         hook = Issue22FixtureServerHook(spec_path, state_path, journal_path,
                                         spec_sha256=spec_sha256)
@@ -1598,7 +1758,8 @@ def recover(options: argparse.Namespace) -> dict:
                 and baseline.is_file() and baseline.stat().st_size == FLASH_BYTES
                 and sha256_file(baseline) == baseline_hash,
                 "recovery baseline differs from the #20 accepted image/hash")
-        validate_partition_table(baseline.read_bytes()[TABLE_OFFSET:TABLE_OFFSET + TABLE_BYTES])
+        validate_accepted_baseline_partition_table(
+            baseline.read_bytes()[TABLE_OFFSET:TABLE_OFFSET + TABLE_BYTES])
         rows = load_plan(root / "plan.jsonl")
         claimed = _verify_claims_match_plan(root, rows)
         operation = _board_operations(root)

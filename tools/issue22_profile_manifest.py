@@ -15,6 +15,7 @@ else:
 def build_manifest(builds: dict[str, Path], source_commit: str | None = None) -> dict:
     profiles = {}
     common = None
+    common_partition_table = None
     for name, directory in builds.items():
         directory = directory.expanduser().resolve()
         description = hil.load_json(directory / "project_description.json", "IDF build description")
@@ -45,13 +46,23 @@ def build_manifest(builds: dict[str, Path], source_commit: str | None = None) ->
         hil.require(source_commit is None or source_commit == marker["source_commit"],
                     "requested source commit differs from the BIN-embedded build revision")
         common = settings
+        table_path = directory / "partition_table/partition-table.bin"
+        hil.require(table_path.is_file() and not table_path.is_symlink(),
+                    f"{name} completed build partition table is missing or symlinked")
+        table_record = {"path": str(table_path.absolute()),
+                        "sha256": hil.sha256_file(table_path)}
+        hil.require(common_partition_table is None
+                    or table_record["sha256"] == common_partition_table["sha256"],
+                    "profile builds produced different partition tables")
+        common_partition_table = table_record
         profiles[name] = {kind: {"path": str(path.absolute()), "sha256": hil.sha256_file(path)}
                           for kind, path in artifacts.items()}
     hil.require(set(profiles) == {"native", "interp", "aot"}, "all three completed builds are required")
     return {"schema": hil.PROFILE_SCHEMA, "resilience_test_mode": True,
             "source_commit": common[2], "source_tree": common[3],
             "functional_timeout_ms": common[0],
-            "endpoint": common[1], "update_endpoint": common[1], "profiles": profiles}
+            "endpoint": common[1], "update_endpoint": common[1],
+            "partition_table": common_partition_table, "profiles": profiles}
 
 
 def main() -> None:
