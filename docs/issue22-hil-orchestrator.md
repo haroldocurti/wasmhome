@@ -87,8 +87,8 @@ inputs validate:
    three scenarios. The firmware hashes in
    `tools/resilience_hil_runner.py` must be updated together with the final
    post-#20 builds; the earlier local package hashes are preliminary.
-   The registered native profile-A v2 is now 916704 bytes, SHA-256
-   `2d8977721f803b80517f21b6672342c5d5cf9e96814a2d47faea51d27f41b865`.
+   The registered native profile-A v2 is now 916720 bytes, SHA-256
+   `acef19b093a7e376c1c4a78dcf51d75b5fc666f1adaae39f94f49f9f65ca80f1`.
    This registration is an input identity, not a claim of physical validation.
 6. The nine closed negative fixtures and all six payload/manifest files from
    the signed sequence-2 package. The CT server validates one merged allowlist
@@ -135,8 +135,10 @@ observer window without a trigger (`--smoke-seconds`, default 20), then restores
 the accepted image and reads back all 16 MiB. `smoke-summary.json` reports the
 first datagram time, UART Wi-Fi/UDP markers, a diagnosis (`pass`,
 `wifi_not_connected`, `no_datagram_reached_observer_check_firewall_and_observer_ip`,
-...) and the measured esptool timings. Run it once after any rebuild or bench
-network change, before spending one-shot rows.
+...) and the measured esptool timings. A diagnosis other than `pass` exits with
+an error after restoration. UART capture errors propagate to that failure;
+crash/reboot evidence takes precedence over earlier valid packets. Run it once
+after any rebuild or bench network change, before spending one-shot rows.
 
 ## Full provisioning rehearsal
 

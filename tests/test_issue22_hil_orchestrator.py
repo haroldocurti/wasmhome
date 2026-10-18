@@ -5,6 +5,7 @@ from argparse import Namespace
 from contextlib import contextmanager
 from pathlib import Path
 import stat
+import subprocess
 import struct
 import tempfile
 import unittest
@@ -516,6 +517,24 @@ class Issue22OrchestratorTests(unittest.TestCase):
                          "-s 192.0.2.20 -j ACCEPT\n")
         self.assertEqual(orchestrator.validate_observer_host("127.0.0.1", "192.0.2.20", **paths),
                          {"firewall": "ufw_rule_admits_device"})
+        for constraint in ("-i lo", "--sport 9", "-m conntrack --ctstate ESTABLISHED"):
+            with self.subTest(constraint=constraint):
+                rules.write_text(f"-A ufw-user-input -p udp --dport 3333 {constraint} -j ACCEPT\n")
+                with mock.patch.object(orchestrator.subprocess, "run", return_value=
+                        subprocess.CompletedProcess([], 0, stdout='[{"dev":"eth0"}]')):
+                    with self.assertRaisesRegex(orchestrator.OrchestratorError, "drops inbound UDP"):
+                        orchestrator.validate_observer_host("127.0.0.1", "192.0.2.20", **paths)
+        rules.write_text("-A ufw-user-input -i eth0 -p udp --dport 3333 -j ACCEPT\n")
+        with mock.patch.object(orchestrator.subprocess, "run", return_value=
+                subprocess.CompletedProcess([], 0, stdout='[{"dev":"eth0"}]')):
+            self.assertEqual(orchestrator.validate_observer_host("127.0.0.1", "192.0.2.20", **paths),
+                             {"firewall": "ufw_rule_admits_device"})
+        rules.write_text("-A ufw-user-input -p udp --dport 3333 -j DROP\n"
+                         "-A ufw-user-input -p udp --dport 3333 -j ACCEPT\n")
+        for default_policy in ("DROP", "ACCEPT"):
+            defaults.write_text(f'DEFAULT_INPUT_POLICY="{default_policy}"\n')
+            with self.assertRaisesRegex(orchestrator.OrchestratorError, "earlier UFW deny rule"):
+                orchestrator.validate_observer_host("127.0.0.1", "192.0.2.20", **paths)
         conf.write_text("ENABLED=no\n")
         self.assertEqual(orchestrator.validate_observer_host("127.0.0.1", "192.0.2.20", **paths),
                          {"firewall": "ufw_disabled"})
@@ -545,12 +564,87 @@ class Issue22OrchestratorTests(unittest.TestCase):
         with self.assertRaisesRegex(orchestrator.OrchestratorError, "refusing to multiplex"):
             orchestrator._multiplexed_args(args, "/tmp/%h")
 
+    def test_ssh_cleanup_timeout_removes_socket_directory_and_preserves_staging_error(self):
+        args = ["/usr/bin/ssh", "-o", "ControlMaster=no", "--", "wasmhome@192.0.2.1"]
+        for staging_fails in (False, True):
+            with self.subTest(staging_fails=staging_fails):
+                directory = self.root / f"socket-{staging_fails}"
+                directory.mkdir()
+                session = object.__new__(orchestrator.SSHSession)
+                session.control_path = None
+                with mock.patch.object(orchestrator.tempfile, "mkdtemp", return_value=str(directory)), \
+                     mock.patch.object(orchestrator.user_server_manager, "ssh_args", return_value=args), \
+                     mock.patch.object(orchestrator.subprocess, "run", side_effect=[
+                         subprocess.CompletedProcess(args, 0), subprocess.TimeoutExpired(args, 10)]):
+                    expected = RuntimeError if staging_fails else subprocess.TimeoutExpired
+                    with self.assertRaises(expected):
+                        with session.multiplexed({"transport": "fixture"}):
+                            self.assertIsNotNone(session.control_path)
+                            if staging_fails:
+                                raise RuntimeError("staging failed")
+                self.assertFalse(directory.exists())
+                self.assertIsNone(session.control_path)
+
+    def test_smoke_uart_failure_is_reported_to_caller(self):
+        stop = orchestrator.threading.Event()
+        errors = []
+        port = mock.Mock()
+        port.read.side_effect = OSError("USB disconnected")
+        orchestrator._capture_uart(port, self.root / "uart.log", stop, errors)
+        self.assertTrue(stop.is_set())
+        self.assertEqual(str(errors[0]), "USB disconnected")
+
+    def test_failed_smoke_restores_board_and_returns_error_with_diagnostic(self):
+        options = Namespace(smoke_profile="native", smoke_seconds=5, bind_ip="127.0.0.1",
+                            device_ip="192.0.2.20", output_root=self.root / "smoke",
+                            serial_port="fake", serial_baud=115200, timeout_ms=300,
+                            profiles=self.root / "profiles.json", server_ip="192.0.2.8",
+                            https_port=18445, server_name="fixture.test", tls_ca=self.root / "ca",
+                            ota_signing_public=self.root / "key", accepted_baseline=self.root / "baseline",
+                            accepted_baseline_sha256="a" * 64)
+        profile = {"profiles": {"native": {"path": "app", "bootloader": {"path": "bootloader"}}},
+                   "partition_table": {"path": "table"}}
+
+        def observer(**kwargs):
+            output = kwargs["output"]
+            output.mkdir()
+            (output / "observations.jsonl").write_text("")
+            return {"counters": {}, "valid_controls_by_boot": {}}
+
+        board = mock.Mock()
+        with mock.patch.object(orchestrator, "validate_cli"), \
+             mock.patch.object(orchestrator, "validate_profile_manifest", return_value=profile), \
+             mock.patch.object(orchestrator, "validate_observer_host", return_value={}), \
+             mock.patch.object(orchestrator, "validate_accepted_baseline", return_value={
+                 "path": options.accepted_baseline, "sha256": "a" * 64}), \
+             mock.patch.object(orchestrator, "hardware_lock"), \
+             mock.patch.object(orchestrator, "Board", return_value=board), \
+             mock.patch.object(orchestrator.hil_runner, "ExclusiveSerialPort"), \
+             mock.patch.object(orchestrator.threading, "Thread") as thread, \
+             mock.patch.object(orchestrator.external_observer, "run", side_effect=observer), \
+             mock.patch.object(orchestrator, "_verify_live_baseline") as verify:
+            thread.return_value.is_alive.return_value = False
+            with self.assertRaisesRegex(orchestrator.OrchestratorError, "bench smoke stopped"):
+                orchestrator.smoke(options)
+        board.restore.assert_called_once()
+        verify.assert_called_once()
+        summaries = list(options.output_root.glob("*/smoke-summary.json"))
+        self.assertEqual(len(summaries), 1)
+        saved = json.loads(summaries[0].read_text())
+        self.assertEqual(saved["diagnosis"], "no_serial_output_board_not_running")
+        self.assertIn("bench smoke failed", saved["error"])
+        self.assertEqual(saved["restored_sha256"], "a" * 64)
+
     def test_smoke_diagnosis_separates_wifi_firewall_and_crash_failures(self):
         ok = {"counters": {"telemetry_valid": 3}, "valid_controls_by_boot": {"7": 2}}
         silent = {"counters": {}, "valid_controls_by_boot": {}}
         receive = [{"kind": "receive"}]
         cases = (
             (b"wifi_ip_acquired udp_bound", receive, ok, "pass"),
+            (b"wifi_ip_acquired udp_bound abort()", receive, ok, "firmware_crash_or_reboot_loop"),
+            (b"wifi_ip_acquired udp_bound", receive, {**ok, "boot_ids": ["7", "8"]},
+             "firmware_crash_or_reboot_loop"),
+            (b"", receive, ok, "no_serial_output_board_not_running"),
             (b"", [], silent, "no_serial_output_board_not_running"),
             (b'WASMHOME_WIFI,{"reason":210} wifi_disconnected', [], silent, "wifi_not_connected"),
             (b"wifi_ip_acquired", [], silent, "udp_socket_not_bound"),

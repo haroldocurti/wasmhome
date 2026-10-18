@@ -496,21 +496,53 @@ def validate_observer_host(bind_ip: str, device_ip: str, *, ufw_conf: Path = UFW
         return {"firewall": "ufw_disabled"}
     defaults = ufw_defaults.read_text(encoding="utf-8", errors="replace") if ufw_defaults.is_file() else ""
     policy = re.search(r'^DEFAULT_INPUT_POLICY="?([A-Z]+)"?\s*$', defaults, re.M)
-    if policy is not None and policy.group(1) == "ACCEPT":
-        return {"firewall": "ufw_input_accept"}
+    default_accept = policy is not None and policy.group(1) == "ACCEPT"
     require(ufw_rules.is_file(),
             "UFW drops inbound traffic by default but its user rules are unreadable")
     device = ipaddress.IPv4Address(device_ip)
     local = ipaddress.IPv4Address(bind_ip)
+    route_interface = None
     for line in ufw_rules.read_text(encoding="utf-8", errors="replace").splitlines():
         tokens = line.split()
         if tokens[:2] != ["-A", "ufw-user-input"]:
             continue
-        values = dict(zip(tokens[2::2], tokens[3::2]))
-        if values.get("-j") != "ACCEPT" or values.get("-p") != "udp":
+        # Only prove admission from simple UFW-generated rules. Extra matches
+        # (interface, source port, connection state, negation, etc.) must not be
+        # silently discarded and turned into unconditional admission.
+        fields = tokens[2:]
+        if len(fields) % 2 or len(set(fields[::2])) != len(fields[::2]):
             continue
+        values = dict(zip(fields[::2], fields[1::2]))
+        action = values.get("-j")
+        if action not in {"ACCEPT", "DROP", "REJECT"}:
+            continue
+        if values.get("-p") not in {None, "all", "udp"}:
+            continue
+        if set(values) - {"-j", "-p", "-s", "-d", "-i", "-m", "--dport", "--dports"}:
+            require(action == "ACCEPT", "cannot prove observer admission past a restricted UFW deny rule")
+            continue
+        if "-m" in values and values["-m"] not in {"udp", "multiport"}:
+            require(action == "ACCEPT", "cannot prove observer admission past a restricted UFW deny rule")
+            continue
+        if "-i" in values:
+            if route_interface is None:
+                try:
+                    route = subprocess.run(["ip", "-j", "route", "get", device_ip, "from", bind_ip],
+                                           capture_output=True, text=True, timeout=5, check=True)
+                    routes = json.loads(route.stdout)
+                    route_interface = routes[0]["dev"]
+                except (OSError, subprocess.SubprocessError, ValueError, KeyError, IndexError, TypeError):
+                    route_interface = ""
+            if values["-i"] != route_interface:
+                continue
         ports = values.get("--dport") or values.get("--dports") or ""
-        if str(OBSERVER_UDP_PORT) not in re.split(r"[,:]", ports):
+        try:
+            port_match = not ports or any(
+                (int(part.split(":")[0]) <= OBSERVER_UDP_PORT <= int(part.split(":")[-1]))
+                for part in ports.split(","))
+        except ValueError:
+            port_match = False
+        if not port_match:
             continue
         try:
             source_ok = "-s" not in values or device in ipaddress.IPv4Network(values["-s"], strict=False)
@@ -518,7 +550,10 @@ def validate_observer_host(bind_ip: str, device_ip: str, *, ufw_conf: Path = UFW
         except ValueError:
             continue
         if source_ok and local_ok:
+            require(action == "ACCEPT", "an earlier UFW deny rule blocks observer UDP traffic")
             return {"firewall": "ufw_rule_admits_device"}
+    if default_accept:
+        return {"firewall": "ufw_input_accept"}
     raise OrchestratorError(
         f"UFW drops inbound UDP {OBSERVER_UDP_PORT} from {device_ip}; run once: "
         f"sudo ufw allow proto udp from {device_ip} to {bind_ip} port {OBSERVER_UDP_PORT}")
@@ -694,9 +729,15 @@ class SSHSession:
             yield
         finally:
             self.control_path = None
-            subprocess.run([*base[:-2], "-O", "exit", *base[-2:]], stdin=subprocess.DEVNULL,
-                           capture_output=True, timeout=10, check=False)
-            shutil.rmtree(directory, ignore_errors=True)
+            active_error = sys.exc_info()[0] is not None
+            try:
+                subprocess.run([*base[:-2], "-O", "exit", *base[-2:]], stdin=subprocess.DEVNULL,
+                               capture_output=True, timeout=10, check=False)
+            except (OSError, subprocess.TimeoutExpired):
+                if not active_error:
+                    raise
+            finally:
+                shutil.rmtree(directory, ignore_errors=True)
 
     def run(self, command: list[str], *, timeout: int = 30, check: bool = True,
             transport: dict | None = None) -> subprocess.CompletedProcess:
@@ -2140,28 +2181,33 @@ UART_MARKERS = ("wifi_ip_acquired", "udp_bound", "wifi_disconnected", "WASMHOME_
                 "abort()", "Rebooting...")
 
 
-def _capture_uart(port, destination: Path, stop) -> None:
-    with destination.open("xb") as stream:
-        os.chmod(destination, 0o600)
-        while not stop.is_set():
-            data = port.read(4096)
-            if data:
-                stream.write(data)
-                stream.flush()
-            else:
-                stop.wait(0.02)
+def _capture_uart(port, destination: Path, stop, errors: list) -> None:
+    try:
+        with destination.open("xb") as stream:
+            os.chmod(destination, 0o600)
+            while not stop.is_set():
+                data = port.read(4096)
+                if data:
+                    stream.write(data)
+                    stream.flush()
+                else:
+                    stop.wait(0.02)
+    except Exception as error:
+        errors.append(error)
+        stop.set()
 
 
 def _smoke_diagnosis(uart: bytes, observations: list[dict], summary: dict) -> str:
     counters = summary.get("counters", {})
-    if counters.get("telemetry_valid", 0) >= 1 and sum(summary.get("valid_controls_by_boot", {}).values()) >= 1:
-        return "pass"
     received = sum(row.get("kind") == "receive" for row in observations)
+    text = uart.decode("utf-8", errors="replace")
+    if ("Guru Meditation" in text or "abort()" in text or text.count("rst:") > 1
+            or len(summary.get("boot_ids", [])) > 1):
+        return "firmware_crash_or_reboot_loop"
     if not uart:
         return "no_serial_output_board_not_running"
-    text = uart.decode("utf-8", errors="replace")
-    if "Guru Meditation" in text or "abort()" in text or text.count("rst:") > 1:
-        return "firmware_crash_or_reboot_loop"
+    if counters.get("telemetry_valid", 0) >= 1 and sum(summary.get("valid_controls_by_boot", {}).values()) >= 1:
+        return "pass"
     if "wifi_ip_acquired" not in text:
         return "wifi_not_connected"
     if "udp_bound" not in text:
@@ -2215,9 +2261,11 @@ def smoke(options: argparse.Namespace) -> dict:
             port = hil_runner.ExclusiveSerialPort(options.serial_port, options.serial_baud)
             stop = threading.Event()
             uart_path = run_dir / "uart.log"
-            reader = threading.Thread(target=_capture_uart, args=(port, uart_path, stop), daemon=True)
-            reader.start()
+            uart_errors = []
+            reader = threading.Thread(target=_capture_uart,
+                                      args=(port, uart_path, stop, uart_errors), daemon=True)
             try:
+                reader.start()
                 summary = external_observer.run(
                     device_ip=options.device_ip, output=run_dir / "observer",
                     seconds=options.smoke_seconds, bind_ip=options.bind_ip, port=OBSERVER_UDP_PORT,
@@ -2225,8 +2273,14 @@ def smoke(options: argparse.Namespace) -> dict:
                     initial_version=1, max_sample_age_ms=1000)
             finally:
                 stop.set()
-                reader.join(timeout=5)
-                port.close()
+                try:
+                    if reader.ident is not None:
+                        reader.join(timeout=5)
+                finally:
+                    port.close()
+            require(not reader.is_alive(), "smoke UART capture did not stop")
+            if uart_errors:
+                raise OrchestratorError("smoke UART capture failed") from uart_errors[0]
             uart = uart_path.read_bytes() if uart_path.exists() else b""
             observations = [json.loads(line) for line in
                             (run_dir / "observer" / "observations.jsonl").read_text().splitlines()]
@@ -2244,6 +2298,8 @@ def smoke(options: argparse.Namespace) -> dict:
                 "valid_controls_by_boot": summary.get("valid_controls_by_boot"),
                 "lost_controls": summary.get("lost_controls"),
             })
+            require(result["diagnosis"] == "pass",
+                    f"bench smoke failed: {result['diagnosis']}")
         except BaseException as error:
             failure = error
             result["error"] = error_chain(error)
