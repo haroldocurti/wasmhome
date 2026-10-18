@@ -198,6 +198,37 @@ class ObserverTests(unittest.TestCase):
                 run("127.0.0.1", "unused", seconds=150, trigger_after=60,
                     target_sequence=2, stable_window_ms=60_000)
 
+    def test_trigger_without_stable_window_waits_for_an_observed_boot(self):
+        # Issue #22 provisioning has no stable window. A silent device must end
+        # as trigger_not_sent_no_boot instead of encoding a trigger without boot.
+        self.clock.stop()
+        with tempfile.TemporaryDirectory() as directory:
+            output = pathlib.Path(directory)
+            result = run("127.0.0.1", output, seconds=0.3, bind_ip="127.0.0.1", port=0,
+                         device_port=9, trigger_after=0.1, target_sequence=2)
+            self.assertEqual(result["update_state"], "trigger_not_sent_no_boot")
+            self.assertIsNone(result["observer_exception"])
+            rows = [json.loads(line) for line in (output / "observations.jsonl").read_text().splitlines()]
+            self.assertFalse([row for row in rows if row["kind"] in {"send_intent", "send"}])
+            self.assertEqual(json.loads((output / "summary.json").read_text())["update_state"],
+                             "trigger_not_sent_no_boot")
+        self.clock.start()
+
+    def test_observer_exception_is_recorded_with_summary_before_raising(self):
+        self.clock.stop()
+        with tempfile.TemporaryDirectory() as directory:
+            output = pathlib.Path(directory)
+            health = Mock(side_effect=RuntimeError("probe failed"))
+            with self.assertRaisesRegex(RuntimeError, "probe failed"):
+                run("127.0.0.1", output, seconds=0.2, bind_ip="127.0.0.1", port=0,
+                    device_port=9, health_check=health)
+            summary = json.loads((output / "summary.json").read_text())
+            self.assertEqual(summary["observer_exception"],
+                             {"type": "RuntimeError", "message": "probe failed"})
+            self.assertIn('"kind": "observer_exception"',
+                          (output / "observations.jsonl").read_text())
+        self.clock.start()
+
     def test_issue20_stability_window_starts_at_first_observed_boot(self):
         self.assertEqual(_trigger_eligible_ns(1_000, 60, 60_000_000_000, 2_000),
                          60_000_002_000)

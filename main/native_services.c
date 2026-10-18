@@ -420,9 +420,15 @@ static void receive_request(const uint8_t *data, size_t length)
                 sensor.acquired_us >= 0 &&
                 (uint64_t)esp_timer_get_time() >= (uint64_t)sensor.acquired_us &&
                 (uint64_t)esp_timer_get_time() - (uint64_t)sensor.acquired_us <= 2000000 &&
+                /* 27000 mC separates the policies: v1 (25000 mC) drives GPIO 1,
+                   v2 (30000 mC) drives GPIO 0. Commit only after this build's
+                   own policy answers correctly; #22 keeps policy 1 in its
+                   native v2 release, while #20's native v2 uses policy 2. */
                 input_temperature_mC == 27000 &&
-                result.module_version == 2 && result.requested_gpio == 0 &&
-                result.observed_gpio == 0 && result.status == WH_NATIVE_CONTROL_APPLIED) {
+                result.module_version == CONFIG_WASMHOME_CONTROL_VERSION &&
+                result.requested_gpio == (CONFIG_WASMHOME_CONTROL_VERSION == 1 ? 1 : 0) &&
+                result.observed_gpio == result.requested_gpio &&
+                result.status == WH_NATIVE_CONTROL_APPLIED) {
                 esp_err_t health_err = wh_native_ota_queue_health_check();
                 if (health_err != ESP_OK && health_err != ESP_ERR_INVALID_STATE)
                     wh_platform_event("native_ota_health_queue_failed", health_err);

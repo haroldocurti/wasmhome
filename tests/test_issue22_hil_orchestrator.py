@@ -410,7 +410,7 @@ class Issue22OrchestratorTests(unittest.TestCase):
             path.write_bytes(partition_table.read_bytes() if offset == orchestrator.TABLE_OFFSET
                              else bootloader.read_bytes())
 
-        with mock.patch.object(board, "command") as command, \
+        with mock.patch.object(board, "command", return_value="Hash of data verified.\n" * 4) as command, \
              mock.patch.object(board, "read", side_effect=readback) as read:
             board.overlay_profile(app, bootloader, partition_table)
         self.assertEqual(command.call_args.args, ("write_flash", "0x0", str(bootloader),
@@ -423,11 +423,144 @@ class Issue22OrchestratorTests(unittest.TestCase):
         def wrong_readback(_offset, _size, path, **_kwargs):
             path.write_bytes(b"C" * 24)
 
-        with mock.patch.object(board, "command") as command, \
+        with mock.patch.object(board, "command", return_value="Hash of data verified.\n" * 4) as command, \
              mock.patch.object(board, "read", side_effect=wrong_readback):
             with self.assertRaisesRegex(orchestrator.OrchestratorError, "refusing reset"):
                 board.overlay_profile(app, bootloader, partition_table)
         self.assertEqual(command.call_count, 1)
+
+    def test_overlay_refuses_reset_without_on_chip_md5_for_every_segment(self):
+        app = self.root / "app.bin"
+        bootloader = self.root / "bootloader.bin"
+        partition_table = self.root / "partition-table.bin"
+        app.write_bytes(b"A" * 24)
+        bootloader.write_bytes(self.valid_bootloader_bytes())
+        partition_table.write_bytes(self.valid_partition_table())
+        board = orchestrator.Board(object(), self.root)
+        with mock.patch.object(board, "command", return_value="Hash of data verified.\n" * 3), \
+             mock.patch.object(board, "read") as read:
+            with self.assertRaisesRegex(orchestrator.OrchestratorError, "on-chip MD5"):
+                board.overlay_profile(app, bootloader, partition_table)
+        read.assert_not_called()
+
+    def test_row_restore_uses_write_md5_and_recovery_keeps_full_readback(self):
+        baseline = self.root / "baseline.bin"
+        baseline.write_bytes(b"\xff" * orchestrator.FLASH_BYTES)
+        baseline_hash = orchestrator.sha256_file(baseline)
+        board = orchestrator.Board(object(), self.root)
+        with mock.patch.object(board, "command", return_value="Hash of data verified.\n"), \
+             mock.patch.object(board, "read") as read:
+            board.restore(baseline, baseline_hash, self.root / "flash-restored.bin")
+        read.assert_not_called()
+        receipt = json.loads((self.root / "flash-restored.json").read_text())
+        self.assertEqual(receipt["method"], "write_flash_on_chip_md5")
+        self.assertEqual(receipt["baseline_sha256"], baseline_hash)
+
+        def readback(_offset, _size, path, **_kwargs):
+            path.write_bytes(baseline.read_bytes())
+
+        with mock.patch.object(board, "command", return_value="Hash of data verified.\n"), \
+             mock.patch.object(board, "read", side_effect=readback) as read:
+            board.restore(baseline, baseline_hash, self.root / "recovered.bin", full_readback=True)
+        read.assert_called_once()
+        with mock.patch.object(board, "command", return_value="Leaving...\n"):
+            with self.assertRaisesRegex(orchestrator.OrchestratorError, "on-chip MD5"):
+                board.restore(baseline, baseline_hash, self.root / "unverified.bin")
+
+    def test_verify_image_requires_esptool_digest_match(self):
+        baseline = self.root / "baseline.bin"
+        baseline.write_bytes(b"\xff" * orchestrator.FLASH_BYTES)
+        baseline_hash = orchestrator.sha256_file(baseline)
+        board = orchestrator.Board(object(), self.root)
+        with mock.patch.object(board, "command",
+                               return_value="-- verify OK (digest matched)\n") as command:
+            board.verify_image(baseline, baseline_hash)
+        self.assertEqual(command.call_args.args, ("verify_flash", "0x0", str(baseline)))
+        with mock.patch.object(board, "command", return_value="Verifying...\n"):
+            with self.assertRaisesRegex(orchestrator.OrchestratorError, "MD5 differs"):
+                board.verify_image(baseline, baseline_hash)
+
+    def bench_profiles(self, **overrides):
+        settings = {"CONFIG_WASMHOME_WIFI_SSID": '"bench"',
+                    "CONFIG_WASMHOME_WIFI_PASSWORD": '"secret-value"',
+                    "CONFIG_WASMHOME_OBSERVER_IPV4": '"127.0.0.1"',
+                    "CONFIG_WASMHOME_UDP_PORT": "3333", **overrides}
+        config = self.root / "bench-sdkconfig"
+        config.write_text("".join(f"{key}={value}\n" for key, value in settings.items()))
+        return {"profiles": {"native": {"sdkconfig": {"path": str(config)}}}}
+
+    def test_bench_network_gate_rejects_empty_password_and_wrong_observer(self):
+        orchestrator.validate_bench_network(self.bench_profiles(), "127.0.0.1")
+        for overrides, message in (({"CONFIG_WASMHOME_WIFI_PASSWORD": '""'}, "empty Wi-Fi password"),
+                                   ({"CONFIG_WASMHOME_WIFI_SSID": '""'}, "no Wi-Fi SSID"),
+                                   ({"CONFIG_WASMHOME_OBSERVER_IPV4": '"192.0.2.9"'}, "different observer"),
+                                   ({"CONFIG_WASMHOME_UDP_PORT": "4444"}, "UDP port")):
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(orchestrator.OrchestratorError, message) as raised:
+                    orchestrator.validate_bench_network(self.bench_profiles(**overrides), "127.0.0.1")
+                self.assertNotIn("secret-value", str(raised.exception))
+
+    def test_observer_host_gate_requires_ufw_rule_for_device_telemetry(self):
+        conf, defaults, rules = (self.root / name for name in ("ufw.conf", "ufw-defaults", "user.rules"))
+        conf.write_text("ENABLED=yes\n")
+        defaults.write_text('DEFAULT_INPUT_POLICY="DROP"\n')
+        rules.write_text("*filter\n-A ufw-user-input -p tcp --dport 22 -j ACCEPT\nCOMMIT\n")
+        paths = {"ufw_conf": conf, "ufw_defaults": defaults, "ufw_rules": rules}
+        with self.assertRaisesRegex(orchestrator.OrchestratorError, "sudo ufw allow proto udp"):
+            orchestrator.validate_observer_host("127.0.0.1", "192.0.2.20", **paths)
+        rules.write_text("-A ufw-user-input -p udp -d 127.0.0.1 --dport 3333 "
+                         "-s 192.0.2.21 -j ACCEPT\n")
+        with self.assertRaisesRegex(orchestrator.OrchestratorError, "drops inbound UDP 3333"):
+            orchestrator.validate_observer_host("127.0.0.1", "192.0.2.20", **paths)
+        rules.write_text("-A ufw-user-input -p udp -d 127.0.0.1 --dport 3333 "
+                         "-s 192.0.2.20 -j ACCEPT\n")
+        self.assertEqual(orchestrator.validate_observer_host("127.0.0.1", "192.0.2.20", **paths),
+                         {"firewall": "ufw_rule_admits_device"})
+        conf.write_text("ENABLED=no\n")
+        self.assertEqual(orchestrator.validate_observer_host("127.0.0.1", "192.0.2.20", **paths),
+                         {"firewall": "ufw_disabled"})
+        with self.assertRaisesRegex(orchestrator.OrchestratorError, "not assigned to this host"):
+            orchestrator.validate_observer_host("192.0.2.10", "192.0.2.20", **paths)
+
+    def test_error_chain_keeps_the_root_cause(self):
+        try:
+            try:
+                raise ValueError("boot_id must be an integer")
+            except ValueError as cause:
+                raise orchestrator.OrchestratorError("row 1 failed") from cause
+        except orchestrator.OrchestratorError as error:
+            self.assertEqual(orchestrator.error_chain(error),
+                             "OrchestratorError: row 1 failed <- ValueError: boot_id must be an integer")
+
+    def test_staging_multiplexes_only_the_pinned_transport(self):
+        args = ["/usr/bin/ssh", "-o", "ControlMaster=no", "-o", "ConnectTimeout=5",
+                "--", "wasmhome@192.0.2.1"]
+        self.assertIs(orchestrator._multiplexed_args(args, None), args)
+        self.assertEqual(orchestrator._multiplexed_args(args, "/tmp/wh-ssh-x/m"),
+                         ["/usr/bin/ssh", "-o", "ControlMaster=no", "-o",
+                          "ControlPath=/tmp/wh-ssh-x/m",
+                          "-o", "ConnectTimeout=5", "--", "wasmhome@192.0.2.1"])
+        with self.assertRaisesRegex(orchestrator.OrchestratorError, "refusing to multiplex"):
+            orchestrator._multiplexed_args(["/usr/bin/ssh", "--", "wasmhome@192.0.2.1"], "/tmp/m")
+        with self.assertRaisesRegex(orchestrator.OrchestratorError, "refusing to multiplex"):
+            orchestrator._multiplexed_args(args, "/tmp/%h")
+
+    def test_smoke_diagnosis_separates_wifi_firewall_and_crash_failures(self):
+        ok = {"counters": {"telemetry_valid": 3}, "valid_controls_by_boot": {"7": 2}}
+        silent = {"counters": {}, "valid_controls_by_boot": {}}
+        receive = [{"kind": "receive"}]
+        cases = (
+            (b"wifi_ip_acquired udp_bound", receive, ok, "pass"),
+            (b"", [], silent, "no_serial_output_board_not_running"),
+            (b'WASMHOME_WIFI,{"reason":210} wifi_disconnected', [], silent, "wifi_not_connected"),
+            (b"wifi_ip_acquired", [], silent, "udp_socket_not_bound"),
+            (b"wifi_ip_acquired udp_bound", [], silent,
+             "no_datagram_reached_observer_check_firewall_and_observer_ip"),
+            (b"rst:0x1 rst:0xc Guru Meditation", [], silent, "firmware_crash_or_reboot_loop"),
+        )
+        for uart, observations, summary, expected in cases:
+            with self.subTest(expected=expected):
+                self.assertEqual(orchestrator._smoke_diagnosis(uart, observations, summary), expected)
 
     def test_remote_staging_directory_creation_uses_private_umask(self):
         ssh = mock.Mock()
@@ -740,6 +873,9 @@ class Issue22OrchestratorTests(unittest.TestCase):
             def read(self, offset, size, destination, **_kwargs):
                 destination.write_bytes(b"baseline" if offset == 0 else b"nvs")
 
+            def verify_image(self, *_args):
+                pass
+
             def restore(self, *_args, **_kwargs):
                 self.restore_count += 1
 
@@ -766,6 +902,71 @@ class Issue22OrchestratorTests(unittest.TestCase):
         self.assertFalse(saved["restore_required"])
         self.assertEqual(saved["next_index"], 1)
 
+    def test_rehearsal_restores_records_failure_and_never_claims(self):
+        self._check_rehearsal_restore(False)
+
+    def test_rehearsal_restore_failure_keeps_recovery_required_and_never_claims(self):
+        self._check_rehearsal_restore(True)
+
+    def _check_rehearsal_restore(self, restore_fails):
+        campaign = self.root / "rehearsal"
+        orchestrator.private_directory(campaign)
+        baseline = self.root / "baseline.bin"
+        baseline.write_bytes(b"baseline")
+        baseline_hash = hashlib.sha256(b"baseline").hexdigest()
+        journal_path = campaign / "journal.json"
+        orchestrator.write_json(journal_path, {
+            "schema": orchestrator.JOURNAL_SCHEMA, "state": "ready", "rehearsal": True,
+            "restore_required": False, "next_index": 0, "slots": [],
+        }, exclusive=True)
+        row = resilience_preliminary_plan("rehearsal-test")[0]
+
+        class FakeBoard:
+            restore_count = 0
+
+            def identify(self):
+                pass
+
+            def verify_image(self, *_args):
+                pass
+
+            def read(self, _offset, _size, destination, **_kwargs):
+                destination.write_bytes(b"nvs")
+
+            def restore(self, *_args, **_kwargs):
+                self.restore_count += 1
+                if restore_fails:
+                    raise RuntimeError("restore disconnected")
+
+        board = FakeBoard()
+        with mock.patch.object(orchestrator, "_verify_nvs_not_already_updated"), \
+             mock.patch.object(orchestrator, "_prepare_profile",
+                               side_effect=RuntimeError("ledger still pending")):
+            if restore_fails:
+                with self.assertRaisesRegex(orchestrator.OrchestratorError,
+                                            "rehearsal restoration failed"):
+                    orchestrator._rehearse_row(object(), row, campaign, board,
+                                              {"profiles": {}}, object(), baseline, baseline_hash)
+                saved = json.loads(journal_path.read_text())
+                self.assertTrue(saved["restore_required"])
+                self.assertEqual(saved["state"], "restore_failed")
+                self.assertIn("restore disconnected", saved["last_error_message"])
+                self.assertEqual(saved["rehearsals"][0]["state"], "setup_failed")
+                self.assertEqual(board.restore_count, 1)
+                self.assertEqual(saved["next_index"], 0)
+                self.assertFalse((campaign / "claims").exists())
+                return
+            result = orchestrator._rehearse_row(object(), row, campaign, board,
+                                                {"profiles": {}}, object(), baseline, baseline_hash)
+        self.assertEqual(result["state"], "setup_failed")
+        self.assertIn("ledger still pending", result["error_message"])
+        self.assertEqual(board.restore_count, 1)
+        saved = json.loads(journal_path.read_text())
+        self.assertFalse(saved["restore_required"])
+        self.assertEqual(saved["next_index"], 0)
+        self.assertEqual(saved["rehearsals"][0]["state"], "setup_failed")
+        self.assertFalse((campaign / "claims").exists())
+
     def test_read_only_baseline_mismatch_does_not_flash_overwrite(self):
         campaign = self.root / "campaign"
         orchestrator.private_directory(campaign)
@@ -788,6 +989,10 @@ class Issue22OrchestratorTests(unittest.TestCase):
             def read(self, _offset, _size, destination, **_kwargs):
                 destination.write_bytes(b"not-accepted")
 
+            def verify_image(self, *_args):
+                raise orchestrator.OrchestratorError(
+                    "board full-flash MD5 differs from the #20 accepted baseline")
+
             def restore(self, *_args, **_kwargs):
                 self.restore_count += 1
 
@@ -802,6 +1007,8 @@ class Issue22OrchestratorTests(unittest.TestCase):
         saved = json.loads(journal_path.read_text())
         self.assertFalse(saved["restore_required"])
         self.assertEqual(saved["next_index"], 1)
+        self.assertIn("MD5 differs", saved["slots"][0]["error_message"])
+        self.assertTrue(Path(saved["slots"][0]["traceback"]).is_file())
 
 
 if __name__ == "__main__":

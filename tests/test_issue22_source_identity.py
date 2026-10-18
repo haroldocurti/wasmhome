@@ -48,6 +48,8 @@ class Issue22SourceIdentityTests(unittest.TestCase):
             for name in ("native", "interp", "aot"):
                 build = root / name
                 (build / "bootloader/config").mkdir(parents=True)
+                (build / "partition_table").mkdir()
+                (build / "partition_table/partition-table.bin").write_bytes(b"shared table")
                 (build / "bootloader/bootloader.bin").write_bytes(b"bootloader")
                 (build / "bootloader/config/sdkconfig.h").write_bytes(b"config header")
                 config = build / "sdkconfig"

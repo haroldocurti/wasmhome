@@ -49,8 +49,8 @@ PROFILES = {
         "component": "firmware",
         "control_version": 1,
         # Newly signed issue #22 profile-A native v2 release artifact.
-        "release_artifact_sha256": "224e0c01ae4843828a6faad010fc60f20d9795816fee1ca483f11412ff8c67cf",
-        "release_artifact_size": 916688,
+        "release_artifact_sha256": "2d8977721f803b80517f21b6672342c5d5cf9e96814a2d47faea51d27f41b865",
+        "release_artifact_size": 916704,
         "recovery": "native",
     },
     "module-interp": {

@@ -57,7 +57,7 @@ ACTIVE_SLOT_VALUES = {
 }
 EXPECTED_RELEASE_ARTIFACTS = {
     # Native is the newly signed issue #22 profile-A v2; module payloads are unchanged.
-    "native": ("224e0c01ae4843828a6faad010fc60f20d9795816fee1ca483f11412ff8c67cf", 916688),
+    "native": ("2d8977721f803b80517f21b6672342c5d5cf9e96814a2d47faea51d27f41b865", 916704),
     "module-interp": ("3a972948112397acdaad03c81714a3daf147ecce926f0854341e58a350f3d5c5", 328),
     "module-aot": ("293d78b1af5e0c7e76593d9b8e755692ee311d8427c43d94673ddfd499d5bf53", 1256),
 }

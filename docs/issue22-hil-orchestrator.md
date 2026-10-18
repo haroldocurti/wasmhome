@@ -13,6 +13,23 @@ capturas de observação, `fault_request` ou requisição HTTPS. A imagem integr
 aceita foi restaurada e verificada. Isso não conta como uma célula física da
 matriz; os critérios da #22 continuam pendentes. Consulte o [relato sanitizado](evidence/issue22-hil-2026-10-18-preflight.md).
 
+A tentativa r3 também parou na linha 1, durante o provisionamento e antes de
+qualquer ensaio OTA. Os três perfis tinham sido compilados com senha de Wi-Fi
+vazia, então o ESP32-S3 não entrou na rede e o observador não recebeu nenhum
+datagrama. Sem janela estável configurada, o observador ainda tentou montar o
+`UPDATE_TRIGGER` sem `boot_id` e parou com `ProtocolError`. Nenhum trigger foi
+enviado e a imagem aceita foi restaurada e verificada. A linha consumida é falha
+de preparação, não resultado da matriz. A r4 usa builds novos com a rede privada
+da bancada e os gates descritos em "Bench network gates".
+
+A r4 parou na primeira linha durante o preflight da NVS: o OTA nativo foi
+aceito e a imagem v2 iniciou, mas o ledger permaneceu `pending`. O gate de saúde
+exigia política de controle v2, enquanto a #22 mantém a política v1 também na
+imagem nativa v2. A baseline foi restaurada e a releitura integral confirmou o
+SHA-256 aceito. A correção faz o gate exigir a versão de controle do próprio
+build e o GPIO correspondente a 27000 mC (1 na política v1, 0 na v2). A r4 não
+produziu resultado da matriz.
+
 ## Required gates
 
 The orchestrator stops before opening the serial port unless all of these
@@ -70,8 +87,8 @@ inputs validate:
    three scenarios. The firmware hashes in
    `tools/resilience_hil_runner.py` must be updated together with the final
    post-#20 builds; the earlier local package hashes are preliminary.
-   The registered native profile-A v2 is now 916688 bytes, SHA-256
-   `224e0c01ae4843828a6faad010fc60f20d9795816fee1ca483f11412ff8c67cf`.
+   The registered native profile-A v2 is now 916704 bytes, SHA-256
+   `2d8977721f803b80517f21b6672342c5d5cf9e96814a2d47faea51d27f41b865`.
    This registration is an input identity, not a claim of physical validation.
 6. The nine closed negative fixtures and all six payload/manifest files from
    the signed sequence-2 package. The CT server validates one merged allowlist
@@ -86,6 +103,56 @@ inputs validate:
 These are hard gates. In particular, no #22 physical run may start until #20
 has frozen the timeout and published its accepted baseline. The implementation
 does not manufacture either artifact from current device state.
+
+## Bench network gates
+
+`check`, `smoke` and `run` also refuse, before any board access:
+
+- a profile sdkconfig with an empty Wi-Fi SSID or password. Only the presence
+  of a value is checked; the credential is never printed or journaled;
+- a profile whose compiled `CONFIG_WASMHOME_OBSERVER_IPV4` differs from
+  `--bind-ip`, or whose UDP port is not 3333;
+- a `--bind-ip` that this host cannot bind;
+- an active UFW with a default-deny input policy and no rule admitting UDP 3333
+  from `--device-ip`. The device sends telemetry without a prior request, so a
+  stateful firewall drops it. The error prints the one-time command, for example
+  `sudo ufw allow proto udp from 192.168.0.145 to 192.168.0.13 port 3333`.
+
+Without a stable window, the observer now waits for an observed boot before it
+sends `UPDATE_TRIGGER`. The r4 bench smoke measured the first datagram 6.1 s
+after reset, so the fixed 5 s trigger of r3 would have failed even with Wi-Fi
+working. The post-esptool boot observer window is 20 s for the same reason. A silent device ends as `trigger_not_sent_no_boot`. An
+observer exception is recorded as `observer_exception`, `summary.json` is still
+written, and the row journal keeps the full cause chain (`error_message`) plus a
+private `failure-traceback.txt`.
+
+## Bench smoke
+
+`--action smoke` takes the same arguments as `run` and never claims a plan row.
+It checks the board against the accepted image, overlays one bootstrap profile
+(`--smoke-profile`, default `native`), resets it, captures UART and a passive
+observer window without a trigger (`--smoke-seconds`, default 20), then restores
+the accepted image and reads back all 16 MiB. `smoke-summary.json` reports the
+first datagram time, UART Wi-Fi/UDP markers, a diagnosis (`pass`,
+`wifi_not_connected`, `no_datagram_reached_observer_check_firewall_and_observer_ip`,
+...) and the measured esptool timings. Run it once after any rebuild or bench
+network change, before spending one-shot rows.
+
+## Full provisioning rehearsal
+
+`--action rehearse` exercises the complete setup once for each profile
+(native, interp, aot): baseline verification, bootstrap overlay, signed sequence-2
+OTA, NVS preflight and post-esptool boot verification. It **writes the board**
+and restores the accepted baseline after each profile, with full SHA-256
+readback at the end of the session. It creates no campaign claim, runs no fault
+trial and leaves `next_index=0` and `slots=[]`.
+
+Use a fresh private `--output-root`, with the same inputs as `run`, after a
+rebuild and before starting a new campaign. Results and preparation errors are
+stored in `journal.json` under `rehearsals`. A failed restore keeps
+`restore_required=true`; use `--action recover --output-root ...`. Rehearsal
+roots cannot be resumed or reused as campaign roots. A successful rehearsal is
+a setup check, not physical acceptance of any matrix row.
 
 ## CLI
 
@@ -130,7 +197,7 @@ The complete CLI is available with `python3 tools/issue22_hil_orchestrator.py
 
 | Option | Default / use |
 |---|---|
-| `--action` | `check`; choose `check`, `run`, `resume` or `recover`. Resume/recover need only `--output-root`. |
+| `--action` | `check`; choose `check`, `smoke`, `rehearse`, `run`, `resume` or `recover`. Resume/recover need only `--output-root`. |
 | `--profiles`, `--timeout-proof`, `--accepted-baseline`, `--accepted-baseline-sha256` | Required; profile builds, frozen #20 proof, accepted 16 MiB image and its accepted SHA-256. |
 | `--ota-package-root`, `--ota-signing-public`, `--fixture-root`, `--fixture-trusted-public`, `--fixture-untrusted-public`, `--aot-toolchain-id` | Required signed sequence-2 package plus the nine negative fixture inputs and pinned keys. |
 | `--tls-ca`, `--tls-certificate`, `--tls-private-key`, `--server-name`, `--server-ip` | Required listener identity; the server IP is reachable from the ESP32-S3. |
@@ -181,7 +248,7 @@ file, `fsync`, atomic rename and parent-directory `fsync`.
 
 For each row the orchestrator writes and syncs an exclusive attempt claim before
 touching the board. It verifies the full flash still equals the accepted #20
-image, restores that image, overlays the selected build's matching bootloader,
+image, overlays the selected build's matching bootloader,
 the build-pinned partition table at `0x8000`, and its bootstrap app into both
 app slots. It reads back the partition table and bootloader before booting.
 Only the four module entries can be newly added; NVS, OTA, and existing data
@@ -204,7 +271,29 @@ all flash access, the board boots, and a fresh boot ID is sampled for the
 sanitized preflight. One `resilience_hil_runner.py run` invocation then
 executes the claimed row and the before/after HTTPS snapshots are correlated
 against that run. Every row's `finally` path writes the accepted 16 MiB image
-back and verifies the full readback hash.
+back.
+
+### Verification amendment (2026-10-18)
+
+Each row used to read all 16 MiB four times (about 212 s each at 921600 baud)
+and write the baseline twice. From r4 on:
+
+| Step | Before | Now |
+|---|---|---|
+| Session start | full readback, SHA-256 | unchanged |
+| Row start | full readback, SHA-256 | `verify_flash` against the baseline (stub on-chip MD5) |
+| Restore before overlay | full write plus full readback | removed: row start has just verified the identical bytes |
+| Prepared sequence-2 image | full readback | unchanged (provisioning evidence) |
+| Row restore | full write plus full readback | full write; every `write_flash` must print `Hash of data verified.` for each segment (on-chip MD5 of the written range) |
+| Session end | none | full readback, SHA-256, after the last attempted row, including a failed one |
+| Recovery | full write plus full readback | unchanged |
+
+A mismatch at session end sets `restore_required` and blocks `resume` until
+`recover`. MD5 here guards against accidental corruption of a fixed image; the
+SHA-256 readbacks bound every session. Expected saving is about 11 minutes per
+row (roughly 5.4 h to 2.3 h for 16 rows). Staging also reuses one pinned SSH
+master connection during its reservation instead of a new handshake per file
+operation (measured 0.14 s to 0.01 s per operation, about 35 s per session).
 
 Each snapshot and raw serial/UDP receipt remains in the private output tree.
 The journal separates `restore_required`, `next_index`, row results, and claim

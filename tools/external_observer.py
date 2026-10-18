@@ -433,6 +433,7 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
                         minimum_stable_telemetry=minimum_stable_telemetry,
                         local=list(udp.getsockname()), peer=list(observer.peer),
                         trigger_after=trigger_after, target_sequence=target_sequence, scenario=scenario)
+        observer_error = None
         try:
             while True:
                 now = time.monotonic_ns()
@@ -466,18 +467,16 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
                                     _trigger_eligible_ns(start, trigger_after,
                                                          observer.stable_window_ns,
                                                          observer.first_boot_seen_ns))
+                # Without a stable window there is no pre-window gate, but an
+                # UPDATE_TRIGGER still needs an observed boot identity. Keep
+                # waiting; a session without a boot ends trigger_not_sent_no_boot.
                 if (now < capture_end and trigger_after is not None and observer.trigger is None
-                        and observer.pre_window is None and now >= trigger_eligible):
+                        and observer.pre_window is None and now >= trigger_eligible
+                        and (observer.stable_window_ns is not None or observer.boot_id is not None)):
                     qualification = observer.qualify_pre_window(now, start)
                     if qualification["passed"]:
                         # Check again at the dispatch boundary, including after
                         # writing the qualification evidence to disk.
-                        failure = health_check() if health_check is not None else None
-                        if failure:
-                            observer.event("instrument_abort", time.monotonic_ns(), reason=str(failure))
-                            break
-                        observer.send_trigger(udp, now, target_sequence, scenario)
-                    elif observer.stable_window_ns is None:
                         failure = health_check() if health_check is not None else None
                         if failure:
                             observer.event("instrument_abort", time.monotonic_ns(), reason=str(failure))
@@ -494,6 +493,11 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
                         observer.receive(raw, peer, time.monotonic_ns())
         except KeyboardInterrupt:
             observer.event("interrupted", time.monotonic_ns())
+        except Exception as error:
+            # Keep the cause and a summary on disk; the caller still sees the error.
+            observer_error = error
+            observer.event("observer_exception", time.monotonic_ns(),
+                           error_type=type(error).__name__, error=str(error))
         observer.expire(time.monotonic_ns())
         result = observer.summary()
         result["clock_domain"] = clock_domain or {"name": "observer_local", "clock": "monotonic_ns"}
@@ -504,8 +508,13 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
                                                result["observation_end_ns"] - observer.success_times[-1])
         if trigger_after is not None and observer.trigger is None:
             result["update_state"] = _not_triggered_update_state(observer)
+        result["observer_exception"] = (None if observer_error is None else
+                                        {"type": type(observer_error).__name__,
+                                         "message": str(observer_error)})
         observer.record("session_end", time.monotonic_ns(), summary=result)
         summary_log.write(json.dumps(result, indent=2) + "\n")
+    if observer_error is not None:
+        raise observer_error
     return result
 
 

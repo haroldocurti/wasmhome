@@ -25,7 +25,10 @@ import socket
 import stat
 import subprocess
 import sys
+import tempfile
+import threading
 import time
+import traceback
 import uuid
 
 
@@ -66,6 +69,25 @@ class OrchestratorError(ValueError):
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise OrchestratorError(message)
+
+
+def error_chain(error: BaseException, limit: int = 1000) -> str:
+    """Return 'Type: message <- Cause: message' for journals and the CLI."""
+    parts, seen = [], set()
+    while error is not None and id(error) not in seen and len(parts) < 6:
+        seen.add(id(error))
+        parts.append(f"{type(error).__name__}: {error}")
+        error = error.__cause__ or error.__context__
+    return " <- ".join(parts)[:limit]
+
+
+def _write_failure_traceback(operation: Path, error: BaseException) -> str | None:
+    path = operation / "failure-traceback.txt"
+    try:
+        write_private(path, "".join(traceback.format_exception(error)).encode("utf-8"))
+    except (OSError, OrchestratorError):
+        return None
+    return str(path)
 
 
 def sha256_file(path: Path) -> str:
@@ -419,6 +441,89 @@ def validate_profile_manifest(path: Path, timeout_ms: int, server_ip: str,
             "profiles": snapshots}
 
 
+OBSERVER_UDP_PORT = 3333
+UFW_CONF = Path("/etc/ufw/ufw.conf")
+UFW_DEFAULTS = Path("/etc/default/ufw")
+UFW_USER_RULES = Path("/etc/ufw/user.rules")
+
+
+def _sdkconfig_string(lines: list[str], key: str) -> str | None:
+    values = [line[len(key) + 1:] for line in lines if line.startswith(key + "=")]
+    if len(values) != 1:
+        return None
+    value = values[0]
+    if len(value) >= 2 and value[0] == value[-1] == '"':
+        return value[1:-1]
+    return value
+
+
+def validate_bench_network(profile_data: dict, bind_ip: str) -> None:
+    """Reject builds that cannot reach this observer before any board access.
+
+    Run r3 burned its first row because every profile was built with an empty
+    Wi-Fi password. Only lengths and the observer endpoint are inspected; the
+    credential itself is never logged.
+    """
+    for name, profile in profile_data["profiles"].items():
+        lines = Path(profile["sdkconfig"]["path"]).read_text(encoding="utf-8").splitlines()
+        require(_sdkconfig_string(lines, "CONFIG_WASMHOME_WIFI_SSID"),
+                f"{name} build has no Wi-Fi SSID; rebuild with the private bench network defaults")
+        require(_sdkconfig_string(lines, "CONFIG_WASMHOME_WIFI_PASSWORD"),
+                f"{name} build has an empty Wi-Fi password; rebuild with the private bench network defaults")
+        require(_sdkconfig_string(lines, "CONFIG_WASMHOME_OBSERVER_IPV4") == bind_ip,
+                f"{name} build sends telemetry to a different observer than --bind-ip")
+        require(_sdkconfig_string(lines, "CONFIG_WASMHOME_UDP_PORT") == str(OBSERVER_UDP_PORT),
+                f"{name} build uses a different observer UDP port")
+
+
+def validate_observer_host(bind_ip: str, device_ip: str, *, ufw_conf: Path = UFW_CONF,
+                           ufw_defaults: Path = UFW_DEFAULTS,
+                           ufw_rules: Path = UFW_USER_RULES) -> dict:
+    """Check that this host owns --bind-ip and that UFW admits device telemetry.
+
+    The device sends telemetry without a prior request, so a stateful firewall
+    with a default-deny input policy drops it until an explicit rule exists.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+        try:
+            probe.bind((bind_ip, 0))
+        except OSError as error:
+            raise OrchestratorError(f"--bind-ip {bind_ip} is not assigned to this host") from error
+    if not ufw_conf.is_file():
+        return {"firewall": "ufw_absent"}
+    conf = ufw_conf.read_text(encoding="utf-8", errors="replace")
+    if not re.search(r"^ENABLED=yes\s*$", conf, re.M):
+        return {"firewall": "ufw_disabled"}
+    defaults = ufw_defaults.read_text(encoding="utf-8", errors="replace") if ufw_defaults.is_file() else ""
+    policy = re.search(r'^DEFAULT_INPUT_POLICY="?([A-Z]+)"?\s*$', defaults, re.M)
+    if policy is not None and policy.group(1) == "ACCEPT":
+        return {"firewall": "ufw_input_accept"}
+    require(ufw_rules.is_file(),
+            "UFW drops inbound traffic by default but its user rules are unreadable")
+    device = ipaddress.IPv4Address(device_ip)
+    local = ipaddress.IPv4Address(bind_ip)
+    for line in ufw_rules.read_text(encoding="utf-8", errors="replace").splitlines():
+        tokens = line.split()
+        if tokens[:2] != ["-A", "ufw-user-input"]:
+            continue
+        values = dict(zip(tokens[2::2], tokens[3::2]))
+        if values.get("-j") != "ACCEPT" or values.get("-p") != "udp":
+            continue
+        ports = values.get("--dport") or values.get("--dports") or ""
+        if str(OBSERVER_UDP_PORT) not in re.split(r"[,:]", ports):
+            continue
+        try:
+            source_ok = "-s" not in values or device in ipaddress.IPv4Network(values["-s"], strict=False)
+            local_ok = "-d" not in values or local in ipaddress.IPv4Network(values["-d"], strict=False)
+        except ValueError:
+            continue
+        if source_ok and local_ok:
+            return {"firewall": "ufw_rule_admits_device"}
+    raise OrchestratorError(
+        f"UFW drops inbound UDP {OBSERVER_UDP_PORT} from {device_ip}; run once: "
+        f"sudo ufw allow proto udp from {device_ip} to {bind_ip} port {OBSERVER_UDP_PORT}")
+
+
 def _profile_signing_identity(config_lines: list[str], app_bytes: bytes,
                               expected_public_key: Path | None = None) -> dict:
     """Check the config hashed in the BIN marker and the actual embedded DER.
@@ -541,6 +646,21 @@ def strict_ssh_args(target: str, identity: Path, known_hosts: Path,
     return result
 
 
+def _multiplexed_args(args: list[str], control_path: str | None) -> list[str]:
+    """Let a staging command reuse an existing authenticated master connection.
+
+    The pinned transport keeps ControlMaster=no, so a client never becomes a
+    master itself; with a ControlPath it only reuses a live socket and falls
+    back to its own connection when the socket is absent.
+    """
+    if control_path is None:
+        return args
+    require("ControlMaster=no" in args and "%" not in control_path,
+            "pinned SSH transport changed; refusing to multiplex it")
+    index = args.index("ControlMaster=no") + 1
+    return [*args[:index], "-o", "ControlPath=" + control_path, *args[index:]]
+
+
 class SSHSession:
     def __init__(self, target: str, identity: Path, known_hosts: Path, port: int = 22,
                  host_key_alias: str | None = None, *, manager_ssh: dict | None = None):
@@ -548,6 +668,35 @@ class SSHSession:
         self.manager_ssh = manager_ssh
         self.options = (strict_ssh_args(target, identity, known_hosts, port, host_key_alias)
                         if manager_ssh is None else None)
+        self.control_path = None
+
+    @contextmanager
+    def multiplexed(self, transport: dict | None):
+        """Share one master during staging's ~265 operations (measured 0.14 s to 0.01 s each)."""
+        if transport is None or self.control_path is not None:
+            yield
+            return
+        directory = Path(tempfile.mkdtemp(prefix="wh-ssh-", dir="/tmp"))
+        os.chmod(directory, 0o700)
+        control_path = str(directory / "m")
+        base = _multiplexed_args(user_server_manager.ssh_args(transport), control_path)
+        master = ["ControlMaster=yes" if value == "ControlMaster=no" else value
+                  for value in base]
+        master = [*master[:-2], "-N", "-f", *master[-2:]]
+        try:
+            started = subprocess.run(master, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                     stderr=subprocess.DEVNULL, timeout=20, check=False)
+        except subprocess.TimeoutExpired:
+            started = None
+        if started is not None and started.returncode == 0:
+            self.control_path = control_path
+        try:
+            yield
+        finally:
+            self.control_path = None
+            subprocess.run([*base[:-2], "-O", "exit", *base[-2:]], stdin=subprocess.DEVNULL,
+                           capture_output=True, timeout=10, check=False)
+            shutil.rmtree(directory, ignore_errors=True)
 
     def run(self, command: list[str], *, timeout: int = 30, check: bool = True,
             transport: dict | None = None) -> subprocess.CompletedProcess:
@@ -555,7 +704,8 @@ class SSHSession:
             argv = ["ssh", *self.options, self.target, shlex.join(command)]
             result = subprocess.run(argv, capture_output=True, timeout=timeout, check=False)
         elif transport is not None:
-            argv = [*user_server_manager.ssh_args(transport), shlex.join(command)]
+            argv = [*_multiplexed_args(user_server_manager.ssh_args(transport), self.control_path),
+                    shlex.join(command)]
             result = subprocess.run(argv, capture_output=True, timeout=timeout, check=False)
         else:
             with user_server_manager.verified_ssh_snapshot(self.manager_ssh) as transport:
@@ -569,7 +719,7 @@ class SSHSession:
     def scp(self, source: Path, destination: str, *, recursive: bool = False,
             transport: dict | None = None) -> None:
         if transport is not None:
-            flags = user_server_manager.scp_args(transport)
+            flags = _multiplexed_args(user_server_manager.scp_args(transport), self.control_path)
             if recursive:
                 flags.append("-r")
             result = subprocess.run([*flags, str(source), f"{self.target}:{destination}"],
@@ -773,6 +923,12 @@ class RemoteFixtureServer:
         if reservation is None:
             with user_server_manager.remote_reservation(self.manager_spec) as lease:
                 return self.stage(lease)
+        if not isinstance(self.ssh, SSHSession):
+            return self._stage_reserved(reservation)
+        with self.ssh.multiplexed(getattr(reservation, "transport", None)):
+            return self._stage_reserved(reservation)
+
+    def _stage_reserved(self, reservation) -> list[str]:
         self._validate_remote_root(reservation)
         server_py = TOOLS / "resilience_fixture_https_server.py"
         signed_py = TOOLS / "signed_artifacts.py"
@@ -916,10 +1072,11 @@ class Board:
         # in the row's finally path. No NVS offset is passed to write_flash.
         # Matching bootloader and v1 app copies make startup independent of
         # prior OTA metadata until signed sequence 2 is tested.
-        self.command("write_flash", hex(BOOTLOADER_OFFSET), str(bootloader),
-                     hex(TABLE_OFFSET), str(partition_table),
-                     hex(OTA_OFFSETS[0]), str(app),
-                     hex(OTA_OFFSETS[1]), str(app), timeout=300)
+        output = self.command("write_flash", hex(BOOTLOADER_OFFSET), str(bootloader),
+                              hex(TABLE_OFFSET), str(partition_table),
+                              hex(OTA_OFFSETS[0]), str(app),
+                              hex(OTA_OFFSETS[1]), str(app), timeout=300)
+        self._require_write_verified(output, segments=4)
         table_readback = self.operation / f"partition-table-overlay-{uuid.uuid4().hex}.bin"
         self.read(TABLE_OFFSET, TABLE_BYTES, table_readback)
         require(table_readback.read_bytes() == table_sector,
@@ -932,14 +1089,41 @@ class Board:
     def run(self) -> None:
         self.command("run", after="hard_reset", timeout=30)
 
-    def restore(self, baseline: Path, expected_hash: str, destination: Path) -> None:
+    def _require_write_verified(self, output: str, *, segments: int) -> None:
+        # esptool skips the post-write digest silently if the loader lacks it.
+        require(output.count("Hash of data verified.") == segments,
+                "esptool did not confirm the on-chip MD5 of every written segment")
+
+    def verify_image(self, image: Path, expected_hash: str) -> None:
+        """Compare all 16 MiB with a pinned image by the stub's on-chip MD5.
+
+        Protocol amendment 2026-10-18: replaces the per-row full readback
+        (about 212 s) with a digest comparison (about 30 s). Full SHA-256
+        readbacks remain at session start, session end and in recovery.
+        """
+        require(image.stat().st_size == FLASH_BYTES and sha256_file(image) == expected_hash,
+                "refusing flash verification against an unverified baseline")
+        output = self.command("verify_flash", "0x0", str(image), timeout=300)
+        require(output.count("-- verify OK (digest matched)") == 1,
+                "board full-flash MD5 differs from the #20 accepted baseline")
+
+    def restore(self, baseline: Path, expected_hash: str, destination: Path, *,
+                full_readback: bool = False) -> None:
         require(baseline.stat().st_size == FLASH_BYTES and sha256_file(baseline) == expected_hash,
                 "refusing full-flash restoration from an unverified baseline")
-        self.command("write_flash", "0x0", str(baseline), timeout=300)
-        verify_path = destination
-        self.read(0, FLASH_BYTES, verify_path)
-        require(sha256_file(verify_path) == expected_hash,
-                "full 16 MiB restoration readback hash differs")
+        output = self.command("write_flash", "0x0", str(baseline), timeout=300)
+        self._require_write_verified(output, segments=1)
+        if full_readback:
+            self.read(0, FLASH_BYTES, destination)
+            require(sha256_file(destination) == expected_hash,
+                    "full 16 MiB restoration readback hash differs")
+            return
+        # Row restores rely on write_flash's on-chip MD5 of all 16 MiB; the
+        # session-end SHA-256 readback covers the final image.
+        write_json(destination.with_suffix(".json"),
+                   {"schema": "wasmhome-issue22-restore-receipt-v1",
+                    "method": "write_flash_on_chip_md5", "baseline_sha256": expected_hash,
+                    "esptool_receipt": f"esptool-{self.index:04d}.log"}, exclusive=True)
 
 
 def validate_partition_table(data: bytes) -> None:
@@ -1387,8 +1571,10 @@ def _prepare_profile(options, board: Board, row: dict, profile_data: dict,
                      baseline_hash: str) -> dict:
     profile = {"native": "native", "interp": "module-interp", "aot": "module-aot"}[row["scenario"]]
     app_path = Path(profile_data["profiles"][row["scenario"]]["path"])
-    board.restore(baseline, baseline_hash, operation / f"{row['plan_index']:02d}-restore-before.bin")
-    # Ensure every row begins from the same v1 app profile and exact NVS baseline.
+    # _run_row has just verified the whole flash against the baseline and has
+    # only read NVS since, so the former restore-before rewrite (about 296 s)
+    # would write identical bytes. Every row still begins from the exact
+    # baseline v1 app profile and NVS.
     board.overlay_profile(app_path,
         Path(profile_data["profiles"][row["scenario"]]["bootloader"]["path"]),
         Path(profile_data["partition_table"]["path"]))
@@ -1410,8 +1596,10 @@ def _prepare_profile(options, board: Board, row: dict, profile_data: dict,
     require(nvs_path.read_bytes() == prepared_flash.read_bytes()[NVS_OFFSET:NVS_OFFSET + NVS_BYTES],
             "NVS partition changed between read-only preflight and full flash snapshot")
     board.run()
+    # The r4 bench smoke saw Wi-Fi/UDP ready about 6 s after reset (5 s in r3
+    # would already miss it); 20 s leaves room for fresh telemetry and controls.
     boot_summary = _observer_once(options, _private_output(operation, "post-esptool-boot"),
-                                  seconds=5, profile=row["scenario"], attempt_id=provision_id,
+                                  seconds=20, profile=row["scenario"], attempt_id=provision_id,
                                   trigger=False)
     boot_id = _validate_observer_boot(boot_summary,
         expected_version=1 if row["scenario"] == "native" else 2,
@@ -1423,6 +1611,16 @@ def _prepare_profile(options, board: Board, row: dict, profile_data: dict,
     return {"profile": profile, "preflight": preflight_path, "prepared_flash_sha256": prepared_hash,
             "prepared_flash_bytes": FLASH_BYTES, "boot_id": boot_id,
             "ota_observer": provision_dir / "summary.json"}
+
+
+def _runner_summary(log_path: Path) -> dict:
+    """Return the runner's final JSON status line, or {} when it is absent."""
+    try:
+        lines = log_path.read_text(encoding="utf-8", errors="replace").strip().splitlines()
+        value = json.loads(lines[-1]) if lines else {}
+    except (OSError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
 
 
 def _run_row(options, row: dict, plan_path: Path, root: Path, board: Board,
@@ -1440,10 +1638,7 @@ def _run_row(options, row: dict, plan_path: Path, root: Path, board: Board,
     mutation_started = False
     try:
         board.identify()
-        before_flash = operation / "flash-before.bin"
-        board.read(0, FLASH_BYTES, before_flash, timeout=600)
-        require(sha256_file(before_flash) == baseline_hash,
-                "board does not match the campaign's exact pre-run full-flash baseline")
+        board.verify_image(baseline, baseline_hash)
         nvs_start = operation / "nvs-initial.bin"
         board.read(NVS_OFFSET, NVS_BYTES, nvs_start)
         _verify_nvs_not_already_updated(nvs_start, {"native": "native", "interp": "module-interp",
@@ -1479,8 +1674,13 @@ def _run_row(options, row: dict, plan_path: Path, root: Path, board: Board,
         require(completed.returncode == 0,
                 "one-shot issue #22 runner failed; this attempt is claimed and cannot be retried")
         report_path = run_dir / "analysis.json"
+        runner_summary = _runner_summary(log_path)
         result = {"attempt_id": row["attempt_id"], "plan_index": row["plan_index"],
                   "state": "captured", "preflight_boot_id": prepared["boot_id"],
+                  # The runner exits 0 for every recorded outcome, including
+                  # non-success statuses; keep them visible for adjudication.
+                  "runner_status": runner_summary.get("status"),
+                  "dispatch_status": runner_summary.get("dispatch_status"),
                   "prepared_flash_sha256": prepared["prepared_flash_sha256"],
                   "run_dir": str(run_dir), "http_correlation": str(run_dir / "http-correlation.json"),
                   "claim": str(claim_path)}
@@ -1499,7 +1699,8 @@ def _run_row(options, row: dict, plan_path: Path, root: Path, board: Board,
                 board.restore(baseline, baseline_hash, operation / "flash-restored.bin")
             except BaseException as restore_error:
                 journal.update(state="restore_failed", restore_required=True,
-                               last_error=type(restore_error).__name__)
+                               last_error=type(restore_error).__name__,
+                               last_error_message=error_chain(restore_error))
                 try:
                     write_json(journal_path, journal, exclusive=False)
                 except BaseException:
@@ -1507,9 +1708,12 @@ def _run_row(options, row: dict, plan_path: Path, root: Path, board: Board,
                 raise OrchestratorError("full-flash restoration failed; use recover, never replay this attempt") from restore_error
         journal["restore_required"] = False
         journal["next_index"] = row["plan_index"]
-        journal["slots"].append(result or {"attempt_id": row["attempt_id"],
-                                            "plan_index": row["plan_index"],
-                                            "state": "failed", "error": type(failure).__name__})
+        if result is None:
+            result = {"attempt_id": row["attempt_id"], "plan_index": row["plan_index"],
+                      "state": "failed", "error": type(failure).__name__,
+                      "error_message": error_chain(failure),
+                      "traceback": _write_failure_traceback(operation, failure)}
+        journal["slots"].append(result)
         journal["state"] = "row_failed" if failure else "row_complete"
         journal["current_attempt"] = None
         journal["current_plan_index"] = None
@@ -1522,6 +1726,71 @@ def _run_row(options, row: dict, plan_path: Path, root: Path, board: Board,
                 "flash was restored, but journal durability failed; run recover before resuming")
     if failure:
         raise OrchestratorError(f"issue #22 row {row['plan_index']} failed after one-shot claim; it will not be retried") from failure
+    return result
+
+
+def _rehearse_row(options, row: dict, root: Path, board: Board, profile_data: dict,
+                  server: RemoteFixtureServer, baseline: Path, baseline_hash: str) -> dict:
+    """Run one row's complete setup without a claim, runner trial or HTTP correlation.
+
+    Signed sequence-2 provisioning, the NVS preflight and the post-esptool boot
+    check are the same code a campaign row uses, so a setup defect shows up
+    here instead of burning one-shot rows.
+    """
+    journal_path = root / "journal.json"
+    operation = _private_output(root / "rehearsals", f"{row['scenario']}-{time.time_ns()}")
+    journal = load_json(journal_path, "orchestrator journal")
+    started = time.monotonic()
+    result, failure, mutation_started = None, None, False
+    try:
+        board.identify()
+        board.verify_image(baseline, baseline_hash)
+        nvs_start = operation / "nvs-initial.bin"
+        board.read(NVS_OFFSET, NVS_BYTES, nvs_start)
+        _verify_nvs_not_already_updated(nvs_start, {"native": "native", "interp": "module-interp",
+                                                   "aot": "module-aot"}[row["scenario"]])
+        journal.update(state="rehearsal_provisioning", restore_required=True)
+        write_json(journal_path, journal)
+        mutation_started = True
+        prepared = _prepare_profile(options, board, row, profile_data, server,
+                                    operation, baseline, baseline_hash)
+        result = {"scenario": row["scenario"], "state": "setup_passed",
+                  "boot_id": prepared["boot_id"],
+                  "prepared_flash_sha256": prepared["prepared_flash_sha256"]}
+    except BaseException as error:
+        failure = error
+        result = {"scenario": row["scenario"], "state": "setup_failed",
+                  "error": type(error).__name__, "error_message": error_chain(error),
+                  "traceback": _write_failure_traceback(operation, error)}
+    finally:
+        if mutation_started:
+            # A journal write failure must never skip the restore attempt.
+            journal.update(state="restoring", restore_required=True)
+            try:
+                write_json(journal_path, journal)
+            except BaseException as error:
+                failure = failure or error
+            try:
+                board.restore(baseline, baseline_hash, operation / "flash-restored.bin")
+            except BaseException as restore_error:
+                journal.update(state="restore_failed", restore_required=True,
+                               last_error=type(restore_error).__name__,
+                               last_error_message=error_chain(restore_error))
+                journal.setdefault("rehearsals", []).append(result)
+                try:
+                    write_json(journal_path, journal)
+                except BaseException:
+                    pass
+                raise OrchestratorError("rehearsal restoration failed; use recover") from restore_error
+        journal = load_json(journal_path, "orchestrator journal")
+        result["operation"] = str(operation)
+        result["seconds"] = round(time.monotonic() - started, 1)
+        journal.setdefault("rehearsals", []).append(result)
+        journal.update(state="rehearsal_row_done", restore_required=False)
+        write_json(journal_path, journal)
+    if failure is not None and (not isinstance(failure, Exception)
+                                or result["state"] == "setup_passed"):
+        raise failure
     return result
 
 
@@ -1550,12 +1819,32 @@ def _board_operations(root: Path) -> Path:
     return private_directory(root / "board-operations")
 
 
-def _verify_live_baseline(board: Board, operation: Path, baseline_hash: str) -> None:
+def _verify_live_baseline(board: Board, operation: Path, baseline_hash: str) -> Path:
     board.identify()
     live = operation / f"baseline-live-check-{uuid.uuid4().hex}.bin"
     board.read(0, FLASH_BYTES, live, timeout=600)
     require(sha256_file(live) == baseline_hash,
             "board full-flash SHA-256 differs from the #20 accepted baseline")
+    return live
+
+
+def _verify_session_end(board: Board, operation: Path, journal_path: Path,
+                        baseline_hash: str) -> None:
+    """Full SHA-256 readback after the last row of an invocation."""
+    journal = load_json(journal_path, "orchestrator journal")
+    if journal.get("restore_required") is not False:
+        return
+    try:
+        live = _verify_live_baseline(board, operation, baseline_hash)
+    except OrchestratorError as error:
+        if "differs" in str(error):
+            journal.update(state="final_verification_failed", restore_required=True,
+                           last_error_message=error_chain(error))
+            write_json(journal_path, journal)
+        raise
+    journal["final_readback"] = {"path": str(live), "sha256": baseline_hash,
+                                 "time_unix_ns": time.time_ns()}
+    write_json(journal_path, journal)
 
 
 def _initial_journal(root: Path, options: argparse.Namespace,
@@ -1591,6 +1880,8 @@ def execute(options: argparse.Namespace) -> dict:
     profile_data = validate_profile_manifest(options.profiles, options.timeout_ms,
         options.server_ip, options.https_port, options.server_name, options.tls_ca,
         options.ota_signing_public)
+    validate_bench_network(profile_data, options.bind_ip)
+    validate_observer_host(options.bind_ip, options.device_ip)
     package_data = validate_packages(options.ota_package_root, options.ota_signing_public,
         options.fixture_root, options.fixture_trusted_public, options.fixture_untrusted_public,
         options.aot_toolchain_id)
@@ -1613,10 +1904,13 @@ def execute(options: argparse.Namespace) -> dict:
         baseline = _ensure_snapshot_artifact(baseline_data["path"],
             inputs / "accepted-full-flash.bin", baseline_data["sha256"])
         journal_baseline = str(baseline)
+        rehearsal = options.action == "rehearse"
         if journal_path.exists():
             journal = load_json(journal_path, "orchestrator journal")
             require(journal.get("schema") == JOURNAL_SCHEMA,
                     "unsupported issue #22 journal schema")
+            require(not rehearsal and journal.get("rehearsal") is not True,
+                    "rehearsals need a fresh output root and are never resumed as campaigns")
             require(journal.get("restore_required") is False,
                     "interrupted campaign needs recover action before any further slot")
             require(journal.get("baseline") == journal_baseline
@@ -1637,6 +1931,7 @@ def execute(options: argparse.Namespace) -> dict:
                                        baseline_data, package_data, tls)
             journal["baseline"] = journal_baseline
             journal["recoveries"] = []
+            journal["rehearsal"] = rehearsal
             write_json(journal_path, journal, exclusive=True)
 
         claimed = _verify_claims_match_plan(root, rows)
@@ -1690,14 +1985,40 @@ def execute(options: argparse.Namespace) -> dict:
                            baseline=journal_baseline, baseline_sha256=baseline_data["sha256"])
             write_json(journal_path, journal)
             attempted = 0
-            for row in rows[next_index:min(16, next_index + options.max_slots)]:
-                # Ensure the exact manager-owned listener before the one-shot
-                # claim is written inside _run_row. Readiness retries cannot
-                # claim or re-run a hardware trial.
-                hook.before_child()
-                _run_row(options, row, plan_path, root, board, bundle, server,
-                         baseline, baseline_data["sha256"])
-                attempted += 1
+            touched = False
+            rehearsals = []
+            try:
+                if rehearsal:
+                    for scenario in ("native", "interp", "aot"):
+                        row = next(item for item in rows if item["scenario"] == scenario)
+                        hook.before_child()
+                        touched = True
+                        rehearsals.append(_rehearse_row(options, row, root, board, bundle,
+                                                        server, baseline, baseline_data["sha256"]))
+                        attempted += 1
+                else:
+                    for row in rows[next_index:min(16, next_index + options.max_slots)]:
+                        # Ensure the exact manager-owned listener before the one-shot
+                        # claim is written inside _run_row. Readiness retries cannot
+                        # claim or re-run a hardware trial.
+                        hook.before_child()
+                        touched = True
+                        _run_row(options, row, plan_path, root, board, bundle, server,
+                                 baseline, baseline_data["sha256"])
+                        attempted += 1
+            finally:
+                if touched:
+                    _verify_session_end(board, operation, journal_path, baseline_data["sha256"])
+            if rehearsal:
+                journal = load_json(journal_path, "orchestrator journal")
+                passed = all(item["state"] == "setup_passed" for item in rehearsals)
+                journal["state"] = "rehearsal_passed" if passed else "rehearsal_failed"
+                write_json(journal_path, journal)
+                require(passed, "setup rehearsal failed: " + "; ".join(
+                    f"{item['scenario']}: {item.get('error_message')}" for item in rehearsals
+                    if item["state"] != "setup_passed"))
+                return {"state": journal["state"], "rehearsals": rehearsals,
+                        "campaign_root": str(root)}
             journal = load_json(journal_path, "orchestrator journal")
             journal["state"] = "complete" if journal["next_index"] == 16 else "ready"
             write_json(journal_path, journal)
@@ -1780,7 +2101,8 @@ def recover(options: argparse.Namespace) -> dict:
         board.identify()
         recovery_dir = _private_output(root / "recoveries", f"{time.time_ns()}")
         if needs_restore:
-            board.restore(baseline, baseline_hash, recovery_dir / "flash-restored.bin")
+            board.restore(baseline, baseline_hash, recovery_dir / "flash-restored.bin",
+                          full_readback=True)
             receipt = str(recovery_dir / "flash-restored.bin")
         else:
             # A durable false restore_required means no write phase began.
@@ -1812,6 +2134,132 @@ def recover(options: argparse.Namespace) -> dict:
                 "campaign_root": str(root)}
 
 
+SMOKE_SCHEMA = "wasmhome-issue22-bench-smoke-v1"
+UART_MARKERS = ("wifi_ip_acquired", "udp_bound", "wifi_disconnected", "WASMHOME_WIFI",
+                "boot_observed", "telemetry_send_failed", "rst:", "Guru Meditation",
+                "abort()", "Rebooting...")
+
+
+def _capture_uart(port, destination: Path, stop) -> None:
+    with destination.open("xb") as stream:
+        os.chmod(destination, 0o600)
+        while not stop.is_set():
+            data = port.read(4096)
+            if data:
+                stream.write(data)
+                stream.flush()
+            else:
+                stop.wait(0.02)
+
+
+def _smoke_diagnosis(uart: bytes, observations: list[dict], summary: dict) -> str:
+    counters = summary.get("counters", {})
+    if counters.get("telemetry_valid", 0) >= 1 and sum(summary.get("valid_controls_by_boot", {}).values()) >= 1:
+        return "pass"
+    received = sum(row.get("kind") == "receive" for row in observations)
+    if not uart:
+        return "no_serial_output_board_not_running"
+    text = uart.decode("utf-8", errors="replace")
+    if "Guru Meditation" in text or "abort()" in text or text.count("rst:") > 1:
+        return "firmware_crash_or_reboot_loop"
+    if "wifi_ip_acquired" not in text:
+        return "wifi_not_connected"
+    if "udp_bound" not in text:
+        return "udp_socket_not_bound"
+    if received == 0:
+        return "no_datagram_reached_observer_check_firewall_and_observer_ip"
+    return "datagrams_without_valid_telemetry_or_control"
+
+
+def smoke(options: argparse.Namespace) -> dict:
+    """Bench smoke test that never claims a plan row.
+
+    Verify the baseline, boot one bootstrap profile, capture UART and passive
+    observer traffic without any UPDATE_TRIGGER, then restore and read back the
+    full image. It answers "does this build reach the observer?" and measures
+    the esptool timings before a campaign spends one-shot rows.
+    """
+    validate_cli(options)
+    profile_data = validate_profile_manifest(options.profiles, options.timeout_ms,
+        options.server_ip, options.https_port, options.server_name, options.tls_ca,
+        options.ota_signing_public)
+    firewall = validate_observer_host(options.bind_ip, options.device_ip)
+    baseline_data = validate_accepted_baseline(options.accepted_baseline,
+                                               options.accepted_baseline_sha256)
+    require(options.smoke_profile in profile_data["profiles"], "unknown smoke profile")
+    require(5 <= options.smoke_seconds <= 120, "smoke listen window must be 5..120 s")
+    root = private_directory(options.output_root)
+    run_dir = _private_output(root, f"smoke-{time.strftime('%Y%m%dT%H%M%S')}-{options.smoke_profile}")
+    profile = profile_data["profiles"][options.smoke_profile]
+    baseline = Path(baseline_data["path"])
+    timings, result = {}, {"schema": SMOKE_SCHEMA, "profile": options.smoke_profile,
+                           "firewall": firewall, "run_dir": str(run_dir)}
+
+    def timed(name, function, *args, **kwargs):
+        started = time.monotonic()
+        try:
+            return function(*args, **kwargs)
+        finally:
+            timings[name] = round(time.monotonic() - started, 1)
+
+    with hardware_lock():
+        board = Board(options, run_dir)
+        board.identify()
+        timed("verify_flash_md5_s", board.verify_image, baseline, baseline_data["sha256"])
+        failure = None
+        try:
+            timed("overlay_write_s", board.overlay_profile, Path(profile["path"]),
+                  Path(profile["bootloader"]["path"]), Path(profile_data["partition_table"]["path"]))
+            board.run()
+            reset_ns = time.monotonic_ns()
+            port = hil_runner.ExclusiveSerialPort(options.serial_port, options.serial_baud)
+            stop = threading.Event()
+            uart_path = run_dir / "uart.log"
+            reader = threading.Thread(target=_capture_uart, args=(port, uart_path, stop), daemon=True)
+            reader.start()
+            try:
+                summary = external_observer.run(
+                    device_ip=options.device_ip, output=run_dir / "observer",
+                    seconds=options.smoke_seconds, bind_ip=options.bind_ip, port=OBSERVER_UDP_PORT,
+                    device_port=OBSERVER_UDP_PORT, period_ms=100, timeout_ms=options.timeout_ms,
+                    initial_version=1, max_sample_age_ms=1000)
+            finally:
+                stop.set()
+                reader.join(timeout=5)
+                port.close()
+            uart = uart_path.read_bytes() if uart_path.exists() else b""
+            observations = [json.loads(line) for line in
+                            (run_dir / "observer" / "observations.jsonl").read_text().splitlines()]
+            receives = [row["host_monotonic_ns"] for row in observations if row.get("kind") == "receive"]
+            text = uart.decode("utf-8", errors="replace")
+            result.update({
+                "diagnosis": _smoke_diagnosis(uart, observations, summary),
+                "uart_bytes": len(uart),
+                "uart_markers": {marker: text.count(marker) for marker in UART_MARKERS},
+                "datagrams_received": len(receives),
+                "first_datagram_after_reset_s": (None if not receives
+                                                 else round((receives[0] - reset_ns) / 1e9, 2)),
+                "boot_ids": summary.get("boot_ids"),
+                "telemetry_valid": summary.get("counters", {}).get("telemetry_valid", 0),
+                "valid_controls_by_boot": summary.get("valid_controls_by_boot"),
+                "lost_controls": summary.get("lost_controls"),
+            })
+        except BaseException as error:
+            failure = error
+            result["error"] = error_chain(error)
+        finally:
+            timed("restore_write_md5_s", board.restore, baseline, baseline_data["sha256"],
+                  run_dir / "flash-restored.bin")
+            timed("full_readback_sha256_s", _verify_live_baseline, board, run_dir,
+                  baseline_data["sha256"])
+            result["timings"] = timings
+            result["restored_sha256"] = baseline_data["sha256"]
+            write_json(run_dir / "smoke-summary.json", result, exclusive=True)
+        if failure is not None:
+            raise OrchestratorError(f"bench smoke stopped; board restored, see {run_dir}") from failure
+    return result
+
+
 def validate_cli(options: argparse.Namespace) -> None:
     """Static gate used by tests and by the no-hardware --check command."""
     _validate_run_options(options)
@@ -1819,9 +2267,11 @@ def validate_cli(options: argparse.Namespace) -> None:
     options.timeout_ms = timeout["functional_timeout_ms"]
     validate_tls_files(options.tls_ca, options.tls_certificate,
                        options.tls_private_key, options.server_name)
-    validate_profile_manifest(options.profiles, options.timeout_ms,
+    profile_data = validate_profile_manifest(options.profiles, options.timeout_ms,
         str(ipaddress.IPv4Address(options.server_ip)), options.https_port,
         options.server_name, options.tls_ca, options.ota_signing_public)
+    validate_bench_network(profile_data, options.bind_ip)
+    validate_observer_host(options.bind_ip, options.device_ip)
     validate_packages(options.ota_package_root, options.ota_signing_public,
         options.fixture_root, options.fixture_trusted_public,
         options.fixture_untrusted_public, options.aot_toolchain_id)
@@ -1865,7 +2315,8 @@ def load_saved_options(output_root: Path, action: str) -> argparse.Namespace:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--action", choices=("check", "run", "resume", "recover"), default="check")
+    parser.add_argument("--action", choices=("check", "smoke", "rehearse", "run", "resume",
+                                             "recover"), default="check")
     parser.add_argument("--profiles", type=Path)
     parser.add_argument("--timeout-proof", type=Path)
     parser.add_argument("--ota-package-root", type=Path)
@@ -1908,6 +2359,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--plan-seed")
     parser.add_argument("--max-slots", type=int, default=16)
     parser.add_argument("--trial-timeout-seconds", type=int, default=600)
+    parser.add_argument("--smoke-profile", choices=("native", "interp", "aot"), default="native",
+                        help="bootstrap profile booted by --action smoke")
+    parser.add_argument("--smoke-seconds", type=float, default=20,
+                        help="passive observer window for --action smoke")
     return parser
 
 
@@ -1924,6 +2379,9 @@ def main(argv: list[str] | None = None) -> int:
                 return 0
             print(json.dumps(execute(options), sort_keys=True))
             return 0
+        if options.action == "smoke":
+            print(json.dumps(smoke(options), sort_keys=True))
+            return 0
         if options.action == "check":
             validate_cli(options)
             print(json.dumps({"status": "ready_for_hil_after_#20_freeze",
@@ -1934,7 +2392,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(execute(options), sort_keys=True))
         return 0
     except (OrchestratorError, OSError, ValueError, subprocess.TimeoutExpired) as error:
-        parser.exit(2, f"Issue #22 HIL orchestrator stopped safely: {error}\n")
+        parser.exit(2, f"Issue #22 HIL orchestrator stopped safely: {error_chain(error)}\n")
 
 
 if __name__ == "__main__":

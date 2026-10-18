@@ -13,6 +13,13 @@ foi encerrada após uma falha de configuração do coletor antes da injeção: u
 baseline integral foi restaurada e verificada. Os critérios de prova física da
 #22 permanecem pendentes; veja o [relato sanitizado](evidence/issue22-hil-2026-10-18-preflight.md).
 
+As tentativas r3 e r4 também terminaram na preparação, antes do ensaio de falha:
+r3 por ausência de credencial Wi-Fi e r4 por um gate de saúde nativo que exigia
+política v2 apesar de o build usar política v1. A correção passa a seguir a
+política do build. O orquestrador oferece `rehearse` para testar o provisionamento
+completo dos três perfis, restaurando a placa e sem consumir linhas da campanha.
+A validação física desses novos builds permanece pendente.
+
 A issue #22 requer uma prova preliminar de 16 tentativas físicas. A matriz
 completa de 70 falhas + 2 controles pertence à issue #23 e não é critério de
 fechamento da #22.
@@ -249,7 +256,7 @@ Os campos `reserved` explícitos do ledger e dos dois registros de recuperação
 precisam ser zero. O preflight não interpreta bytes de padding implícito do C.
 
 O exemplo mostra o schema v4 e o novo release nativo v2 do perfil A registrado
-para #22 (916688 bytes). Essa identidade de entrada não declara validação HIL:
+para #22 (916704 bytes). Essa identidade de entrada não declara validação HIL:
 
 ```json
 {
@@ -259,15 +266,15 @@ para #22 (916688 bytes). Essa identidade de entrada não declara validação HIL
   "record_identity": {"scenario": 1, "component": "firmware"},
   "boot_id": "0123456789abcdef",
   "control_version": 1,
-  "release_artifact_sha256": "224e0c01ae4843828a6faad010fc60f20d9795816fee1ca483f11412ff8c67cf",
+  "release_artifact_sha256": "2d8977721f803b80517f21b6672342c5d5cf9e96814a2d47faea51d27f41b865",
   "native_state": {
     "ledger_present": true,
     "accepted_floor": 2,
     "ledger_active_target_version": 2,
     "ledger_active_sequence": 2,
     "active_slot": 131072,
-    "active_payload_size": 916688,
-    "active_payload_sha256": "224e0c01ae4843828a6faad010fc60f20d9795816fee1ca483f11412ff8c67cf",
+    "active_payload_size": 916704,
+    "active_payload_sha256": "2d8977721f803b80517f21b6672342c5d5cf9e96814a2d47faea51d27f41b865",
     "active_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     "pending": false
   },
