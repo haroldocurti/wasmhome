@@ -87,6 +87,9 @@ inputs validate:
    three scenarios. The firmware hashes in
    `tools/resilience_hil_runner.py` must be updated together with the final
    post-#20 builds; the earlier local package hashes are preliminary.
+   The fixture endpoint's minimum protocol is TLS 1.2; successful route
+   evidence may therefore record TLS 1.2 or TLS 1.3. Older or unreported TLS
+   protocols cannot satisfy the expected HTTPS route.
    The registered native profile-A v2 is now 916720 bytes, SHA-256
    `acef19b093a7e376c1c4a78dcf51d75b5fc666f1adaae39f94f49f9f65ca80f1`.
    This registration is an input identity, not a claim of physical validation.

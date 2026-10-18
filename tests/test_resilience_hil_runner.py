@@ -623,6 +623,30 @@ class ResilienceHILRunnerTests(unittest.TestCase):
         self.assertIn("attempt_id", result)
         self.assertEqual(result["unexpected_route_count"], 0)
 
+    def test_http_correlation_accepts_fixture_minimum_tls_12(self):
+        item = row_for("ENV-SIG", "native")
+        row = {
+            "path": "resilience/ENV-SIG/scenario-1/manifest.cose",
+            "method": "GET", "status": 200, "bytes_sent": 200,
+            "sha256": "b" * 64, "tls_protocol": "TLSv1.2",
+            "time_unix_ns": 10,
+        }
+        result = correlate_http_rows(item, [row])
+        self.assertTrue(result["transport_routes_complete"])
+        self.assertFalse(result["fault_accepted_inferred"])
+
+    def test_http_log_rejects_tls_below_fixture_minimum(self):
+        row = {
+            "schema": "wasmhome-issue22-fixture-http-v1", "time_unix_ns": 1,
+            "peer": "192.0.2.1", "host": "wasmhome-issue22.test:18445",
+            "method": "GET", "path": "resilience/ENV-SIG/scenario-1/manifest.cose",
+            "status": 200, "bytes_sent": 256, "sha256": "d" * 64,
+            "tls_protocol": "TLSv1.1", "tls_cipher": "TLS_RSA_WITH_AES_128_CBC_SHA",
+        }
+        row["duration_ns"] = 12
+        with self.assertRaisesRegex(HILInputError, "non-contract fields"):
+            _http_rows((json.dumps(row) + "\n").encode())
+
     def test_http_snapshots_require_append_only_and_write_private_report(self):
         item = row_for("ENV-SIG", "native")
         base = "resilience/ENV-SIG/scenario-1/manifest.cose"

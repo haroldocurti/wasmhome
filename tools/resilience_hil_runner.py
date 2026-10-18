@@ -39,6 +39,7 @@ CAMPAIGN_ID = "issues16-18-bench-20261016-observer13"
 PREFLIGHT_SCHEMA = "wasmhome-issue22-readonly-preflight-v4"
 RUN_SCHEMA = "wasmhome-issue22-hil-run-v1"
 HTTP_SCHEMA = "wasmhome-issue22-fixture-http-v1"
+HTTP_TLS_PROTOCOLS = frozenset({"TLSv1.2", "TLSv1.3"})
 HTTP_FIELDS = {
     "schema", "time_unix_ns", "peer", "host", "method", "path", "status",
     "bytes_sent", "sha256", "tls_protocol", "tls_cipher", "duration_ns",
@@ -611,7 +612,7 @@ def _http_rows(data: bytes) -> list[dict]:
                 not host_valid or
                 row["method"] not in ("GET", "HEAD", "POST", "UNKNOWN") or
                 not path_valid or
-                row["tls_protocol"] not in (None, "TLSv1.3") or
+                row["tls_protocol"] not in (None, *HTTP_TLS_PROTOCOLS) or
                 (row["tls_cipher"] is not None and not isinstance(row["tls_cipher"], str)) or
                 (row["sha256"] is not None and
                  (not isinstance(row["sha256"], str) or len(row["sha256"]) != 64 or
@@ -636,7 +637,7 @@ def correlate_http_rows(item: dict, rows: list[dict]) -> dict:
             "path", "method", "status", "bytes_sent", "sha256", "tls_protocol", "time_unix_ns")})
     seen = {row.get("path") for row in rows
             if (row.get("path") in expected and row.get("method") == "GET" and
-                row.get("status") == 200 and row.get("tls_protocol") == "TLSv1.3" and
+                row.get("status") == 200 and row.get("tls_protocol") in HTTP_TLS_PROTOCOLS and
                 isinstance(row.get("bytes_sent"), int) and row["bytes_sent"] > 0 and
                 isinstance(row.get("sha256"), str))}
     unexpected = [row for row in observed if row.get("path") not in expected]

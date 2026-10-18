@@ -366,6 +366,17 @@ def correlate(serial_events: list[dict], udp_records: list[dict],
         group["udp_record_count"] = sum(map(len, group["udp_by_boot"].values()))
         attempt_udp_records = [record for records in group["udp_by_boot"].values()
                                for record in records]
+        # A successful-send receipt contains the exact wire hex but omits the
+        # attempt/boot IDs. Reattach only receipts matching a send intent that
+        # is already correlated to this attempt; otherwise the classifier
+        # would discard proof that its control request actually left the host.
+        attempt_send_hex = {
+            record["hex"] for record in attempt_udp_records
+            if record.get("kind") == "send_intent" and isinstance(record.get("hex"), str)
+        }
+        attempt_udp_records.extend(
+            record for record in udp_records
+            if record.get("kind") == "send" and record.get("hex") in attempt_send_hex)
         attempt_udp_records.extend(
             record for record in udp_records
             if record.get("kind") == "session_start" and
@@ -751,11 +762,54 @@ def classify_attempt(events: list[dict], *, expected_case: str | None = None,
                          if event.get("event") == "control_recovery_completed"), None)
         slot_restored = next((event for event in post_acceptance
                               if event.get("event") == "control_slot_restored"), None)
-        if recovery is None or slot_restored is None:
+        if recovery is None:
             return {"status": "accepted_incomplete",
                     "reason": rejection.get("reason"), "stage": rejection.get("stage")}
+        if slot_restored is not None:
+            health_anchor = slot_restored
+        else:
+            accepted_ns = accepted.get("host_monotonic_ns")
+            rejection_ns = rejection.get("host_monotonic_ns")
+            recovery_ns = recovery.get("host_monotonic_ns")
+            rejection_index = post_acceptance.index(rejection)
+            recovery_index = post_acceptance.index(recovery)
+            native_ordered = (
+                accepted.get("scenario") == rejection.get("scenario") ==
+                recovery.get("scenario") == "native" and
+                recovery_index > rejection_index and
+                _normalize_boot(accepted.get("boot_id")) is not None and
+                _normalize_boot(accepted.get("boot_id")) ==
+                _normalize_boot(rejection.get("boot_id")) ==
+                _normalize_boot(recovery.get("boot_id")) and
+                all(isinstance(timestamp, int) and not isinstance(timestamp, bool)
+                    for timestamp in (accepted_ns, rejection_ns, recovery_ns)) and
+                0 <= accepted_ns <= rejection_ns <= recovery_ns)
+            if not native_ordered:
+                return {"status": "accepted_incomplete",
+                        "reason": rejection.get("reason"), "stage": rejection.get("stage")}
+            active_version = recovery.get("active_version")
+            accepted_sequence = recovery.get("accepted_sequence")
+            accepted_floor_after = rejection.get("accepted_floor_after")
+            if not (
+                recovery.get("telemetry_udp_tx") is True and
+                recovery.get("control_udp_tx") is True and
+                recovery.get("update_state_status") == "available" and
+                isinstance(active_version, int) and not isinstance(active_version, bool) and
+                active_version > 0 and
+                isinstance(accepted_sequence, int) and
+                not isinstance(accepted_sequence, bool) and accepted_sequence > 0 and
+                isinstance(accepted_floor_after, int) and
+                not isinstance(accepted_floor_after, bool) and
+                accepted_sequence == accepted_floor_after):
+                return {"status": "accepted_incomplete",
+                        "reason": rejection.get("reason"), "stage": rejection.get("stage")}
+            # Native recovery has no replaceable control module slot. Its
+            # firmware emits completion only after persisted valid telemetry
+            # and control results, then the external observer must see fresh
+            # post-completion service traffic as an independent health check.
+            health_anchor = recovery
         observer = _observer_recovery(udp_records or [], accepted, recovery,
-                                      health_anchor=slot_restored)
+                                      health_anchor=health_anchor)
         candidate_ms = accepted.get("functional_timeout_ms_candidate")
         boot_id = _normalize_boot(recovery.get("boot_id"))
         acceptance_ns = accepted.get("host_monotonic_ns")

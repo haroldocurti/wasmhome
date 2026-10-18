@@ -344,6 +344,122 @@ class ResilienceHarnessTests(unittest.TestCase):
         self.assertEqual(result["status"], "accepted_incomplete")
         self.assertEqual(result["control_requests_overdue"], 1)
 
+    def test_native_env_recovery_uses_completed_event_without_module_slot(self):
+        accepted = serial_event("fault_accepted", case="ENV-SIG",
+                                functional_timeout_ms_candidate=1000,
+                                host_monotonic_ns=1_000_000_000)
+        rejection = serial_event("update_rejected", case="ENV-SIG",
+                                 reason="SIGNATURE_INVALID", stage="envelope_signature",
+                                 real_envelope_validator=True, payload_written=False,
+                                 active_slot_unchanged=True,
+                                 active_version_unchanged=True,
+                                 accepted_sequence_unchanged=True,
+                                 accepted_floor_after=2,
+                                 host_monotonic_ns=1_100_000_000)
+        recovery = serial_event("control_recovery_completed", case="ENV-SIG",
+                                telemetry_udp_tx=True, control_udp_tx=True,
+                                update_state_status="available", active_version=2,
+                                accepted_sequence=2,
+                                host_monotonic_ns=1_200_000_000)
+        udp = [observer_session(),
+               *observer_control_request(host_ns=1_300_000_000),
+               observer_packet("TELEMETRY", 1_350_000_000),
+               observer_packet("CONTROL_RESULT", 1_400_000_000)]
+        result = classify_attempt([accepted, rejection, recovery],
+                                  expected_case="ENV-SIG", udp_records=udp)
+        self.assertEqual(result["status"], "candidate_passed")
+        self.assertTrue(result["control_udp_after_health_check"])
+        report = correlate([accepted, rejection, recovery], udp)
+        self.assertEqual(report["attempts"][0]["classification"]["status"],
+                         "candidate_passed")
+
+    def test_native_env_recovery_requires_independent_udp_after_completion(self):
+        accepted = serial_event("fault_accepted", case="ENV-SIG",
+                                functional_timeout_ms_candidate=1000,
+                                host_monotonic_ns=1_000_000_000)
+        rejection = serial_event("update_rejected", case="ENV-SIG",
+                                 reason="SIGNATURE_INVALID", stage="envelope_signature",
+                                 real_envelope_validator=True, payload_written=False,
+                                 active_slot_unchanged=True,
+                                 active_version_unchanged=True,
+                                 accepted_sequence_unchanged=True,
+                                 accepted_floor_after=2,
+                                 host_monotonic_ns=1_100_000_000)
+        recovery = serial_event("control_recovery_completed", case="ENV-SIG",
+                                telemetry_udp_tx=True, control_udp_tx=True,
+                                update_state_status="available", active_version=2,
+                                accepted_sequence=2,
+                                host_monotonic_ns=1_200_000_000)
+        result = classify_attempt([accepted, rejection, recovery],
+                                  expected_case="ENV-SIG", udp_records=[observer_session()])
+        self.assertEqual(result["status"], "accepted_incomplete")
+        self.assertFalse(result["control_udp_after_health_check"])
+
+    def test_native_env_recovery_requires_matching_durable_state_and_order(self):
+        accepted = serial_event("fault_accepted", case="ENV-SIG",
+                                functional_timeout_ms_candidate=1000,
+                                host_monotonic_ns=1_000_000_000)
+        rejection = serial_event("update_rejected", case="ENV-SIG",
+                                 reason="SIGNATURE_INVALID", stage="envelope_signature",
+                                 real_envelope_validator=True, payload_written=False,
+                                 active_slot_unchanged=True,
+                                 active_version_unchanged=True,
+                                 accepted_sequence_unchanged=True,
+                                 accepted_floor_after=2,
+                                 host_monotonic_ns=1_100_000_000)
+        recovery = serial_event("control_recovery_completed", case="ENV-SIG",
+                                telemetry_udp_tx=True, control_udp_tx=True,
+                                update_state_status="available", active_version=2,
+                                accepted_sequence=2,
+                                host_monotonic_ns=1_200_000_000)
+        udp = [observer_session(),
+               *observer_control_request(host_ns=1_300_000_000),
+               observer_packet("TELEMETRY", 1_350_000_000),
+               observer_packet("CONTROL_RESULT", 1_400_000_000)]
+        recovery["accepted_sequence"] = 3
+        result = classify_attempt([accepted, rejection, recovery],
+                                  expected_case="ENV-SIG", udp_records=udp)
+        self.assertEqual(result["status"], "accepted_incomplete")
+
+        recovery["accepted_sequence"] = 2
+        recovery["host_monotonic_ns"] = 1_050_000_000
+        result = classify_attempt([accepted, rejection, recovery],
+                                  expected_case="ENV-SIG", udp_records=udp)
+        self.assertEqual(result["status"], "accepted_incomplete")
+
+        recovery["host_monotonic_ns"] = 1_200_000_000
+        recovery["boot_id"] = "fedcba9876543210"
+        result = classify_attempt([accepted, rejection, recovery],
+                                  expected_case="ENV-SIG", udp_records=udp)
+        self.assertEqual(result["status"], "accepted_incomplete")
+
+        recovery["boot_id"] = "0123456789abcdef"
+        result = classify_attempt([accepted, recovery, rejection],
+                                  expected_case="ENV-SIG", udp_records=udp)
+        self.assertEqual(result["status"], "accepted_incomplete")
+
+        recovery["scenario"] = "module-interp"
+        result = classify_attempt([accepted, rejection, recovery],
+                                  expected_case="ENV-SIG", udp_records=udp)
+        self.assertEqual(result["status"], "accepted_incomplete")
+
+    def test_module_env_recovery_still_requires_module_slot_receipt(self):
+        accepted = serial_event("fault_accepted", case="ENV-SIG", scenario="module-interp",
+                                functional_timeout_ms_candidate=1000,
+                                host_monotonic_ns=1_000_000_000)
+        rejection = serial_event("update_rejected", case="ENV-SIG", scenario="module-interp",
+                                 reason="SIGNATURE_INVALID", stage="envelope_signature",
+                                 real_envelope_validator=True, payload_written=False,
+                                 active_slot_unchanged=True,
+                                 active_version_unchanged=True,
+                                 accepted_sequence_unchanged=True,
+                                 host_monotonic_ns=1_100_000_000)
+        recovery = serial_event("control_recovery_completed", case="ENV-SIG",
+                                scenario="module-interp", host_monotonic_ns=1_200_000_000)
+        result = classify_attempt([accepted, rejection, recovery],
+                                  expected_case="ENV-SIG", udp_records=[observer_session()])
+        self.assertEqual(result["status"], "accepted_incomplete")
+
     def test_env_recovery_requires_telemetry_gap_and_control_deadline_evidence(self):
         accepted = serial_event("fault_accepted", case="ENV-SIG",
                                 functional_timeout_ms_candidate=100,
