@@ -624,6 +624,32 @@ class ResilienceHarnessTests(unittest.TestCase):
         self.assertEqual(attempt["fault_requests"], [partial])
         self.assertEqual(attempt["dispatch_statuses"], ["partial_write"])
 
+    def test_correlate_normalizes_firmware_module_profile_aliases(self):
+        for planned, firmware in (("interp", "module-interp"),
+                                  ("aot", "module-aot")):
+            with self.subTest(planned=planned):
+                request = make_fault_request_record(ATTEMPT, "ENV-OLD", planned, 1234)
+                accepted = serial_event("fault_accepted", case="ENV-OLD",
+                                        scenario=firmware)
+                report = correlate([accepted], [], [request])
+                attempt = report["attempts"][0]
+                self.assertEqual(attempt["scenario"], planned)
+                self.assertEqual(attempt["classification"]["status"],
+                                 "accepted_incomplete")
+                self.assertEqual(attempt["serial_events"][0]["scenario"], firmware)
+
+    def test_correlate_rejects_unapproved_or_mismatched_scenarios(self):
+        request = make_fault_request_record(ATTEMPT, "ENV-OLD", "interp", 1234)
+        different = serial_event("fault_accepted", case="ENV-OLD", scenario="aot")
+        report = correlate([different], [], [request])
+        self.assertEqual(report["attempts"][0]["classification"]["status"],
+                         "invalid_correlation")
+
+        unknown = serial_event("fault_accepted", case="ENV-OLD", scenario="module-wasm")
+        report = correlate([unknown], [], [])
+        self.assertEqual(report["attempts"][0]["classification"]["status"],
+                         "invalid_correlation")
+
     def test_nat_abort_requires_raw_marker_panic_reset_and_recovery(self):
         accepted = serial_event("fault_accepted", case="NAT-ABORT",
                                 host_monotonic_ns=1_000_000_000)
@@ -684,8 +710,10 @@ class ResilienceHarnessTests(unittest.TestCase):
             "accepted_incomplete")
 
     def test_abort_marker_rejects_unattributed_or_malformed_raw_lines(self):
-        with self.assertRaises(ResilienceFormatError):
-            parse_serial_event("resilience:controlled_abort")
+        self.assertIsNone(parse_serial_event("resilience:controlled_abort"))
+        self.assertIsNone(parse_serial_event(b"resilience:controlled_abort\r\n"))
+        self.assertIsNone(parse_serial_event(
+            "panic: resilience:controlled_abort"))
         with self.assertRaises(ResilienceFormatError):
             parse_serial_event(
                 "resilience:controlled_abort attempt_id=not-a-uuid case_id=NAT-ABORT "
@@ -697,7 +725,8 @@ class ResilienceHarnessTests(unittest.TestCase):
             b"\xff\x00unrelated UART bytes\r\n" +
             ("WASMHOME_RESILIENCE," + json.dumps(event, separators=(",", ":")) + "\r\n" +
              "resilience:controlled_abort attempt_id=" + ATTEMPT +
-             " case_id=NAT-ABORT boot_id=0123456789abcdef monotonic_us=20\r\n").encode("ascii")
+             " case_id=NAT-ABORT boot_id=0123456789abcdef monotonic_us=20\r\n" +
+             "resilience:controlled_abort\r\n").encode("ascii")
         )
         # Keep the capture's original byte evidence, including non-UTF-8 data.
         encoded_capture = base64.b64encode(device_lines).decode("ascii")

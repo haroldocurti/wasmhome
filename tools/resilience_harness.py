@@ -25,6 +25,13 @@ FAULT_CASES = frozenset({
     "WASM-DIV0", "NAT-ABORT",
 })
 SCENARIOS = ("native", "interp", "aot")
+SERIAL_SCENARIO_ALIASES = {
+    "native": "native",
+    "interp": "interp",
+    "module-interp": "interp",
+    "aot": "aot",
+    "module-aot": "aot",
+}
 ENV_CASES = ("ENV-SIG", "ENV-HASH", "ENV-OLD")
 WASM_MODES = ("interp", "aot")
 EXPECTED_REJECTIONS = {
@@ -63,6 +70,13 @@ def _canonical_uuid(value: object) -> str:
     if value != canonical:
         raise ResilienceFormatError("attempt_id must use canonical lowercase UUID form")
     return canonical
+
+
+def _normalized_scenario(value: object) -> str | None:
+    """Map firmware profile labels to the host plan's canonical scenarios."""
+    if not isinstance(value, str):
+        return None
+    return SERIAL_SCENARIO_ALIASES.get(value)
 
 
 def make_fault_request(attempt_id: str | uuid.UUID, case_id: str) -> bytes:
@@ -216,6 +230,12 @@ def parse_serial_event(raw_line: bytes | str) -> dict | None:
     marker_at = line.find(ABORT_MARKER_PREFIX)
     if marker_at >= 0:
         marker = line[marker_at:]
+        # ESP-IDF repeats esp_system_abort()'s reason as a bare panic line
+        # after the firmware has already flushed its attributed marker. It is
+        # diagnostic text, not an event. Keep rejecting partial fieldful
+        # markers so malformed evidence cannot be silently accepted.
+        if marker == ABORT_MARKER_PREFIX:
+            return None
         match = re.fullmatch(
             r"resilience:controlled_abort attempt_id=([0-9a-f]{8}-[0-9a-f]{4}-"
             r"[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}) case_id=(NAT-ABORT) "
@@ -333,17 +353,20 @@ def correlate(serial_events: list[dict], udp_records: list[dict],
         group.setdefault("dispatch_statuses", []).append(dispatch_status)
     for event in serial_events:
         attempt = event["attempt_id"]
+        normalized_scenario = _normalized_scenario(event.get("scenario"))
         group = attempts.setdefault(attempt, {
             "attempt_id": attempt,
             "case_id": event["case_id"],
-            "scenario": event["scenario"],
+            "scenario": normalized_scenario or event["scenario"],
             "serial_events": [],
             "boots": [],
             "udp_by_boot": {},
             "status": "unconfirmed",
             "fault_requests": [],
         })
-        if event["case_id"] != group["case_id"] or event["scenario"] != group["scenario"]:
+        if normalized_scenario is None:
+            group["correlation_error"] = "serial event has an unapproved scenario"
+        elif event["case_id"] != group["case_id"] or normalized_scenario != group["scenario"]:
             group["correlation_error"] = "attempt_id reused with different case or scenario"
         boot = _normalize_boot(event["boot_id"])
         group["serial_events"].append(event)
