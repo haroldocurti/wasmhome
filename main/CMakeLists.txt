@@ -141,6 +141,35 @@ elseif(EXPERIMENT_SCENARIO STREQUAL "module-interp" OR EXPERIMENT_SCENARIO STREQ
         "../artifacts/service_telemetry_${MODULE_ARTIFACT_SUFFIX}_embedded.c"
         "../artifacts/service_control_v1_${MODULE_ARTIFACT_SUFFIX}_embedded.c"
         "../artifacts/service_control_v2_${MODULE_ARTIFACT_SUFFIX}_embedded.c")
+    if(CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
+        if(NOT CMAKE_BUILD_EARLY_EXPANSION)
+            foreach(RESILIENCE_OUTPUT IN ITEMS
+                    resilience_control_traps_${MODULE_ARTIFACT_SUFFIX}
+                    resilience_control_traps_${MODULE_ARTIFACT_SUFFIX}_embedded.c)
+                if(NOT EXISTS "${CMAKE_SOURCE_DIR}/artifacts/${RESILIENCE_OUTPUT}")
+                    message(FATAL_ERROR
+                        "Issue #22 fixture ${RESILIENCE_OUTPUT} is missing; run tools/generate_resilience_wasm.py")
+                endif()
+            endforeach()
+            execute_process(
+                COMMAND "${PYTHON}" "${CMAKE_SOURCE_DIR}/tools/generate_resilience_wasm.py" --verify
+                RESULT_VARIABLE RESILIENCE_FIXTURE_VALIDATION_RESULT
+                OUTPUT_VARIABLE RESILIENCE_FIXTURE_VALIDATION_OUTPUT
+                ERROR_VARIABLE RESILIENCE_FIXTURE_VALIDATION_ERROR)
+            if(NOT RESILIENCE_FIXTURE_VALIDATION_RESULT EQUAL 0)
+                message(FATAL_ERROR
+                    "Issue #22 fixture integrity check failed: ${RESILIENCE_FIXTURE_VALIDATION_ERROR}")
+            endif()
+            set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+                "${CMAKE_SOURCE_DIR}/workload/resilience_control_traps.wat"
+                "${CMAKE_SOURCE_DIR}/tools/generate_resilience_wasm.py"
+                "${CMAKE_SOURCE_DIR}/artifacts/resilience-wasm-fixture.json"
+                "${CMAKE_SOURCE_DIR}/artifacts/resilience_control_traps_${MODULE_ARTIFACT_SUFFIX}"
+                "${CMAKE_SOURCE_DIR}/artifacts/resilience_control_traps_${MODULE_ARTIFACT_SUFFIX}_embedded.c")
+        endif()
+        list(APPEND SCENARIO_SOURCE "module_resilience_test.c" "resilience_test_protocol.c"
+            "../artifacts/resilience_control_traps_${MODULE_ARTIFACT_SUFFIX}_embedded.c")
+    endif()
 else()
     message(FATAL_ERROR "EXPERIMENT_SCENARIO must be native, interp, aot, module-interp or module-aot")
 endif()
@@ -150,6 +179,74 @@ if(CONFIG_WASMHOME_NATIVE_SERVICES)
 endif()
 if(CONFIG_WASMHOME_NATIVE_OTA)
     list(APPEND SCENARIO_SOURCE "native_ota.c")
+endif()
+if(CONFIG_WASMHOME_RESILIENCE_TEST_MODE)
+    if(NOT EXPERIMENT_SCENARIO STREQUAL "native")
+        message(FATAL_ERROR "WASMHOME_RESILIENCE_TEST_MODE requires EXPERIMENT_SCENARIO=native")
+    endif()
+    list(APPEND SCENARIO_SOURCE "resilience_test.c" "resilience_test_protocol.c")
+endif()
+
+# Bind the HIL bootstrap configuration to the app image itself. A sidecar
+# manifest alone can claim an endpoint/CA that was never compiled into the
+# firmware, so every opt-in #22 profile embeds a small build marker derived
+# from this build's sdkconfig and CA bytes.
+if(CONFIG_WASMHOME_RESILIENCE_TEST_MODE OR CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
+    if(NOT CONFIG_WASMHOME_SIGNED_UPDATE OR NOT CONFIG_WASMHOME_UPDATE_CA_CERT_PATH OR
+       NOT EXISTS "${CONFIG_WASMHOME_UPDATE_CA_CERT_PATH}")
+        message(FATAL_ERROR "Issue #22 profile provenance requires the signed-update CA bundle")
+    endif()
+    if(NOT CONFIG_WASMHOME_RESILIENCE_FIXTURE_SERVER_IPV4 OR
+       NOT CONFIG_WASMHOME_RESILIENCE_FIXTURE_SERVER_NAME OR
+       NOT CONFIG_WASMHOME_RESILIENCE_FIXTURE_SERVER_PORT EQUAL 18445)
+        message(FATAL_ERROR "Issue #22 profile must compile its user-mode HTTPS endpoint on port 18445")
+    endif()
+    if(NOT "${CONFIG_WASMHOME_UPDATE_SERVER_IPV4}" STREQUAL "${CONFIG_WASMHOME_RESILIENCE_FIXTURE_SERVER_IPV4}" OR
+       NOT CONFIG_WASMHOME_UPDATE_SERVER_PORT EQUAL CONFIG_WASMHOME_RESILIENCE_FIXTURE_SERVER_PORT OR
+       NOT "${CONFIG_WASMHOME_UPDATE_SERVER_NAME}" STREQUAL "${CONFIG_WASMHOME_RESILIENCE_FIXTURE_SERVER_NAME}")
+        message(FATAL_ERROR "Issue #22 signed provisioning and resilience fixture endpoints must match on port 18445")
+    endif()
+    if(EXPERIMENT_SCENARIO STREQUAL "native" AND CONFIG_WASMHOME_RESILIENCE_TEST_MODE)
+        set(ISSUE22_PROFILE_NAME "native")
+        set(ISSUE22_TIMEOUT_MS "${CONFIG_WASMHOME_RESILIENCE_FUNCTIONAL_TIMEOUT_MS}")
+    elseif(EXPERIMENT_SCENARIO STREQUAL "module-interp" AND CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
+        set(ISSUE22_PROFILE_NAME "interp")
+        set(ISSUE22_TIMEOUT_MS "${CONFIG_WASMHOME_MODULE_RESILIENCE_FUNCTIONAL_TIMEOUT_MS}")
+    elseif(EXPERIMENT_SCENARIO STREQUAL "module-aot" AND CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
+        set(ISSUE22_PROFILE_NAME "aot")
+        set(ISSUE22_TIMEOUT_MS "${CONFIG_WASMHOME_MODULE_RESILIENCE_FUNCTIONAL_TIMEOUT_MS}")
+    else()
+        message(FATAL_ERROR "Issue #22 test mode and EXPERIMENT_SCENARIO do not identify one supported profile")
+    endif()
+    if(ISSUE22_PROFILE_NAME STREQUAL "native" AND NOT CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE)
+        message(FATAL_ERROR "Issue #22 native profile requires a rollback-enabled bootloader from this build")
+    endif()
+    if(CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE)
+        set(ISSUE22_APP_ROLLBACK_ENABLED 1)
+    else()
+        set(ISSUE22_APP_ROLLBACK_ENABLED 0)
+    endif()
+    file(SHA256 "${SDKCONFIG}" ISSUE22_SDKCONFIG_SHA256)
+    file(SHA256 "${CONFIG_WASMHOME_UPDATE_CA_CERT_PATH}" ISSUE22_CA_SHA256)
+    if(NOT CMAKE_BUILD_EARLY_EXPANSION)
+        execute_process(
+            COMMAND "${PYTHON}" -B "${CMAKE_SOURCE_DIR}/tools/issue22_source_identity.py"
+                --root "${CMAKE_SOURCE_DIR}" --cmake
+            RESULT_VARIABLE ISSUE22_SOURCE_RESULT
+            OUTPUT_VARIABLE ISSUE22_SOURCE_IDENTITY
+            ERROR_VARIABLE ISSUE22_SOURCE_ERROR
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
+        if(NOT ISSUE22_SOURCE_RESULT EQUAL 0)
+            message(FATAL_ERROR "${ISSUE22_SOURCE_ERROR}")
+        endif()
+        list(GET ISSUE22_SOURCE_IDENTITY 0 ISSUE22_SOURCE_COMMIT)
+        list(GET ISSUE22_SOURCE_IDENTITY 1 ISSUE22_SOURCE_TREE)
+    endif()
+    set(ISSUE22_PROVENANCE_FILE "${CMAKE_CURRENT_BINARY_DIR}/issue22-build-provenance.txt")
+    configure_file("${CMAKE_CURRENT_LIST_DIR}/issue22-build-provenance.txt.in"
+        "${ISSUE22_PROVENANCE_FILE}" @ONLY)
+    list(APPEND UPDATE_EMBED_TXTFILES "${ISSUE22_PROVENANCE_FILE}")
+    list(APPEND SCENARIO_SOURCE "issue22_build_provenance.c")
 endif()
 
 if(CONFIG_WASMHOME_RUN_BENCHMARK)
@@ -173,6 +270,19 @@ idf_component_register(
 )
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE ${SCENARIO_DEFINE})
+
+if((CONFIG_WASMHOME_RESILIENCE_TEST_MODE OR CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
+        AND NOT CMAKE_BUILD_EARLY_EXPANSION)
+    # This runs on every build, including incremental builds that do not rerun
+    # configuration. A stale marker must never survive source edits or a new HEAD.
+    add_custom_target(issue22_source_identity_check
+        COMMAND "${PYTHON}" -B "${CMAKE_SOURCE_DIR}/tools/issue22_source_identity.py"
+            --root "${CMAKE_SOURCE_DIR}"
+            --expected-commit "${ISSUE22_SOURCE_COMMIT}"
+            --expected-tree "${ISSUE22_SOURCE_TREE}"
+        VERBATIM)
+    add_dependencies(${COMPONENT_LIB} issue22_source_identity_check)
+endif()
 
 if(CONFIG_WASMHOME_MODULE_SERVICES)
     idf_component_get_property(WAMR_MODULE_COMPONENT_DIR wasm-micro-runtime COMPONENT_DIR)

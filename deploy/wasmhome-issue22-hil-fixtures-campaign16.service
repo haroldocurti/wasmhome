@@ -1,0 +1,32 @@
+[Unit]
+Description=WasmHome issue 22 isolated resilience fixture HTTPS endpoint (campaign16)
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/srv/wasmhome-http/issue22-hil-20261017/fixtures-issues16-18-bench-20261016-observer13/fixture-index.json
+
+[Service]
+Type=simple
+User=wasmhome-http
+Group=wasmhome-http
+WorkingDirectory=/opt/wasmhome/issue22-hil-20261017-campaign16
+ExecStart=/usr/bin/python3 -B /opt/wasmhome/issue22-hil-20261017-campaign16/resilience_fixture_https_server.py --fixture-root /srv/wasmhome-http/issue22-hil-20261017/fixtures-issues16-18-bench-20261016-observer13 --trusted-public-key /srv/wasmhome-http/issue22-hil-20261017/fixtures-issues16-18-bench-20261016-observer13/verification/trusted-public.der --untrusted-public-key /srv/wasmhome-http/issue22-hil-20261017/fixtures-issues16-18-bench-20261016-observer13/verification/untrusted-public.der --certificate /etc/wasmhome/https/issue22-hil-20261017/server.crt --private-key /etc/wasmhome/https/issue22-hil-20261017/server.key --log /var/log/wasmhome/issue22-hil-20261017/campaign16-http.jsonl --bind 192.168.0.138 --port 8445 --server-name wasmhome-issue22.test --server-ip 192.168.0.138 --campaign-id issues16-18-bench-20261016-observer13 --aot-toolchain-id wamr-2.4.5-wasmhome.3
+Restart=no
+UMask=0027
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_INET
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ReadOnlyPaths=/opt/wasmhome/issue22-hil-20261017-campaign16 /srv/wasmhome-http/issue22-hil-20261017/fixtures-issues16-18-bench-20261016-observer13 /etc/wasmhome/https/issue22-hil-20261017
+ReadWritePaths=/var/log/wasmhome/issue22-hil-20261017

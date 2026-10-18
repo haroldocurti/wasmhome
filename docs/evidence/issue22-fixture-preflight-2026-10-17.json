@@ -1,0 +1,53 @@
+{
+  "ct_staging_preflight": {
+    "ct_server_source_matches_worktree": true,
+    "ct_unit_matches_worktree": true,
+    "existing_ports_8443_8444": "still listening with pre-update PIDs 266369 and 268013",
+    "fixture_objects": 18,
+    "port_8445_listening": false,
+    "server_source_sha256": "895c6fbe617d5e2b95ba8695200d11d0e8023aae85597278ecb7b795303859c9",
+    "service_state": "inactive/static",
+    "service_user_check": "passed",
+    "unit_path": "deploy/wasmhome-issue22-hil-fixtures-campaign16.service",
+    "unit_sha256": "25bbd018e84495b174f84347ac27db9a84f80473ec10b81f50239df474a718f4",
+    "unit_systemd_verify": "passed"
+  },
+  "date": "2026-10-17",
+  "local_tls_smoke": {
+    "all_response_bytes_and_hashes_match_fixture_package": true,
+    "campaign_id": "issues16-18-bench-20261016-observer13",
+    "fixture_index_sha256": "bf36fb7c2a2a65616b0651dbb5cdf69af569d249b46d99a6d840ce372c41ab0f",
+    "http_statuses": [
+      200
+    ],
+    "local_bind": "127.0.0.1",
+    "local_port": 18445,
+    "result": "passed",
+    "routes_expected": 18,
+    "routes_passed": 18,
+    "sanitized_rows_sha256": "79bb246052fe73beeb9e7656022f1ac026079c37131c33920f9f46f1c0b24ced",
+    "server_source_sha256": "895c6fbe617d5e2b95ba8695200d11d0e8023aae85597278ecb7b795303859c9",
+    "tls_protocols": [
+      "TLSv1.3"
+    ],
+    "tls_server_name": "wasmhome-issue22.test"
+  },
+  "schema": "wasmhome-issue22-fixture-preflight-v1",
+  "scope": "host and CT staging preflight only; no HIL or serial access",
+  "targeted_tests": {
+    "command": "python3 -m unittest tests.test_resilience_fixtures -v",
+    "failed": 0,
+    "passed": 7,
+    "result": "passed",
+    "skipped": 0,
+    "test_names": [
+      "test_fixture_generator_refuses_existing_output",
+      "test_fixture_identity_must_not_reuse_source_campaign_or_key",
+      "test_fixture_key_and_campaign_can_be_isolated_from_source_package",
+      "test_fixture_matrix_has_well_formed_signatures_and_correct_failure_modes",
+      "test_fixture_server_cli_rejects_existing_campaign_ports",
+      "test_fixture_server_rejects_existing_campaign_ports_and_allows_smoke_port",
+      "test_old_sequence_cannot_be_newer_than_requested_next"
+    ]
+  }
+}

@@ -19,7 +19,7 @@ esp_err_t wh_module_slot_store_write(const uint8_t *data, size_t size);
 esp_err_t wh_module_slot_store_finish(uint8_t scenario, uint32_t slot_id,
                                       uint32_t expected_size,
                                       const uint8_t expected_sha256[32]);
-void wh_module_slot_store_abort(void);
+esp_err_t wh_module_slot_store_abort(void);
 esp_err_t wh_module_slot_store_read(uint8_t scenario, uint32_t slot_id,
                                     uint32_t size, uint8_t *destination,
                                     size_t destination_size);

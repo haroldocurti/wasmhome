@@ -29,6 +29,20 @@ def packet_json(packet):
     return value
 
 
+def _normalize_attempt_id(attempt_id):
+    if attempt_id is None or isinstance(attempt_id, uuid.UUID):
+        return attempt_id
+    if not isinstance(attempt_id, str):
+        raise ValueError("attempt_id must be a canonical lowercase UUID")
+    try:
+        parsed = uuid.UUID(attempt_id)
+    except (ValueError, TypeError, AttributeError) as error:
+        raise ValueError("attempt_id must be a canonical lowercase UUID") from error
+    if str(parsed) != attempt_id:
+        raise ValueError("attempt_id must be a canonical lowercase UUID")
+    return parsed
+
+
 class Observer:
     def __init__(self, log, peer, period_ns=100_000_000, timeout_ns=300_000_000,
                  initial_version=1, attempt_id=None, max_sample_age_ms=1000,
@@ -54,7 +68,9 @@ class Observer:
         self.stable_window_ns = stable_window_ns
         self.minimum_stable_controls = minimum_stable_controls
         self.minimum_stable_telemetry = minimum_stable_telemetry
-        self.attempt_id = attempt_id or uuid.uuid4()
+        self.attempt_id = _normalize_attempt_id(attempt_id)
+        if self.attempt_id is None:
+            self.attempt_id = uuid.uuid4()
         self.boot_id = None
         self.retired_boots = set()
         self.boots = []
@@ -65,9 +81,12 @@ class Observer:
         self.tx_sequence = Counter()
         self.success_times = []
         self.success_by_boot = Counter()
+        self.success_times_by_boot = defaultdict(list)
         self.telemetry_times = []
+        self.telemetry_times_by_boot = defaultdict(list)
         self.last_sample = {}
         self.trigger = None
+        self.trigger_not_sent_reason = None
         self.first_boot_seen_ns = None
         self.accepted_ns = None
         self.activated_ns = None
@@ -85,6 +104,8 @@ class Observer:
         self.record(kind, now, **values)
 
     def transmit(self, udp, kind, body, now, planned_ns=None):
+        if kind == MessageType.UPDATE_TRIGGER and self.boot_id is None:
+            raise ProtocolError("cannot transmit UPDATE_TRIGGER before observing a boot_id")
         self.tx_sequence[kind] += 1
         packet = Packet(kind, self.attempt_id, self.tx_sequence[kind], self.boot_id,
                         now // 1000, body)
@@ -112,6 +133,10 @@ class Observer:
                                     "response": False, "success": False}
 
     def send_trigger(self, udp, now, target_sequence, scenario):
+        if self.boot_id is None:
+            self.trigger_not_sent_reason = "no_boot_observed"
+            self.event("trigger_not_sent", now, reason=self.trigger_not_sent_reason)
+            return None
         packet, sent_ns = self.transmit(udp, MessageType.UPDATE_TRIGGER,
                                {"target_sequence": target_sequence, "scenario": scenario,
                                 "component": 1, "target_version": 2}, now)
@@ -222,6 +247,7 @@ class Observer:
                            age_ms=packet.body["age_ms"])
             else:
                 self.telemetry_times.append(now)
+                self.telemetry_times_by_boot[packet.boot_id].append(now)
                 self.event("telemetry_valid", now, boot_id=packet.boot_id,
                            sequence=packet.sequence, sample_id=sample,
                            age_ms=packet.body["age_ms"])
@@ -285,6 +311,7 @@ class Observer:
             request["success"] = True
             self.success_times.append(now)
             self.success_by_boot[packet.boot_id] += 1
+            self.success_times_by_boot[packet.boot_id].append(now)
             self.event("control_valid", now, sample_id=packet.body["sample_id"], latency_ns=latency,
                        boot_id=packet.boot_id, module_version=version,
                        input_temperature_mC=request["packet"].body["input_temperature_mC"],
@@ -330,6 +357,7 @@ class Observer:
                 for (boot, kind), maximum in self.highest.items()
             },
             "accepted_ns": self.accepted_ns, "activated_ns": self.activated_ns,
+            "trigger_not_sent_reason": self.trigger_not_sent_reason,
             "update_deadline_ns": self.deadline_ns,
             "update_deadline_expired_ns": self.deadline_expired_ns,
             "capture_end_ns": self.capture_end_ns,
@@ -364,7 +392,7 @@ def _trigger_eligible_ns(session_start_ns, trigger_after_seconds,
 def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
         device_port=3333, period_ms=100, timeout_ms=300, initial_version=1,
         trigger_after=None, target_sequence=None, scenario=1, interface_index=None,
-        max_sample_age_ms=1000, update_deadline_ms=None, post_window_ms=None,
+        max_sample_age_ms=1000, attempt_id=None, update_deadline_ms=None, post_window_ms=None,
         stable_window_ms=None, minimum_stable_controls=0,
         minimum_stable_telemetry=0, health_check=None, clock_domain=None):
     period_ns = round(period_ms * 1_000_000)
@@ -385,6 +413,7 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
         raise ValueError("target sequence requires a trigger and must fit positive uint64")
     if scenario not in (1, 2, 3) or not 0 <= port <= 65535 or not 1 <= device_port <= 65535 or not 0 <= max_sample_age_ms < 65535:
         raise ValueError("invalid scenario, UDP port or sample freshness limit")
+    parsed_attempt_id = _normalize_attempt_id(attempt_id)
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     with (output / "observations.jsonl").open("x", encoding="utf-8") as log, (output / "summary.json").open("x", encoding="utf-8") as summary_log, socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp:
@@ -395,6 +424,7 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
         udp.bind((bind_ip, port))
         udp.setblocking(False)
         observer = Observer(log, (socket.gethostbyname(device_ip), device_port), period_ns, timeout_ns, initial_version,
+                            attempt_id=parsed_attempt_id,
                             max_sample_age_ms=max_sample_age_ms,
                             update_deadline_ns=(None if update_deadline_ms is None else
                                                 round(update_deadline_ms * 1_000_000)),
@@ -411,6 +441,7 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
                         clock_domain=clock_domain or {"name": "observer_local", "clock": "monotonic_ns"},
                         timeout_ns=timeout_ns, initial_version=initial_version,
                         max_sample_age_ms=max_sample_age_ms,
+                        attempt_id=str(observer.attempt_id),
                         update_deadline_ms=update_deadline_ms,
                         post_window_ms=post_window_ms,
                         stable_window_ms=stable_window_ms,
@@ -418,6 +449,7 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
                         minimum_stable_telemetry=minimum_stable_telemetry,
                         local=list(udp.getsockname()), peer=list(observer.peer),
                         trigger_after=trigger_after, target_sequence=target_sequence, scenario=scenario)
+        observer_error = None
         try:
             while True:
                 now = time.monotonic_ns()
@@ -451,18 +483,16 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
                                     _trigger_eligible_ns(start, trigger_after,
                                                          observer.stable_window_ns,
                                                          observer.first_boot_seen_ns))
+                # An UPDATE_TRIGGER always needs a boot identity, including
+                # when a stable-window qualification is configured. Keep
+                # waiting; a session without a boot ends trigger_not_sent_no_boot.
                 if (now < capture_end and trigger_after is not None and observer.trigger is None
-                        and observer.pre_window is None and now >= trigger_eligible):
+                        and observer.pre_window is None and now >= trigger_eligible
+                        and observer.boot_id is not None):
                     qualification = observer.qualify_pre_window(now, start)
                     if qualification["passed"]:
                         # Check again at the dispatch boundary, including after
                         # writing the qualification evidence to disk.
-                        failure = health_check() if health_check is not None else None
-                        if failure:
-                            observer.event("instrument_abort", time.monotonic_ns(), reason=str(failure))
-                            break
-                        observer.send_trigger(udp, now, target_sequence, scenario)
-                    elif observer.stable_window_ns is None:
                         failure = health_check() if health_check is not None else None
                         if failure:
                             observer.event("instrument_abort", time.monotonic_ns(), reason=str(failure))
@@ -479,7 +509,17 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
                         observer.receive(raw, peer, time.monotonic_ns())
         except KeyboardInterrupt:
             observer.event("interrupted", time.monotonic_ns())
+        except Exception as error:
+            # Keep the cause and a summary on disk; the caller still sees the error.
+            observer_error = error
+            observer.event("observer_exception", time.monotonic_ns(),
+                           error_type=type(error).__name__, error=str(error))
         observer.expire(time.monotonic_ns())
+        if (trigger_after is not None and observer.trigger is None
+                and observer.boot_id is None and observer.trigger_not_sent_reason is None):
+            observer.trigger_not_sent_reason = "no_boot_observed"
+            observer.event("trigger_not_sent", time.monotonic_ns(),
+                           reason=observer.trigger_not_sent_reason)
         result = observer.summary()
         result["clock_domain"] = clock_domain or {"name": "observer_local", "clock": "monotonic_ns"}
         result["instrument_aborted"] = bool(observer.counters.get("instrument_abort"))
@@ -489,8 +529,13 @@ def run(device_ip, output, seconds=10, bind_ip="0.0.0.0", port=3333,
                                                result["observation_end_ns"] - observer.success_times[-1])
         if trigger_after is not None and observer.trigger is None:
             result["update_state"] = _not_triggered_update_state(observer)
+        result["observer_exception"] = (None if observer_error is None else
+                                        {"type": type(observer_error).__name__,
+                                         "message": str(observer_error)})
         observer.record("session_end", time.monotonic_ns(), summary=result)
         summary_log.write(json.dumps(result, indent=2) + "\n")
+    if observer_error is not None:
+        raise observer_error
     return result
 
 
@@ -510,6 +555,7 @@ def main():
     parser.add_argument("--scenario", type=int, choices=(1, 2, 3), default=1)
     parser.add_argument("--interface-index", type=int)
     parser.add_argument("--max-sample-age-ms", type=int, default=1000)
+    parser.add_argument("--attempt-id", help="optional canonical attempt UUID for resilience correlation")
     args = parser.parse_args()
     try:
         result = run(**vars(args))

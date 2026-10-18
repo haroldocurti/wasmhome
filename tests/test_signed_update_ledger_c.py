@@ -39,9 +39,12 @@ typedef int BaseType_t;
 #define WH_SIGNED_UPDATE_NO_ACTIVE_SLOT UINT32_MAX
 #define WH_SIGNED_UPDATE_MAX_COMPONENT_BYTES 32u
 #define WH_SIGNED_UPDATE_MAX_RELEASE_BYTES 32u
+#define CONFIG_WASMHOME_UPDATE_CAMPAIGN_ID "bench-campaign"
+#define CONFIG_WASMHOME_UPDATE_AOT_TOOLCHAIN_ID "test-toolchain"
 #define UPDATE_LEDGER_MAGIC 0x57485550u
 #define UPDATE_LEDGER_VERSION 2u
 #define PENDING_NONE 0u
+#define PENDING_DOWNLOADING 1u
 #define PENDING_ACTIVATING 3u
 #define portMAX_DELAY UINT32_MAX
 
@@ -88,14 +91,28 @@ typedef struct {
 
 typedef struct {
     uint8_t scenario;
+    uint8_t artifact_kind;
     char campaign_id[64];
     char component[WH_SIGNED_UPDATE_MAX_COMPONENT_BYTES];
     char release_version[WH_SIGNED_UPDATE_MAX_RELEASE_BYTES];
+    char target[16];
+    char toolchain_id[128];
     uint64_t sequence;
     uint32_t payload_size;
+    uint32_t base_api_version;
     uint8_t payload_sha256[32];
     uint8_t manifest_sha256[32];
 } wh_signed_update_manifest_t;
+
+typedef struct {
+    wh_signed_update_manifest_t manifest;
+    const uint8_t *protected_bytes;
+    size_t protected_size;
+    const uint8_t *manifest_bytes;
+    size_t manifest_size;
+    const uint8_t *signature;
+    uint8_t envelope_sha256[32];
+} parsed_envelope_t;
 
 typedef struct {
     bool pending;
@@ -139,6 +156,7 @@ static bool namespace_hashes(const char *, uint8_t, const char *, uint8_t[32], u
 static int policy_index(update_ledger_t *, uint8_t, const uint8_t[32], const uint8_t[32], bool);
 static bool pending_matches(const update_ledger_t *, const wh_signed_update_manifest_t *);
 static bool bytes_equal(const uint8_t *, const uint8_t *, size_t);
+static uint64_t wh_platform_boot_id(void);
 
 static update_ledger_t persisted;
 static update_ledger_t staged;
@@ -250,6 +268,7 @@ static bool bytes_equal(const uint8_t *a, const uint8_t *b, size_t size)
 {
     return a && b && memcmp(a, b, size) == 0;
 }
+static uint64_t wh_platform_boot_id(void) { return 0x88776655u; }
 '''
 
 
@@ -267,7 +286,9 @@ static wh_signed_update_manifest_t valid_manifest(void)
 {
     wh_signed_update_manifest_t m = {0};
     m.scenario = 1; strcpy(m.campaign_id, "bench-campaign");
-    strcpy(m.component, "firmware"); strcpy(m.release_version, "v2");
+    m.artifact_kind = 1; strcpy(m.component, "firmware");
+    strcpy(m.release_version, "v2"); strcpy(m.target, "esp32s3");
+    m.base_api_version = 1;
     m.sequence = 2; m.payload_size = 4096; memset(m.payload_sha256, 0x33, 32);
     memset(m.manifest_sha256, 0x44, 32); return m;
 }
@@ -296,6 +317,25 @@ static void seed_pending_state(void)
     memset(persisted.pending_component_sha256, 0x22, 32);
     memset(persisted.pending_payload_sha256, 0x33, 32);
     memset(persisted.pending_manifest_sha256, 0x44, 32);
+}
+
+static void test_old_fixture_uses_real_policy_and_nvs_floor(void)
+{
+    wh_signed_update_manifest_t manifest = valid_manifest();
+    manifest.sequence = 7;
+    parsed_envelope_t parsed = { .manifest = manifest };
+    seed_active_state(); reset_counters();
+    update_policy_record_t active_before = persisted.records[0];
+    assert(validate_manifest_policy(&parsed, 1, "v2", 0));
+    assert(!validate_manifest_policy(&parsed, 1, "v2", 8));
+    uint8_t attempt_id[16]; memset(attempt_id, 0x5a, sizeof(attempt_id));
+    assert(ledger_prepare(&manifest, attempt_id) == ESP_ERR_INVALID_VERSION);
+    assert(!persisted.pending);
+    assert(memcmp(&persisted.records[0], &active_before,
+                  sizeof(active_before)) == 0);
+    assert(persisted.records[0].active_slot == 0x20000);
+    assert(persisted.records[0].accepted_floor == 7);
+    assert(persisted.records[0].active_sequence == 7);
 }
 
 static void test_get_state_oom_and_cleanup(void)
@@ -346,10 +386,36 @@ static void test_commit_oom_and_ambiguous_readback(void)
     assert(lock_takes == 1 && lock_gives == 1);
 }
 
+static void test_abort_preserves_active_slot_and_floor(void)
+{
+    wh_signed_update_manifest_t manifest = valid_manifest();
+    seed_pending_state(); reset_counters();
+    update_policy_record_t active_before = persisted.records[0];
+    commit_returns_error = true; commit_is_durable = false;
+    assert(wh_signed_update_abort(&manifest) == ESP_ERR_IO);
+    assert(persisted.pending);
+    assert(memcmp(&persisted.records[0], &active_before,
+                  sizeof(active_before)) == 0);
+
+    seed_pending_state(); reset_counters();
+    active_before = persisted.records[0];
+    assert(wh_signed_update_abort(&manifest) == ESP_OK);
+    assert(!persisted.pending && persisted.pending_slot == 0);
+    assert(memcmp(&persisted.records[0], &active_before,
+                  sizeof(active_before)) == 0);
+    assert(persisted.records[0].active_slot == 0x20000);
+    assert(persisted.records[0].accepted_floor == 1);
+    assert(persisted.records[0].active_sequence == 1);
+    assert(persisted.records[0].active_target_version == 2);
+    assert(lock_takes == 1 && lock_gives == 1 && allocations == frees);
+}
+
 int main(void)
 {
     test_get_state_oom_and_cleanup();
     test_commit_oom_and_ambiguous_readback();
+    test_abort_preserves_active_slot_and_floor();
+    test_old_fixture_uses_real_policy_and_nvs_floor();
     return 0;
 }
 '''
@@ -378,8 +444,13 @@ class SignedUpdateLedgerHostTests(unittest.TestCase):
         source = (ROOT / "main/signed_update.c").read_text(encoding="utf-8")
         functions = [
             extract_function(source, "static esp_err_t ledger_store("),
+            extract_function(source, "static uint32_t maximum_payload_size("),
+            extract_function(source, "static const char *component_for_scenario("),
+            extract_function(source, "static bool validate_manifest_policy("),
+            extract_function(source, "static esp_err_t ledger_prepare("),
             extract_function(source, "esp_err_t wh_signed_update_get_state("),
             extract_function(source, "esp_err_t wh_signed_update_commit("),
+            extract_function(source, "esp_err_t wh_signed_update_abort("),
         ]
         harness = "\n".join((PRELUDE, *functions, MAIN))
         with tempfile.TemporaryDirectory(prefix="wasmhome-signed-ledger-") as temp_name:

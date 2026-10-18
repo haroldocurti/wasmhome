@@ -91,6 +91,7 @@ static esp_partition_t partitions[SLOT_COUNT] = {
 };
 static uint8_t flash[SLOT_COUNT][SLOT_SIZE];
 static unsigned erases[SLOT_COUNT];
+static unsigned reads[SLOT_COUNT];
 static const esp_partition_t *active_partition = &partitions[3];
 static bool fail_erase, fail_write, fail_read, missing_last_partition;
 
@@ -98,6 +99,13 @@ static size_t partition_index(const esp_partition_t *partition)
 {
     assert(partition >= partitions && partition < partitions + SLOT_COUNT);
     return (size_t)(partition - partitions);
+}
+
+static bool partition_erased(size_t index)
+{
+    for (size_t i = 0; i < SLOT_SIZE; ++i)
+        if (flash[index][i] != 0xff) return false;
+    return true;
 }
 
 const esp_partition_t *esp_partition_find_first(int type, int subtype,
@@ -144,6 +152,7 @@ esp_err_t esp_partition_read(const esp_partition_t *partition, uint32_t offset,
                              void *data, size_t size)
 {
     size_t index = partition_index(partition);
+    reads[index]++;
     if (fail_read) return ESP_FAIL;
     if (offset > SLOT_SIZE || size > SLOT_SIZE - offset) return ESP_ERR_INVALID_ARG;
     memcpy(data, flash[index] + offset, size);
@@ -223,16 +232,20 @@ int main(void)
     assert(wh_module_slot_store_begin(3, WH_MODULE_SLOT_ID_B,
                                      sizeof(payload)) == ESP_OK);
     assert(wh_module_slot_store_write(payload, sizeof(payload)) == ESP_FAIL);
-    wh_module_slot_store_abort();
+    const unsigned reads_before_failed_erase_abort = reads[3];
+    assert(wh_module_slot_store_abort() == ESP_FAIL);
+    assert(reads[3] > reads_before_failed_erase_abort); /* readback still runs after erase error */
     fail_erase = false;
-    assert(erases[3] == 1 && erases[2] == 1);
+    assert(erases[3] == 2 && erases[2] == 1);
+    assert(memcmp(flash[2], copy, sizeof(copy)) == 0);
 
     fail_write = true;
     assert(wh_module_slot_store_begin(3, WH_MODULE_SLOT_ID_B,
                                      sizeof(payload)) == ESP_OK);
     assert(wh_module_slot_store_write(payload, sizeof(payload)) == ESP_FAIL);
-    wh_module_slot_store_abort();
+    assert(wh_module_slot_store_abort() == ESP_OK);
     fail_write = false;
+    assert(partition_erased(3));
 
     assert(wh_module_slot_store_begin(3, WH_MODULE_SLOT_ID_B,
                                      sizeof(payload)) == ESP_OK);
@@ -240,8 +253,9 @@ int main(void)
     fail_read = true;
     assert(wh_module_slot_store_finish(3, WH_MODULE_SLOT_ID_B,
                                        sizeof(payload), digest) == ESP_ERR_INVALID_CRC);
-    wh_module_slot_store_abort();
+    assert(wh_module_slot_store_abort() == ESP_FAIL); /* readback errors propagate */
     fail_read = false;
+    assert(partition_erased(3));
 
     assert(wh_module_slot_store_begin(3, WH_MODULE_SLOT_ID_B,
                                      sizeof(payload)) == ESP_OK);
@@ -250,8 +264,9 @@ int main(void)
     assert(wh_module_slot_store_finish(3, WH_MODULE_SLOT_ID_B,
                                        sizeof(payload), digest) == ESP_ERR_INVALID_CRC);
     digest[0] ^= 0xff;
-    wh_module_slot_store_abort();
-    assert(erases[2] == 1); /* failed writes and readback never erase active A */
+    assert(wh_module_slot_store_abort() == ESP_OK);
+    assert(partition_erased(3));
+    assert(erases[2] == 1); /* rejected candidates never erase active A */
 
     assert(wh_module_slot_store_begin(3, WH_MODULE_SLOT_ID_A,
                                      SLOT_SIZE + 1u) == ESP_ERR_INVALID_ARG);

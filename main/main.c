@@ -14,6 +14,9 @@
 
 #if defined(CONFIG_WASMHOME_MODULE_SERVICES)
 #include "module_manager.h"
+#if defined(CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
+#include "module_resilience_test.h"
+#endif
 #if defined(WASMHOME_SCENARIO_MODULE_INTERP)
 extern const uint8_t service_telemetry_wasm[];
 extern const uint32_t service_telemetry_wasm_len;
@@ -44,6 +47,15 @@ extern const uint32_t service_control_v2_aot_len;
 
 #if defined(CONFIG_WASMHOME_NATIVE_OTA)
 #include "native_ota.h"
+#endif
+
+#if defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE)
+#include "resilience_test.h"
+#endif
+
+#if defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE) || \
+    defined(CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
+void wasmhome_issue22_build_provenance_retain(void);
 #endif
 
 #if !defined(WASMHOME_SCENARIO_NATIVE)
@@ -376,6 +388,10 @@ static bool start_benchmark_thread(void)
 
 void app_main(void)
 {
+#if defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE) || \
+    defined(CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
+    wasmhome_issue22_build_provenance_retain();
+#endif
     ESP_ERROR_CHECK(wh_platform_start());
 #if defined(CONFIG_WASMHOME_NATIVE_OTA)
     uint32_t reconcile_stack_remaining = 0;
@@ -413,10 +429,16 @@ void app_main(void)
                               .module_version = 2};
 #endif
     ESP_ERROR_CHECK(wh_module_manager_start(&telemetry, &control));
+#if defined(CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
+    ESP_ERROR_CHECK(wh_module_resilience_test_start());
+#endif
     return;
 #endif
 #if defined(CONFIG_WASMHOME_NATIVE_SERVICES)
     ESP_ERROR_CHECK(wh_native_services_start());
+#endif
+#if defined(CONFIG_WASMHOME_RESILIENCE_TEST_MODE)
+    ESP_ERROR_CHECK(wh_resilience_test_start());
 #endif
 #if defined(CONFIG_WASMHOME_PLATFORM_SELFTEST)
     extern esp_err_t wh_platform_selftest_start(void);

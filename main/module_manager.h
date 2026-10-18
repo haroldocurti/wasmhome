@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "esp_err.h"
 #include "module_abi_v1.h"
@@ -84,6 +85,19 @@ typedef void (*wh_module_control_event_fn)(
     const wh_module_slot_info_t *control,
     uint64_t telemetry_runtime_busy_drops);
 
+typedef enum {
+    WH_MODULE_RESILIENCE_ZERO = 1,
+    WH_MODULE_RESILIENCE_OOB = 2,
+    WH_MODULE_RESILIENCE_DIV0 = 3,
+} wh_module_resilience_case_t;
+
+typedef bool (*wh_module_resilience_event_fn)(
+    void *context, const char *event, const char *case_id,
+    bool call_ok, bool timed_out, int32_t result, const char *exception_raw,
+    const wh_module_slot_info_t *telemetry,
+    const wh_module_slot_info_t *control,
+    uint64_t telemetry_runtime_busy_drops);
+
 /* Initialize the singleton WAMR runtime and activate both role-specific images. */
 esp_err_t wh_module_manager_start(const wh_module_image_t *telemetry,
                                   const wh_module_image_t *control);
@@ -100,6 +114,21 @@ esp_err_t wh_module_manager_activate_control(
     wh_module_control_commit_fn commit_fn,
     wh_module_control_event_fn event_fn,
     void *context);
+
+/* Run one closed Wasm trap fixture in a temporary control slot. The manager
+ * invokes event_fn("fault_accepted") only after loading the fixture and
+ * swapping it into the control slot, before calling its fault export. It then
+ * retires that slot and restores the resident known-good control without
+ * changing the module update ledger. */
+esp_err_t wh_module_manager_run_resilience_case(
+    const uint8_t attempt_id[16], wh_module_resilience_case_t test_case,
+    wh_module_resilience_event_fn event_fn, void *context);
+esp_err_t wh_module_manager_set_resilience_attempt_id(const uint8_t attempt_id[16]);
+void wh_module_manager_clear_resilience_attempt_id(const uint8_t attempt_id[16]);
+
+/* Execute the same bounded control vectors used for candidate admission on
+   the resident active control, from its owning WAMR worker. */
+esp_err_t wh_module_manager_health_check_active_control(void);
 
 /* The control worker can defer bounded UART records during a modular slot
    transaction. Lines are copied synchronously, preserving snapshots and

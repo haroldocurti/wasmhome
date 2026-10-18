@@ -1,0 +1,639 @@
+{
+  "schema": "wasmhome-issue22-wamrc-build-provenance-v1",
+  "trust_boundary": "Unsigned local build receipt; toolchain identities and recorded source/build snapshots were checked, but this is not an independent rebuild.",
+  "redactions": [
+    "Local absolute path prefixes are replaced with WASMHOME_ROOT and TOOLCHAIN_ROOT aliases.",
+    "CMake cache and compile_commands text is omitted; its original SHA-256 and UTF-8 byte count are retained.",
+    "The raw-file and canonical-JSON digests bind this summary to the complete original receipt."
+  ],
+  "receipt": {
+    "schema": "wasmhome-wamrc-build-v1",
+    "raw_file_sha256": "cf3af3209242a4cd7a8f9010ce9e327f6c6530ff2bbaf92c45f327f24144ad0b",
+    "canonical_json_sha256": "3d4ac129a7f1149a19ccbe9d78043cd229b0e2974fc992f1bc7d3c6ac7c5d0d1",
+    "runtime_identity": {
+      "component": "wasmhome/wasm-micro-runtime",
+      "version": "2.4.5-wasmhome.3",
+      "component_hash": "7928f0852db4c43b1e2d7ae19ac957d0cddae77e458046612c6100e9e9dbee39",
+      "repository_revision": "25bd7eb63e828e4bd242cc9b38d260b4b31c6605",
+      "app_framework_revision": "e97860611e371d91d2ef25101b02b29719476a48",
+      "port_lock_sha256": "7aea69ad144467e077d156732939e2d254d8b910f670a62fda5a5c9194d34c8e",
+      "aot_version": 5
+    },
+    "llvm_source": {
+      "origin": "https://github.com/espressif/llvm-project.git",
+      "revision": "344b928e67bfc1d07cb150609c55548e86a9bf19",
+      "tree": "3607a15bed086254c2941197f93ace85317c079d",
+      "clean": true
+    },
+    "binary": {
+      "version": "wamrc 2.4.5",
+      "sha256": "98ab5acb7bc451cc5bf9d28940d4e252e8c00c7dbc5b0fe6d097901818fe7824"
+    },
+    "fresh_build_directories": true,
+    "build_tools": {
+      "c": {
+        "executable": "gcc",
+        "version": "gcc (GCC) 16.2.1 20260810\nCopyright (C) 2026 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.",
+        "sha256": "8aac907d6fbf40394b424b5fa4a2ad1aa291dac7d3a0315c5b415c1f5ace1287"
+      },
+      "cxx": {
+        "executable": "g++",
+        "version": "g++ (GCC) 16.2.1 20260810\nCopyright (C) 2026 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.",
+        "sha256": "f04191f6a7b2cd7d9a62e1745872b8a6088791e5af6955488c69c9b2c4668bc9"
+      },
+      "cmake": {
+        "executable": "cmake",
+        "version": "cmake version 4.4.4\n\nCMake suite maintained and supported by Kitware (kitware.com/cmake).",
+        "sha256": "2257947562d1b76967b665551a2f00e4955d7ebba2381f2e6ccdec522b1c07d5"
+      },
+      "ninja": {
+        "executable": "ninja",
+        "version": "1.13.2",
+        "sha256": "607e668f90dd6cd82e1a42ae572647ad1b1fd43063964295b9547836d8c15d99"
+      }
+    },
+    "commands": {
+      "llvm_configure": [
+        "${TOOLCHAIN_ROOT}/tools/cmake/bin/cmake",
+        "-S",
+        "${TOOLCHAIN_ROOT}/llvm/llvm",
+        "-B",
+        "${TOOLCHAIN_ROOT}/llvm-build-r4",
+        "-G",
+        "Ninja",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DCMAKE_C_COMPILER=/usr/bin/gcc",
+        "-DCMAKE_CXX_COMPILER=/usr/bin/g++",
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+        "-DLLVM_TARGETS_TO_BUILD=X86",
+        "-DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=Xtensa",
+        "-DLLVM_ENABLE_PROJECTS=",
+        "-DLLVM_INCLUDE_TOOLS=OFF",
+        "-DLLVM_INCLUDE_TESTS=OFF",
+        "-DLLVM_INCLUDE_EXAMPLES=OFF",
+        "-DLLVM_INCLUDE_BENCHMARKS=OFF",
+        "-DLLVM_INCLUDE_DOCS=OFF",
+        "-DLLVM_ENABLE_BINDINGS=OFF",
+        "-DLLVM_ENABLE_LIBEDIT=OFF",
+        "-DLLVM_ENABLE_TERMINFO=OFF",
+        "-DLLVM_ENABLE_LIBXML2=OFF",
+        "-DLLVM_ENABLE_ZLIB=ON",
+        "-DLLVM_ENABLE_ZSTD=ON",
+        "-DLLVM_BUILD_LLVM_DYLIB=OFF",
+        "-DLLVM_PARALLEL_COMPILE_JOBS=1",
+        "-DLLVM_PARALLEL_LINK_JOBS=1",
+        "-DCMAKE_MAKE_PROGRAM=${TOOLCHAIN_ROOT}/tools/ninja/ninja",
+        "-DCMAKE_ASM_COMPILER=/usr/bin/gcc",
+        "-DLLVM_INCLUDE_UTILS=OFF",
+        "-DCMAKE_CXX_FLAGS=-include cstdint"
+      ],
+      "llvm_build": [
+        "${TOOLCHAIN_ROOT}/tools/cmake/bin/cmake",
+        "--build",
+        "${TOOLCHAIN_ROOT}/llvm-build-r4",
+        "--parallel",
+        "1"
+      ],
+      "wamrc_configure": [
+        "${TOOLCHAIN_ROOT}/tools/cmake/bin/cmake",
+        "-S",
+        "${WASMHOME_ROOT}/build-runtime-port/component/wasm-micro-runtime/wamr-compiler",
+        "-B",
+        "${TOOLCHAIN_ROOT}/wamrc-build-issue22-f9c4c0c",
+        "-G",
+        "Ninja",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DCMAKE_C_COMPILER=/usr/bin/gcc",
+        "-DCMAKE_CXX_COMPILER=/usr/bin/g++",
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+        "-DWAMR_BUILD_PLATFORM=linux",
+        "-DWAMR_BUILD_TARGET=X86_64",
+        "-DWAMR_BUILD_WITH_CUSTOM_LLVM=ON",
+        "-DLLVM_DIR=${TOOLCHAIN_ROOT}/llvm-build-r4/lib/cmake/llvm",
+        "-DCMAKE_MAKE_PROGRAM=${TOOLCHAIN_ROOT}/tools/ninja/ninja",
+        "-DCMAKE_CXX_FLAGS=-include cstdint",
+        "-DCMAKE_EXE_LINKER_FLAGS=-L${TOOLCHAIN_ROOT}/debian13-libm-link"
+      ],
+      "wamrc_build": [
+        "${TOOLCHAIN_ROOT}/tools/cmake/bin/cmake",
+        "--build",
+        "${TOOLCHAIN_ROOT}/wamrc-build-issue22-f9c4c0c",
+        "--parallel",
+        "1"
+      ]
+    },
+    "llvm_cmake_dir": "${TOOLCHAIN_ROOT}/llvm-build-r4/lib/cmake/llvm",
+    "llvm_source_dir": "${TOOLCHAIN_ROOT}/llvm/llvm",
+    "wamrc_source_dir": "${WASMHOME_ROOT}/build-runtime-port/component/wasm-micro-runtime/wamr-compiler",
+    "snapshots": {
+      "llvm_cache": {
+        "sha256": "a824a7999275efae9ee35b0f70a02a1563e8fc1a23e4106dc434f80c2432bb62",
+        "utf8_bytes": 51403
+      },
+      "wamrc_cache": {
+        "sha256": "22d87353cd32888a23b863ea35421ace0216ccb9a56a8ae28ecd919483c1ca8b",
+        "utf8_bytes": 22627
+      },
+      "llvm_commands": {
+        "sha256": "c89b512fa2ce360eed2fcfa6cf9165966eb332437f6b2a39cf286ad337f9097c",
+        "utf8_bytes": 3036631
+      },
+      "wamrc_commands": {
+        "sha256": "b306c3505789019a5db49a613c4be6a9a656eedd8aa7d2fac09f85082bc835d3",
+        "utf8_bytes": 517011
+      }
+    },
+    "linked_llvm_libraries": [
+      {
+        "name": "libLLVMAggressiveInstCombine.a",
+        "sha256": "fab9689e39ed6be08df317e315f7c65be036073e5941c1eae6c00d0e2f8cf35c",
+        "bytes": 189712
+      },
+      {
+        "name": "libLLVMAnalysis.a",
+        "sha256": "30513bcc69f80bcc4a987454414778d714d72cec5a33a3555c68aa04b1326264",
+        "bytes": 11660510
+      },
+      {
+        "name": "libLLVMAsmParser.a",
+        "sha256": "64fdc48145a5d72d405e996baa6129e2c0f7465b2410b0bd166f6d701f13031c",
+        "bytes": 1145064
+      },
+      {
+        "name": "libLLVMAsmPrinter.a",
+        "sha256": "8f70fe6042262821323613e21fab05e727644f582d63c00ebf96a9e1dafbec6e",
+        "bytes": 2518764
+      },
+      {
+        "name": "libLLVMBinaryFormat.a",
+        "sha256": "cb2b5a55f90374a199913611f843da1086fa7a88c6be29567bca57e9c615f642",
+        "bytes": 461782
+      },
+      {
+        "name": "libLLVMBitReader.a",
+        "sha256": "d20f9f6acf5c9d51b3d8028fb8d8133df8f556678b97330366e28167185b4f33",
+        "bytes": 1030438
+      },
+      {
+        "name": "libLLVMBitWriter.a",
+        "sha256": "ea88d3d616e247fb76fac8e9728eda65b6c9fa1fce83e0b8bb53e9af6c2f4429",
+        "bytes": 562744
+      },
+      {
+        "name": "libLLVMBitstreamReader.a",
+        "sha256": "17c893ea9abbcefde2bcf08bc2c430b120fd4c8704e44ff886a696d0c3e79b34",
+        "bytes": 89780
+      },
+      {
+        "name": "libLLVMCFGuard.a",
+        "sha256": "029a0777f31cc586b9df5cb3567730ba0648a877597ba080bc39fb58e0a20c42",
+        "bytes": 34386
+      },
+      {
+        "name": "libLLVMCodeGen.a",
+        "sha256": "ec8e67fad30f27d87dbfb97e3bf4040d7d67e8231e218785baf0d71289daa723",
+        "bytes": 19391798
+      },
+      {
+        "name": "libLLVMCodeGenTypes.a",
+        "sha256": "2f9aeafa550a795a46f6142f0752a6a44effe9c1b80c05a3d540eda211d9eaec",
+        "bytes": 21930
+      },
+      {
+        "name": "libLLVMCore.a",
+        "sha256": "c40af8139eda8085ebe33e179b074114098eddcf1de81eacfdbfaf458e7be9e1",
+        "bytes": 9289294
+      },
+      {
+        "name": "libLLVMCoroutines.a",
+        "sha256": "d0d8a23f5f1a8a20443ed7e47ad0a4057493d057890d6ad462a78b7858a1f048",
+        "bytes": 633012
+      },
+      {
+        "name": "libLLVMCoverage.a",
+        "sha256": "a360773e8d92e747efebb00fc7d6c6af2c78c535ae7da9a695bf1a87fb8329b4",
+        "bytes": 584024
+      },
+      {
+        "name": "libLLVMDWARFLinker.a",
+        "sha256": "21adf060699c3430abe6f8ff9499ed907113cf7a7913df44ccee8ee7021d35e9",
+        "bytes": 5616
+      },
+      {
+        "name": "libLLVMDWARFLinkerClassic.a",
+        "sha256": "a65863f3b95cac9920750177842aaed7af2cbddf8121f61505428a18d67a2309",
+        "bytes": 513362
+      },
+      {
+        "name": "libLLVMDWARFLinkerParallel.a",
+        "sha256": "39bfb7d1ab9f1c56242aeeb5a278b8728a88e8b9eba6dba667e9e1b146e39550",
+        "bytes": 1143916
+      },
+      {
+        "name": "libLLVMDWP.a",
+        "sha256": "7a912a99b62d58c2f04f2c5b8106aa67d463be37f9c41b9df075d808ae74f20f",
+        "bytes": 132156
+      },
+      {
+        "name": "libLLVMDebugInfoBTF.a",
+        "sha256": "3a9d90aca6372d00c90abf2bb87c1e7174637060a07de08cc3b6553027f35640",
+        "bytes": 131350
+      },
+      {
+        "name": "libLLVMDebugInfoCodeView.a",
+        "sha256": "b8ecba58ad62aa48c0bc2e94efb5f9709003431ee28c0337ad75c406acf9bcae",
+        "bytes": 2873706
+      },
+      {
+        "name": "libLLVMDebugInfoDWARF.a",
+        "sha256": "80bd766eceb7bc8e20ee620510722aee8f3d0b7af7c586c4bfa70c69e76035bd",
+        "bytes": 2114374
+      },
+      {
+        "name": "libLLVMDebugInfoGSYM.a",
+        "sha256": "00fb1d775173b85c6b80c332329d8d317ca349ae5ce09b06f92c3da34d2daaa8",
+        "bytes": 489078
+      },
+      {
+        "name": "libLLVMDebugInfoLogicalView.a",
+        "sha256": "5de1cd2c7983de11af69c6d21c6d73fad8cb2d8eb295e92f6d294324f27dff17",
+        "bytes": 3097118
+      },
+      {
+        "name": "libLLVMDebugInfoMSF.a",
+        "sha256": "d0bcef3970b6bb19a2cb8b61d6dd00991d4fa11402055873333734642753e141",
+        "bytes": 174308
+      },
+      {
+        "name": "libLLVMDebugInfoPDB.a",
+        "sha256": "0ecfd9a543779aa30b4ab5ad54baf6b9598d082a1e029a93d90b3ab7dd783c0a",
+        "bytes": 3333848
+      },
+      {
+        "name": "libLLVMDebuginfod.a",
+        "sha256": "a1b8afd0490bdb5892eee143e3eb7cf04762b71113d5c6adb52008cddc75b89b",
+        "bytes": 188734
+      },
+      {
+        "name": "libLLVMDemangle.a",
+        "sha256": "856e16e9d945ae3199133700216f67c96bf5328d8f950ddb28f6cabc8732c544",
+        "bytes": 786250
+      },
+      {
+        "name": "libLLVMDlltoolDriver.a",
+        "sha256": "b4542ff218144c2b9a0d6312a6f74aa63e411716eb6083e7ec8713aab3cd469d",
+        "bytes": 26530
+      },
+      {
+        "name": "libLLVMExecutionEngine.a",
+        "sha256": "48a5a68ad304662c46ae3ceafa77ee6947ec66889308daf45ff92d04f0d20a71",
+        "bytes": 312098
+      },
+      {
+        "name": "libLLVMExtensions.a",
+        "sha256": "fa440ccd573b4e7cfcb971c3a5ea61afaf4bb006b192273c7be80bd851166719",
+        "bytes": 2002
+      },
+      {
+        "name": "libLLVMFileCheck.a",
+        "sha256": "e0af0ec58b626998de2ee0bb4208286703075d0c1e489d448cf515865387cfcc",
+        "bytes": 304244
+      },
+      {
+        "name": "libLLVMFrontendDriver.a",
+        "sha256": "fbc713d59e5a74bd5ed80cc00347a9a298401b8a8b621cefe59d4b1ece67e6cd",
+        "bytes": 3438
+      },
+      {
+        "name": "libLLVMFrontendHLSL.a",
+        "sha256": "2f8c2a91879668dae3ed1c36d065cabe2c06500b87155e044e6dcf022a93f2ba",
+        "bytes": 7686
+      },
+      {
+        "name": "libLLVMFrontendOffloading.a",
+        "sha256": "89f7043de7cce86086de646cfac03c3ba31790fdbd6cb599c9074ed07a0a8aef",
+        "bytes": 90596
+      },
+      {
+        "name": "libLLVMFrontendOpenACC.a",
+        "sha256": "0706d6a4d078f607ad105b503b0489c36843ccc635e84d1bcca8e139036d4cf4",
+        "bytes": 16686
+      },
+      {
+        "name": "libLLVMFrontendOpenMP.a",
+        "sha256": "5bd26408402d7f65db574fcc0471148c80966824483b05d6f0bb7391d4f84d80",
+        "bytes": 1109010
+      },
+      {
+        "name": "libLLVMFuzzMutate.a",
+        "sha256": "ab5f152b808f6874d602fb1e34abfb68e965d8eba13ee92750172143a828fb27",
+        "bytes": 372186
+      },
+      {
+        "name": "libLLVMFuzzerCLI.a",
+        "sha256": "c48e1ee7918f405f7fd3e5306126ea28eb16492ab1806468c4ea2767a714b916",
+        "bytes": 29970
+      },
+      {
+        "name": "libLLVMGlobalISel.a",
+        "sha256": "934712a85869d14a60529fae50b60994907ea9debe283b6f0fd1b45010883ca7",
+        "bytes": 3036968
+      },
+      {
+        "name": "libLLVMHipStdPar.a",
+        "sha256": "dfec6faafcec1286514ebe1267860746cc9338364464c13e06d726778072ea0c",
+        "bytes": 31330
+      },
+      {
+        "name": "libLLVMIRPrinter.a",
+        "sha256": "e1511ccc775a407b8d0a59b2d6ad8f8f80741271163d4b22cc79ed9d95479c34",
+        "bytes": 10226
+      },
+      {
+        "name": "libLLVMIRReader.a",
+        "sha256": "07e054523410b78567cc8feae247e7751fac8674331ad36a02a2e3fdc5146cb1",
+        "bytes": 71270
+      },
+      {
+        "name": "libLLVMInstCombine.a",
+        "sha256": "12d86a982772bcf86f61cc77fad7e2d6c316a26d6d459b36ff9df7e3f8de8d34",
+        "bytes": 3701842
+      },
+      {
+        "name": "libLLVMInstrumentation.a",
+        "sha256": "ccefc90f434c391015e76211842329f7cb720409bd61eafc0e2cc85a91045428",
+        "bytes": 3482102
+      },
+      {
+        "name": "libLLVMInterfaceStub.a",
+        "sha256": "157f171411214ddc09aa32e5071cf566e57fa60bf2da8bd715da5a4893a863e8",
+        "bytes": 302630
+      },
+      {
+        "name": "libLLVMInterpreter.a",
+        "sha256": "be4dc909a8652c398af02b5cf8a8c8118a6685002c3845c998b8f092bfbeccd9",
+        "bytes": 310800
+      },
+      {
+        "name": "libLLVMJITLink.a",
+        "sha256": "41ece5f6f4e825451b4c40f7e9b5604769951a762a39eff5398d542ba82cc0b1",
+        "bytes": 2911390
+      },
+      {
+        "name": "libLLVMLTO.a",
+        "sha256": "aa6372c60dc9e11b5ae3ab38d9767415c8060f8436d1f9ded8958f59f8561835",
+        "bytes": 1162224
+      },
+      {
+        "name": "libLLVMLibDriver.a",
+        "sha256": "9eb4fb6d886413ff8fed459f5743c5ad8d4e9e8cfc136e42f53b97b8d63af812",
+        "bytes": 79952
+      },
+      {
+        "name": "libLLVMLineEditor.a",
+        "sha256": "e6fb09f5134fc7f963f2260c593b833359f14a68659f0e35069cc837a257866a",
+        "bytes": 16850
+      },
+      {
+        "name": "libLLVMLinker.a",
+        "sha256": "f56a9549b1d8396b3b4e749dafa3244e48ff238d1f5007ba02501c7dc1500ffa",
+        "bytes": 275352
+      },
+      {
+        "name": "libLLVMMC.a",
+        "sha256": "7729c73e36078bd3bfb284120dd361145824477a363888a82f341ac205ca3253",
+        "bytes": 2882772
+      },
+      {
+        "name": "libLLVMMCA.a",
+        "sha256": "50283c755c356c6c4826347fb59da817a9a84d9122e12a84c01e93322d63280d",
+        "bytes": 419222
+      },
+      {
+        "name": "libLLVMMCDisassembler.a",
+        "sha256": "b821079c98bc1d0f8d2e073747c9534a308e71317ef8f2f2e6f92587d2439953",
+        "bytes": 45756
+      },
+      {
+        "name": "libLLVMMCJIT.a",
+        "sha256": "7a85104139697c645257018084b6a21a0beb5fe55c39f4c46ca1c9ea81ccdc0f",
+        "bytes": 100284
+      },
+      {
+        "name": "libLLVMMCParser.a",
+        "sha256": "9cd5f0ef4800f32a0bc0425b04b4bce7d1d31053ab73279485423d1c7c771b13",
+        "bytes": 1397938
+      },
+      {
+        "name": "libLLVMMIRParser.a",
+        "sha256": "c87b998248d95362eeb25a8d6dcfde6f5b4b6ccbdef0572c987b531dd5e4af73",
+        "bytes": 509726
+      },
+      {
+        "name": "libLLVMObjCARCOpts.a",
+        "sha256": "be23dc67afe6497bd330b0a0a12fa458f9014fd422d1a78366be4e05adc44600",
+        "bytes": 296394
+      },
+      {
+        "name": "libLLVMObjCopy.a",
+        "sha256": "e87e3afd60b1d651888186e93f25d713fc0bcaa602868fe47aa09b366c744907",
+        "bytes": 1483368
+      },
+      {
+        "name": "libLLVMObject.a",
+        "sha256": "0bf1f3970af0d8128cee3f10b103107694a98df1dbf59983a5c32fbca6b4efdf",
+        "bytes": 3967878
+      },
+      {
+        "name": "libLLVMObjectYAML.a",
+        "sha256": "f1a654397c5a0371d750de686743b3009205c73e830c87b8e975603a9f84e773",
+        "bytes": 4434658
+      },
+      {
+        "name": "libLLVMOption.a",
+        "sha256": "4e2e4da5758df71bacb135f20e3cb1f316fa87222f9731ae3d469a12fa10acad",
+        "bytes": 162276
+      },
+      {
+        "name": "libLLVMOrcDebugging.a",
+        "sha256": "df8ce61ccf2f76fd0ad1ef6996d276018340634ee2de37da9b30b97e5165c6d6",
+        "bytes": 217474
+      },
+      {
+        "name": "libLLVMOrcJIT.a",
+        "sha256": "54a704965ba8b195515f00d321514e2550ee85e3c7e9a703313de10fadc9386c",
+        "bytes": 5042344
+      },
+      {
+        "name": "libLLVMOrcShared.a",
+        "sha256": "0a9c08ca9e8464400c895096de5aef4ec815c7f5cdc6506561bffd6e168dd1df",
+        "bytes": 100682
+      },
+      {
+        "name": "libLLVMOrcTargetProcess.a",
+        "sha256": "e7392ef79fb0b501fc13a6f9ef4e1e35ed19dbbdda1f546175103362bf8a6191",
+        "bytes": 328790
+      },
+      {
+        "name": "libLLVMPasses.a",
+        "sha256": "db8091c4b33fadf758d2527394d7207a206f68deb0e7bfb26d57e025f76100e4",
+        "bytes": 7494236
+      },
+      {
+        "name": "libLLVMProfileData.a",
+        "sha256": "de2c83c5b5b679d035b8969ab48f78f7e48d787a0d84866a034feaaee0217637",
+        "bytes": 2349522
+      },
+      {
+        "name": "libLLVMRemarks.a",
+        "sha256": "ef262fd43069df056a4fbe42d5842da653dd4da2cd0ab0bf85d8289d2a2a4c5f",
+        "bytes": 420072
+      },
+      {
+        "name": "libLLVMRuntimeDyld.a",
+        "sha256": "d6304375c25624ccbe3b6c34439e37d958bc4944f357184c4ea77e06ca7d0762",
+        "bytes": 1266632
+      },
+      {
+        "name": "libLLVMScalarOpts.a",
+        "sha256": "bf7c939e0238f5b69466382e00aee8cfd674671330ddf6b5f2c3a7d0e3c7615b",
+        "bytes": 8517480
+      },
+      {
+        "name": "libLLVMSelectionDAG.a",
+        "sha256": "296a23fe14bee6b199311dd51c0f83c3bc11e51ab8b84de73bb3f6959a82e5bb",
+        "bytes": 8410576
+      },
+      {
+        "name": "libLLVMSupport.a",
+        "sha256": "8f6e9563e15515b22d5ddea1c084caf6156c32ff9d7c8095544ff51f15437f29",
+        "bytes": 5565236
+      },
+      {
+        "name": "libLLVMSymbolize.a",
+        "sha256": "be606cb9a72edc07b3c82fdce8bef391fec55190c8b804a1e27e9f3f6b7fb8c8",
+        "bytes": 540982
+      },
+      {
+        "name": "libLLVMTableGen.a",
+        "sha256": "a5e2456464323e35e2f319ef2ae94c1b75c92435d6eb575860ceedf28b7915ea",
+        "bytes": 1242194
+      },
+      {
+        "name": "libLLVMTableGenCommon.a",
+        "sha256": "032a30b859b6160411bb7a437304ff78badc06439fa6cbb8222f4d8795f440f8",
+        "bytes": 487792
+      },
+      {
+        "name": "libLLVMTableGenGlobalISel.a",
+        "sha256": "e6d8bae39002ca9f6bc3e312c01acf456f243a95cb7bc52ff74e9fff05a76909",
+        "bytes": 212636
+      },
+      {
+        "name": "libLLVMTarget.a",
+        "sha256": "1ee6c2a003753dbcae627c1bfa38986c53d22a9d9c478448279db61fcb739a03",
+        "bytes": 184696
+      },
+      {
+        "name": "libLLVMTargetParser.a",
+        "sha256": "a9f4e67e82e91143920f0196caf0742566e3a8650d24e2b4a37d545e80c721e4",
+        "bytes": 551772
+      },
+      {
+        "name": "libLLVMTextAPI.a",
+        "sha256": "e1703fc8ba49e31610994f663c216db580b8619135a9ae35684646564ca34faf",
+        "bytes": 721732
+      },
+      {
+        "name": "libLLVMTextAPIBinaryReader.a",
+        "sha256": "8c35d691c69d29e3bbab75d1550cec009dc28ed943c7137cb5a34115d4b2ce0f",
+        "bytes": 111316
+      },
+      {
+        "name": "libLLVMTransformUtils.a",
+        "sha256": "8fa67440fc7a1fb0fee36f99b2f49e465fbd76bd1aea4fdb887d3721f2dc47e2",
+        "bytes": 6965678
+      },
+      {
+        "name": "libLLVMVectorize.a",
+        "sha256": "72912073430c32494b7aef675fd9926d8557a6fe8b4a5748636cd35ccae9db64",
+        "bytes": 3871472
+      },
+      {
+        "name": "libLLVMWindowsDriver.a",
+        "sha256": "033a292ad7f977a0d77248f79dbfa0dd7c029a6e117ed75a229725c65e9df0d5",
+        "bytes": 70142
+      },
+      {
+        "name": "libLLVMWindowsManifest.a",
+        "sha256": "91aa117d34218c27ebedf3221bf64db280b2b9b71c135e72c643c23cdb7f4697",
+        "bytes": 15358
+      },
+      {
+        "name": "libLLVMX86AsmParser.a",
+        "sha256": "99ac256f892f1f75d785b7191ec0ced452ab3c969bea81363ace12f0324bc52a",
+        "bytes": 961088
+      },
+      {
+        "name": "libLLVMX86CodeGen.a",
+        "sha256": "78874cf6f61bbc55075aefcd4b331aaef8c7925c4e58a9136d6675aa2c4c02b8",
+        "bytes": 11548252
+      },
+      {
+        "name": "libLLVMX86Desc.a",
+        "sha256": "4cf94af13c38de70ddc1d0892efd832a87e9fb82f004a02b5806f23d09cf4ea2",
+        "bytes": 3419068
+      },
+      {
+        "name": "libLLVMX86Disassembler.a",
+        "sha256": "c167505e2d8ba99bf4bc69bd60701278c306d725b15e86f0c48118466736bcde",
+        "bytes": 2609416
+      },
+      {
+        "name": "libLLVMX86Info.a",
+        "sha256": "58eedc9249d1ecd09f0633a9ba5d24c5341127f5702170a430ace7b7cf435f16",
+        "bytes": 7500
+      },
+      {
+        "name": "libLLVMX86TargetMCA.a",
+        "sha256": "580731a6d8253b2bf411a19159bb43f2999a5fcff077af7a12dc0107e10123ba",
+        "bytes": 8226
+      },
+      {
+        "name": "libLLVMXRay.a",
+        "sha256": "a3b9898c5827651b288647b9060ae6af9cb928fed9a2e9e35f53986867dde6ab",
+        "bytes": 470576
+      },
+      {
+        "name": "libLLVMXtensaAsmParser.a",
+        "sha256": "f41f8699dbfb4d0ce2e3a47a5c4cb0e2242968a7985c04bda7694e21618e92db",
+        "bytes": 166394
+      },
+      {
+        "name": "libLLVMXtensaCodeGen.a",
+        "sha256": "9b20aa83214a7088ea5acb711a3139a26427e56356da40063df364200cc29788",
+        "bytes": 2045470
+      },
+      {
+        "name": "libLLVMXtensaDesc.a",
+        "sha256": "52073c448e694f1b9131ca808197abd8daca266c0bcc787e2752a49ae8f230ee",
+        "bytes": 447256
+      },
+      {
+        "name": "libLLVMXtensaDisassembler.a",
+        "sha256": "1f1ceb8c5cb6c8346e15ea9db07ad4818297b3210dbe3183e199a05b011f7615",
+        "bytes": 137596
+      },
+      {
+        "name": "libLLVMXtensaInfo.a",
+        "sha256": "3170c576bb26c8beeb2c215e6df6fe81adce23f391d60e18e4950fccc8a05556",
+        "bytes": 4874
+      },
+      {
+        "name": "libLLVMipo.a",
+        "sha256": "8666a8fed868a7727a216e1f25fecfc3aa92f8bf3bfc28f48e2a30237ba96a30",
+        "bytes": 8445450
+      }
+    ]
+  }
+}

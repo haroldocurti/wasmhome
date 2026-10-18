@@ -70,7 +70,7 @@ typedef struct wh_signed_update_sink {
     esp_err_t (*begin)(void *, const wh_signed_update_manifest_t *, uint32_t *);
     esp_err_t (*write)(void *, const uint8_t *, size_t);
     esp_err_t (*finish)(void *, const wh_signed_update_manifest_t *, uint32_t *);
-    void (*abort)(void *);
+    esp_err_t (*abort)(void *);
 } wh_signed_update_sink_t;
 
 static esp_partition_t candidate_partition = { .address = 0x720000 };
@@ -78,6 +78,7 @@ static bool pending;
 static uint32_t pending_slot;
 static esp_err_t mark_activating_result;
 static esp_err_t set_boot_result;
+static esp_err_t ledger_abort_result;
 static unsigned set_boot_calls;
 static unsigned abort_calls;
 static unsigned restart_calls;
@@ -89,7 +90,7 @@ static wh_signed_update_failure_t last_failure;
 static esp_err_t sink_begin(void *, const wh_signed_update_manifest_t *, uint32_t *);
 static esp_err_t sink_write(void *, const uint8_t *, size_t);
 static esp_err_t sink_finish(void *, const wh_signed_update_manifest_t *, uint32_t *);
-static void sink_abort(void *);
+static esp_err_t sink_abort(void *);
 static void emit_manifest_event(const wh_native_ota_request_t *,
                                 const wh_signed_update_manifest_t *,
                                 wh_signed_update_phase_t,
@@ -131,7 +132,7 @@ static esp_err_t sink_finish(void *opaque,
     (void)opaque; assert(manifest && slot_id); *slot_id = candidate_partition.address;
     return ESP_OK;
 }
-static void sink_abort(void *opaque) { (void)opaque; }
+static esp_err_t sink_abort(void *opaque) { (void)opaque; return ESP_OK; }
 
 static esp_err_t wh_signed_update_download(uint8_t scenario, const char *release,
                                             uint64_t sequence,
@@ -169,7 +170,9 @@ static esp_err_t wh_signed_update_mark_activating(
 }
 static esp_err_t wh_signed_update_abort(const wh_signed_update_manifest_t *manifest)
 {
-    assert(manifest); ++abort_calls; pending = false; return ESP_OK;
+    assert(manifest); ++abort_calls;
+    if (ledger_abort_result == ESP_OK) pending = false;
+    return ledger_abort_result;
 }
 static esp_err_t esp_ota_set_boot_partition(const esp_partition_t *partition)
 {
@@ -191,7 +194,8 @@ static void esp_restart(void) { ++restart_calls; }
 static void reset_state(void)
 {
     pending = false; pending_slot = 0; mark_activating_result = ESP_OK;
-    set_boot_result = ESP_OK; set_boot_calls = abort_calls = restart_calls = 0;
+    set_boot_result = ESP_OK; ledger_abort_result = ESP_OK;
+    set_boot_calls = abort_calls = restart_calls = 0;
     platform_event_calls = emitted_events = 0; last_phase = -1; last_failure = -1;
 }
 '''
@@ -218,6 +222,11 @@ int main(void)
     perform_update(&request);
     assert(set_boot_calls == 0 && abort_calls == 1 && !pending);
     assert(restart_calls == 0 && last_phase == WH_SIGNED_UPDATE_PHASE_UPDATE_FAILED);
+
+    reset_state(); mark_activating_result = ESP_ERR_IO;
+    ledger_abort_result = ESP_ERR_IO;
+    perform_update(&request);
+    assert(abort_calls == 1 && pending && platform_event_calls == 2);
 
     /* Successful selection preserves pending through the requested reboot. */
     reset_state();

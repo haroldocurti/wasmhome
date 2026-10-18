@@ -189,8 +189,68 @@ int main(void)
 '''
 
 
+OTA_HEALTH_HARNESS = r'''
+static unsigned health_checks;
+esp_err_t wh_native_ota_start(void) { return ESP_OK; }
+esp_err_t wh_native_ota_queue_health_check(void) { ++health_checks; return ESP_OK; }
+esp_err_t wh_native_ota_reserve(const wh_native_ota_request_t *request)
+{ (void)request; return ESP_ERR_INVALID_STATE; }
+esp_err_t wh_native_ota_start_reserved(void) { return ESP_ERR_INVALID_STATE; }
+void wh_native_ota_cancel_reserved(void) {}
+esp_err_t wh_signed_update_get_state(uint8_t scenario, const char *component,
+    const char *campaign, wh_signed_update_state_t *state)
+{ (void)scenario; (void)component; (void)campaign; memset(state, 0, sizeof(*state)); return ESP_OK; }
+void wh_signed_update_emit_event(const wh_signed_update_event_t *event) { (void)event; }
+
+static void control(uint64_t sample_id, int32_t temperature)
+{
+    uint8_t attempt[16] = {1}, body[12] = {0};
+    uint8_t request[WH_HEADER_SIZE + sizeof(body)];
+    wh_write_be(body, sample_id, 8);
+    wh_write_be(body + 8, (uint32_t)temperature, 4);
+    size_t length = wh_wire_encode(request, sizeof(request), WH_CONTROL_REQUEST,
+        attempt, sample_id, wh_platform_boot_id(), 42, body, sizeof(body));
+    assert(length == sizeof(request));
+    installed_handler(request, length);
+    assert(sent_type == WH_CONTROL_RESULT);
+}
+
+int main(void)
+{
+    assert(wh_native_services_start() == ESP_OK);
+    control(1, 26000); /* Correct control alone does not qualify as health stimulus. */
+    assert(health_checks == 0);
+    control(2, 27000);
+    assert(health_checks == 1);
+    control(2, 27000); /* A replay cannot queue a second health check. */
+    assert(health_checks == 1);
+    return 0;
+}
+'''
+
+
 class NativeServicesAdapterCompileTests(unittest.TestCase):
     def test_complete_esp_adapter_compiles_and_decodes_target_version(self):
+        self._compile_adapter(STUBS, HARNESS)
+
+    def test_native_health_commit_follows_each_build_policy(self):
+        for version in (1, 2):
+            with self.subTest(control_version=version):
+                stubs = dict(STUBS)
+                stubs["sdkconfig.h"] = (STUBS["sdkconfig.h"].replace(
+                    "CONTROL_VERSION 2", f"CONTROL_VERSION {version}") +
+                    '\n#define CONFIG_WASMHOME_NATIVE_OTA 1\n'
+                    '#define CONFIG_WASMHOME_UPDATE_CAMPAIGN_ID "health-test"\n')
+                harness = HARNESS.replace('#include "platform.h"',
+                    '#include "platform.h"\n#include "native_ota.h"\n#include "signed_update.h"')
+                harness = harness.replace('return (wh_sensor_sample_t){0};',
+                    'return (wh_sensor_sample_t){.sample_id=1, .acquired_us=900000, '
+                    '.status=WH_SENSOR_VALID};')
+                start = harness.index('static void check_target_version(')
+                harness = harness[:start] + OTA_HEALTH_HARNESS
+                self._compile_adapter(stubs, harness)
+
+    def _compile_adapter(self, stubs, harness_source):
         compiler = shutil.which("cc") or shutil.which("gcc") or shutil.which("clang")
         if compiler is None:
             self.skipTest("A host C compiler is required for the ESP adapter shim test")
@@ -199,13 +259,13 @@ class NativeServicesAdapterCompileTests(unittest.TestCase):
             temp = pathlib.Path(temp_name)
             stub_root = temp / "stubs"
             stub_root.mkdir()
-            for relative, contents in STUBS.items():
+            for relative, contents in stubs.items():
                 target = stub_root / relative
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text(textwrap.dedent(contents).lstrip(), encoding="utf-8")
             harness = temp / "adapter_harness.c"
             executable = temp / "adapter_harness"
-            harness.write_text(HARNESS, encoding="utf-8")
+            harness.write_text(harness_source, encoding="utf-8")
             command = [
                 compiler, "-std=c11", "-D_POSIX_C_SOURCE=200809L",
                 "-DESP_PLATFORM=1", "-DWASMHOME_SCENARIO_NATIVE=1",

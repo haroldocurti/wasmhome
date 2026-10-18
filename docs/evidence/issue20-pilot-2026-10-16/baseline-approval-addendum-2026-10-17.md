@@ -1,7 +1,7 @@
 # Adendo de baseline aprovada — issue #20
 
-**Data:** 17/10/2026 (America/Sao_Paulo)  
-**Protocolo:** `issue20-v1.0`  
+**Data:** 17/10/2026 (America/Sao_Paulo)
+**Protocolo:** `issue20-v1.0`
 **Escopo:** substituir somente a imagem-base; manter todos os outros parâmetros
 pré-registrados sem alteração.
 

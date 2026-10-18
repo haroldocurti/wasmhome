@@ -3,6 +3,8 @@ import json
 import pathlib
 import sys
 import tempfile
+import threading
+import time
 import unittest
 import uuid
 from types import SimpleNamespace
@@ -14,7 +16,9 @@ from external_observer import (
 )
 from calibrate_observer import calibrate as calibrate_host
 from calibrate_observer_hardware import calibrate as calibrate_hardware
-from observation_protocol_v1 import MessageType, Packet, encode
+from observation_protocol_v1 import (
+    NIL_UUID, MessageType, Packet, ProtocolError, decode, encode,
+)
 
 
 class Socket:
@@ -109,6 +113,8 @@ class ObserverTests(unittest.TestCase):
         self.assertEqual(result["control_unavailability_estimate_ns"], 400)
         self.assertEqual(result["lost_controls"], 0)
         self.assertEqual(self.observer.boot_id, 2)
+        self.assertEqual(self.observer.success_times_by_boot, {1: [110], 2: [610]})
+        self.assertEqual(self.observer.telemetry_times_by_boot, {1: [1], 2: [500]})
 
     def test_correlated_acceptance_allows_v2_and_detects_regression(self):
         self.observer.send_trigger(self.socket, 100, 2, 1)
@@ -195,6 +201,65 @@ class ObserverTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "timing accepted"):
                 run("127.0.0.1", "unused", seconds=150, trigger_after=60,
                     target_sequence=2, stable_window_ms=60_000)
+
+    def test_trigger_waits_for_an_observed_boot_with_or_without_stable_window(self):
+        # A silent device must end as trigger_not_sent_no_boot instead of
+        # encoding a trigger without boot, with or without a stable window.
+        self.clock.stop()
+        with tempfile.TemporaryDirectory() as directory:
+            for stable_window_ms in (None, 100):
+                with self.subTest(stable_window_ms=stable_window_ms):
+                    output = pathlib.Path(directory) / f"capture-{stable_window_ms}"
+                    result = run("127.0.0.1", output, seconds=0.3, bind_ip="127.0.0.1", port=0,
+                                 device_port=9, trigger_after=0.1, target_sequence=2,
+                                 stable_window_ms=stable_window_ms)
+                    self.assertEqual(result["update_state"], "trigger_not_sent_no_boot")
+                    self.assertEqual(result["trigger_not_sent_reason"], "no_boot_observed")
+                    self.assertIsNone(result["observer_exception"])
+                    rows = [json.loads(line) for line in
+                            (output / "observations.jsonl").read_text().splitlines()]
+                    self.assertFalse([row for row in rows if row["kind"] in {"send_intent", "send"}])
+                    saved = json.loads((output / "summary.json").read_text())
+                    self.assertEqual(saved["update_state"], "trigger_not_sent_no_boot")
+                    self.assertEqual(saved["trigger_not_sent_reason"], "no_boot_observed")
+        self.clock.start()
+
+    def test_trigger_api_refuses_to_send_without_boot_identity(self):
+        observer = Observer(self.log, self.peer, attempt_id=uuid.UUID(int=1))
+        self.assertIsNone(observer.send_trigger(self.socket, 100, 2, 1))
+        self.assertEqual(observer.trigger_not_sent_reason, "no_boot_observed")
+        self.assertFalse(self.socket.sent)
+        self.assertEqual(observer.summary()["counters"]["trigger_not_sent"], 1)
+        with self.assertRaisesRegex(ProtocolError, "before observing a boot_id"):
+            observer.transmit(self.socket, MessageType.UPDATE_TRIGGER,
+                              {"target_sequence": 2, "scenario": 1,
+                               "component": 1, "target_version": 2}, 200)
+        self.assertFalse(self.socket.sent)
+
+    def test_observer_normalizes_canonical_attempt_uuid_string(self):
+        value = str(uuid.UUID(int=1))
+        observer = Observer(self.log, self.peer, attempt_id=value)
+        self.assertEqual(observer.attempt_id, uuid.UUID(value))
+        self.assertIsInstance(observer.attempt_id, uuid.UUID)
+
+    def test_observer_rejects_noncanonical_attempt_uuid(self):
+        with self.assertRaisesRegex(ValueError, "canonical lowercase UUID"):
+            Observer(self.log, self.peer, attempt_id="00000000-0000-0000-0000-00000000000A")
+
+    def test_observer_exception_is_recorded_with_summary_before_raising(self):
+        self.clock.stop()
+        with tempfile.TemporaryDirectory() as directory:
+            output = pathlib.Path(directory)
+            health = Mock(side_effect=RuntimeError("probe failed"))
+            with self.assertRaisesRegex(RuntimeError, "probe failed"):
+                run("127.0.0.1", output, seconds=0.2, bind_ip="127.0.0.1", port=0,
+                    device_port=9, health_check=health)
+            summary = json.loads((output / "summary.json").read_text())
+            self.assertEqual(summary["observer_exception"],
+                             {"type": "RuntimeError", "message": "probe failed"})
+            self.assertIn('"kind": "observer_exception"',
+                          (output / "observations.jsonl").read_text())
+        self.clock.start()
 
     def test_issue20_stability_window_starts_at_first_observed_boot(self):
         self.assertEqual(_trigger_eligible_ns(1_000, 60, 60_000_000_000, 2_000),

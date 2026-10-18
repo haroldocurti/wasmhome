@@ -221,6 +221,7 @@ STUBS = {
         bool wasm_runtime_validate_app_addr(wasm_module_inst_t instance, uint32_t offset, uint32_t size);
         void *wasm_runtime_addr_app_to_native(wasm_module_inst_t instance, uint32_t offset);
         void wasm_runtime_clear_exception(wasm_module_inst_t instance);
+        const char *wasm_runtime_get_exception(wasm_module_inst_t instance);
         bool wasm_runtime_call_wasm_a(wasm_exec_env_t env, wasm_function_inst_t function,
                                       uint32_t result_count, wasm_val_t *results,
                                       uint32_t argument_count, wasm_val_t *arguments);
@@ -735,6 +736,7 @@ uint64_t wasm_memory_get_bytes_per_page(wasm_memory_inst_t m) { return m ? 65536
 bool wasm_runtime_validate_app_addr(wasm_module_inst_t i, uint32_t off, uint32_t size) { return i && off <= 65536 && size <= 65536 - off; }
 void *wasm_runtime_addr_app_to_native(wasm_module_inst_t i, uint32_t off) { return wasm_runtime_validate_app_addr(i, off, 0) ? i->memory->bytes + off : NULL; }
 void wasm_runtime_clear_exception(wasm_module_inst_t i) { (void)i; }
+const char *wasm_runtime_get_exception(wasm_module_inst_t i) { (void)i; return ""; }
 void wasm_runtime_terminate(wasm_module_inst_t i) { (void)i; }
 
 static uint32_t invoke_i32(const char *module, const char *name, wasm_exec_env_t env, uint32_t arg)
