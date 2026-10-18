@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+from contextlib import contextmanager
 import hashlib
 import ipaddress
 import json
@@ -18,6 +19,7 @@ import shlex
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 
@@ -141,31 +143,122 @@ def validate_options(options):
     return options
 
 
-def _rpc(options, session_id, action, **values):
-    controller = Path(options.get("controller_path", __file__)).read_bytes()
-    request = {"schema": SCHEMA, "root": options["root"], "session_id": session_id,
-               "action": action, "controller_source": base64.b64encode(controller).decode(),
-               "controller_sha256": _digest(controller), **values}
-    command = ["ssh", "-T", "-p", str(options.get("ssh_port", 22)),
+def _ssh_command(options):
+    return ["ssh", "-T", "-p", str(options.get("ssh_port", 22)),
                "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
                "-o", "UserKnownHostsFile=" + options["known_hosts"],
                "-o", "GlobalKnownHostsFile=/dev/null", "-o", "IdentitiesOnly=yes",
                "-o", "IdentityAgent=none", "-o", "PasswordAuthentication=no",
                "-o", "KbdInteractiveAuthentication=no", "-o", "ConnectTimeout=2",
                "-o", "ServerAliveInterval=1", "-o", "ServerAliveCountMax=1",
-               "-i", options["identity"], "--", options["target"],
-               shlex.join(["python3", "-c", BOOTSTRAP])]
+               "-i", options["identity"]]
+
+
+def _mux_command(options, transport):
+    # OpenSSH otherwise falls back to a new network connection when the socket
+    # disappears, including between poll() and exec(). Never permit that fallback.
+    return _ssh_command(options) + [
+        "-S", str(transport["socket"]), "-o", "ControlMaster=no",
+        "-o", "ControlPersist=no", "-o", "ProxyCommand=/bin/false",
+        "-o", "ProxyJump=none"]
+
+
+def _stop_master(process):
+    """Reap even when exit races a signal; report a bounded cleanup failure."""
+    if process.poll() is None:
+        try:
+            process.terminate()
+        except ProcessLookupError:
+            pass
+    try:
+        process.wait(timeout=2)
+        return
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        process.kill()
+    except ProcessLookupError:
+        pass
+    try:
+        process.wait(timeout=2)
+    except subprocess.TimeoutExpired as exc:
+        raise RemoteObserverError("SSH master could not be reaped after kill; cleanup incomplete") from exc
+
+
+@contextmanager
+def _session_transport(options):
+    """One owned SSH connection; its loss is permanent for this capture."""
+    # An explicit short base avoids exceeding AF_UNIX's socket path limit when
+    # campaign roots are long. TemporaryDirectory creates a private 0700 parent.
+    with tempfile.TemporaryDirectory(prefix="wh-ssh-", dir="/tmp") as folder:
+        with tempfile.TemporaryFile() as errors:
+            process = None
+            try:
+                transport = {"socket": Path(folder) / "s", "failed": False}
+                command = _ssh_command(options) + [
+                    "-M", "-N", "-S", str(transport["socket"]),
+                    "-o", "ControlMaster=yes", "-o", "ControlPersist=no",
+                    "-o", "ForkAfterAuthentication=no",
+                    "--", options["target"]]
+                process = subprocess.Popen(command, stdin=subprocess.DEVNULL,
+                                           stdout=subprocess.DEVNULL, stderr=errors)
+                transport["process"] = process
+                deadline = time.monotonic() + 5
+                while True:
+                    _require(process.poll() is None, "SSH master exited before readiness")
+                    remaining = deadline - time.monotonic()
+                    _require(remaining > 0, "SSH master readiness timed out")
+                    if transport["socket"].exists():
+                        ready = subprocess.run(
+                            _mux_command(options, transport) +
+                            ["-O", "check", "--", options["target"]],
+                            capture_output=True, timeout=min(1, remaining))
+                        if ready.returncode == 0:
+                            break
+                    time.sleep(0.05)
+                options["_transport"] = transport
+                yield transport
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                raise RemoteObserverError("SSH master setup or transport did not complete") from exc
+            finally:
+                options.pop("_transport", None)
+                if process is not None:
+                    _stop_master(process)
+
+
+def _rpc(options, session_id, action, **values):
+    transport = options.get("_transport")
+    if transport is not None:
+        if transport["process"].poll() is not None:
+            transport["failed"] = True
+        _require(not transport["failed"], "SSH master transport lost; reconnect is forbidden")
+    controller = Path(options.get("controller_path", __file__)).read_bytes()
+    request = {"schema": SCHEMA, "root": options["root"], "session_id": session_id,
+               "action": action, "controller_source": base64.b64encode(controller).decode(),
+               "controller_sha256": _digest(controller), **values}
+    command = (_mux_command(options, transport) if transport is not None
+               else _ssh_command(options)) + [
+                   "--", options["target"], shlex.join(["python3", "-c", BOOTSTRAP])]
     try:
         completed = subprocess.run(command, input=_encoded(request), capture_output=True, timeout=5)
     except (OSError, subprocess.TimeoutExpired) as exc:
+        if transport is not None:
+            transport["failed"] = True
         raise RemoteObserverError(f"SSH {action} did not complete: {exc}") from exc
+    if transport is not None and completed.returncode != 0:
+        transport["failed"] = True
     _require(completed.returncode == 0,
              f"SSH {action} failed ({completed.returncode}): "
              + completed.stderr.decode("utf-8", "replace")[-2000:])
     try:
         result = _loads(completed.stdout.decode("utf-8"))
     except (ValueError, UnicodeError) as exc:
+        if transport is not None:
+            transport["failed"] = True
         raise RemoteObserverError(f"SSH {action} returned invalid JSON") from exc
+    if transport is not None and (not isinstance(result, dict) or result.get("schema") != SCHEMA
+                                  or result.get("session_id") != session_id):
+        transport["failed"] = True
     _require(isinstance(result, dict) and result.get("schema") == SCHEMA
              and result.get("session_id") == session_id, "invalid remote response identity")
     return result
@@ -379,14 +472,17 @@ def _remote_rpc(request):
         status = _read(directory / "status.json")
         issued_challenge = None
         if action == "challenge":
-            _require(status["state"] in {"prepared", "launching", "running"},
-                     "session is not active for a UART challenge")
-            _require(not (directory / "cancel.claim").exists(),
-                     "session cancellation is permanent")
-            if status["state"] != "prepared":
-                reason = _guard(directory)
-                _require(not reason, reason or "observer lease is invalid")
-            issued_challenge = _issue_challenge(directory)
+            # Completion can race the next challenge. Return the sealed terminal
+            # status without issuing a nonce or renewing anything in that case.
+            if status["state"] not in TERMINAL:
+                _require(status["state"] in {"prepared", "launching", "running"},
+                         "session is not active for a UART challenge")
+                _require(not (directory / "cancel.claim").exists(),
+                         "session cancellation is permanent")
+                if status["state"] != "prepared":
+                    reason = _guard(directory)
+                    _require(not reason, reason or "observer lease is invalid")
+                issued_challenge = _issue_challenge(directory)
         elif action == "start":
             age = request.get("serial_age_ns")
             created_ns, accepted_ns = _consume_challenge(
@@ -454,6 +550,19 @@ def _remote_rpc(request):
         return response
 
 
+def _publish_terminal(directory, status, manifest, *, error):
+    """Linearize sealing against challenge/heartbeat on the RPC control lock."""
+    import fcntl
+    _require(status["state"] in TERMINAL, "only a terminal result can be sealed")
+    with (directory / "control.lock").open("a+b") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        _write(directory / "manifest.json", manifest, exclusive=True)
+        terminal = dict(status)
+        terminal.update(finished_ns=time.monotonic_ns(), error=error,
+                        manifest=_file_info(directory / "manifest.json"))
+        _write(directory / "status.json", terminal)
+
+
 def _worker(directory):
     import fcntl
     os.umask(0o077)
@@ -504,10 +613,7 @@ def _worker(directory):
             manifest = {"schema": SCHEMA, "session_id": directory.name,
                         "request_sha256": _file_info(directory / "request.json")["sha256"],
                         "files": {path.name: _file_info(path) for path in sorted(output.iterdir())}}
-            _write(directory / "manifest.json", manifest, exclusive=True)
-            status.update(finished_ns=time.monotonic_ns(), error=result["error"],
-                          manifest=_file_info(directory / "manifest.json"))
-            _write(directory / "status.json", status)
+            _publish_terminal(directory, status, manifest, error=result["error"])
 
 
 def _archive(options, session_id, response, output):
@@ -608,82 +714,88 @@ def run_remote_observer(output, observer, options, *, context, health_check,
     _write(output / "remote-session.json", record, exclusive=True)
     failure = health_check()
     _require(not failure, str(failure))
-    response = _rpc(options, session_id, "prepare", config=config,
-                    sources={name: base64.b64encode(raw).decode() for name, raw in sources.items()})
-    _write(output / "remote-status.json", response["status"])
-    failure = health_check()
-    if failure:
-        cancel_prestart(failure)
-        raise RemoteObserverError(str(failure))
-    try:
-        # CT persists a fresh monotonic challenge first. Only then do we sample
-        # UART, so the server can include the full challenge RTT in freshness.
-        challenge_response = _rpc(options, session_id, "challenge")
-        start_challenge_id = challenge_id(challenge_response)
+    with _session_transport(options):
+        response = _rpc(options, session_id, "prepare", config=config,
+                        sources={name: base64.b64encode(raw).decode() for name, raw in sources.items()})
+        _write(output / "remote-status.json", response["status"])
         failure = health_check()
-        _require(not failure, str(failure))
-        serial_age_ns = current_serial_age_ns()
-    except RemoteObserverError as exc:
-        cancel_prestart(exc)
-        raise
-    # Persist the claim locally BEFORE the single start RPC. Loss of its reply
-    # leaves the execution uncertain, and recovery never sends start.
-    _write(output / "remote-start-claim.json", {"session_id": session_id,
-                                               "laptop_monotonic_ns": time.monotonic_ns()}, exclusive=True)
-    transport_failure = None
-    try:
-        response = _rpc(options, session_id, "start", challenge_id=start_challenge_id,
-                        serial_age_ns=serial_age_ns)
-    except RemoteObserverError as exc:
-        transport_failure = str(exc)
-    deadline = time.monotonic() + 330
-    last_success = time.monotonic()
-    while time.monotonic() < deadline:
-        failure = health_check()
-        challenge = None
-        serial_age_ns = None
-        if not failure and transport_failure is None:
-            try:
-                challenge = challenge_id(_rpc(options, session_id, "challenge"))
-                failure = health_check()
-                _require(not failure, str(failure))
-                serial_age_ns = current_serial_age_ns()
-            except RemoteObserverError as exc:
-                failure = str(exc)
-        if failure and transport_failure is None:
-            transport_failure = str(failure)
-        action = "cancel" if failure else "status" if transport_failure else "heartbeat"
-        values = ({"reason": str(failure)} if failure else
-                  {"challenge_id": challenge, "serial_age_ns": serial_age_ns}
-                  if action == "heartbeat" else {})
+        if failure:
+            cancel_prestart(failure)
+            raise RemoteObserverError(str(failure))
         try:
-            response = _rpc(options, session_id, action, **values)
-            last_success = time.monotonic()
-            _write(output / "remote-status.json", response["status"])
-            if response["status"]["state"] in TERMINAL:
-                result = _archive(options, session_id, response, output)
-                result["transport_error"] = transport_failure
-                return result
-            if response.get("worker_alive") is False or (
-                    transport_failure and response["status"]["state"] == "prepared"):
-                transport_failure = transport_failure or (
-                    "remote worker disappeared; status is unresolved and it must never be restarted")
+            # CT persists a fresh monotonic challenge first. Only then do we sample
+            # UART, so the server can include the full challenge RTT in freshness.
+            challenge_response = _rpc(options, session_id, "challenge")
+            start_challenge_id = challenge_id(challenge_response)
+            failure = health_check()
+            _require(not failure, str(failure))
+            serial_age_ns = current_serial_age_ns()
+        except RemoteObserverError as exc:
+            cancel_prestart(exc)
+            raise
+        # Persist the claim locally BEFORE the single start RPC. Loss of its reply
+        # leaves the execution uncertain, and recovery never sends start.
+        _write(output / "remote-start-claim.json", {"session_id": session_id,
+                                                   "laptop_monotonic_ns": time.monotonic_ns()}, exclusive=True)
+        transport_failure = None
+        try:
+            response = _rpc(options, session_id, "start", challenge_id=start_challenge_id,
+                            serial_age_ns=serial_age_ns)
+        except RemoteObserverError as exc:
+            transport_failure = str(exc)
+        deadline = time.monotonic() + 330
+        last_success = time.monotonic()
+        while time.monotonic() < deadline:
+            failure = health_check()
+            challenge = None
+            serial_age_ns = None
+            if not failure and transport_failure is None:
+                try:
+                    challenge_response = _rpc(options, session_id, "challenge")
+                    if challenge_response["status"]["state"] in TERMINAL:
+                        result = _archive(options, session_id, challenge_response, output)
+                        result["transport_error"] = None
+                        return result
+                    challenge = challenge_id(challenge_response)
+                    failure = health_check()
+                    _require(not failure, str(failure))
+                    serial_age_ns = current_serial_age_ns()
+                except RemoteObserverError as exc:
+                    failure = str(exc)
+            if failure and transport_failure is None:
+                transport_failure = str(failure)
+            action = "cancel" if failure else "status" if transport_failure else "heartbeat"
+            values = ({"reason": str(failure)} if failure else
+                      {"challenge_id": challenge, "serial_age_ns": serial_age_ns}
+                      if action == "heartbeat" else {})
+            try:
+                response = _rpc(options, session_id, action, **values)
+                last_success = time.monotonic()
+                _write(output / "remote-status.json", response["status"])
+                if response["status"]["state"] in TERMINAL:
+                    result = _archive(options, session_id, response, output)
+                    result["transport_error"] = transport_failure
+                    return result
+                if response.get("worker_alive") is False or (
+                        transport_failure and response["status"]["state"] == "prepared"):
+                    transport_failure = transport_failure or (
+                        "remote worker disappeared; status is unresolved and it must never be restarted")
+                    _write(output / "remote-transport-error.json", {"session_id": session_id,
+                                                                   "reason": transport_failure,
+                                                                   "retry_permitted": False})
+                    break
+            except RemoteObserverError as exc:
+                if transport_failure is None:
+                    transport_failure = str(exc)
                 _write(output / "remote-transport-error.json", {"session_id": session_id,
                                                                "reason": transport_failure,
                                                                "retry_permitted": False})
-                break
-        except RemoteObserverError as exc:
-            if transport_failure is None:
-                transport_failure = str(exc)
-            _write(output / "remote-transport-error.json", {"session_id": session_id,
-                                                           "reason": transport_failure,
-                                                           "retry_permitted": False})
-            if time.monotonic() - last_success > 20:
-                break
-        time.sleep(0.5)
-    raise RemoteObserverError("remote capture is incomplete or needs review; keep serial/remote evidence and "
-                              "use status/recover with remote-session.json; NEVER rerun the slot. "
-                              + str(transport_failure or "supervision deadline expired"))
+                if options["_transport"]["failed"] or time.monotonic() - last_success > 20:
+                    break
+            time.sleep(0.5)
+        raise RemoteObserverError("remote capture is incomplete or needs review; keep serial/remote evidence and "
+                                  "use status/recover with remote-session.json; NEVER rerun the slot. "
+                                  + str(transport_failure or "supervision deadline expired"))
 
 
 def recover(receipt, *, status_only=False):

@@ -111,7 +111,7 @@ após interrupção e recuperar a baseline sem relançar o observador.
    CONFIG_WASMHOME_UPDATE_SERVER_IPV4="192.168.0.138"
    CONFIG_WASMHOME_UPDATE_SERVER_NAME="wasmhome-bench.test"
    CONFIG_WASMHOME_UPDATE_SERVER_PORT=8446
-   CONFIG_WASMHOME_UPDATE_CAMPAIGN_ID="UUID_NOVO_DA_CAMPANHA"
+   CONFIG_WASMHOME_UPDATE_CAMPAIGN_ID="ID_DO_PACOTE_OTA_ASSINADO"
    ```
 
    Preservar a CA, chave pública COSE, identidade AOT, mapa de partições,
@@ -150,9 +150,9 @@ após interrupção e recuperar a baseline sem relançar o observador.
      --certificate /home/wasmhome/HIL/tls/server.pem \
      --private-key /home/wasmhome/HIL/tls/server.key \
      --signing-public-key /home/wasmhome/HIL/package/signing-public.der \
-     --expected-campaign-id UUID_NOVO_DA_CAMPANHA \
+     --expected-campaign-id ID_DO_PACOTE_OTA_ASSINADO \
      --expected-aot-toolchain-id wamr-2.4.5-wasmhome.3 \
-     --log /home/wasmhome/HIL/http-events.jsonl
+     --log /CAMINHO_PRIVADO_NO_CT/log-exclusivo-da-campanha.jsonl
    ```
 
    Reservar a porta para esta campanha; não encerrar serviços anteriores para
@@ -160,6 +160,11 @@ após interrupção e recuperar a baseline sem relançar o observador.
    escolher outra porta não privilegiada no preparo e recompilar todos os
    endpoints correspondentes. Não substituir HTTPS por `http.server` nem
    desligar validação de certificado.
+   Registrar o caminho exato de `--log` no recibo privado e usar o mesmo em
+   `--remote-server-log`. O preflight automático do orquestrador rejeita um
+   servidor ausente, de outro pacote OTA ou com log diferente antes de tocar
+   a placa. Ele usa apenas SSH e leituras em `/proc` sob `wasmhome`; não requer
+   `sudo`, instalação de serviço, mudança de grupos ou firewall.
 6. Criar o manifesto privado `artifacts.json` no formato já aceito pelo
    `update_campaign.py plan`: `schema_version=1` e lista `artifacts`, contendo
    `artifact_id`, `scenario` (`native`, `interp`, `aot`), caminho efetivo e
@@ -176,8 +181,9 @@ HIL_PREP=/CAMINHO_PRIVADO/issue20-nova-sessao
 HIL_ARTIFACTS="$HIL_PREP/artifacts.json"
 HIL_SEED=issue20-ct107-nova-sessao-r1
 HIL_DEVICE_IP=IPV4_LAN_CONFIRMADO_DO_ESP
-HIL_CAMPAIGN_ID=UUID_NOVO_JA_COMPILADO_E_ASSINADO
-python3 - "$HIL_PREP" "$HIL_DEVICE_IP" "$HIL_CAMPAIGN_ID" <<'PY'
+HIL_SCHEDULE_ID=UUID_NOVO_DA_AGENDA_HIL
+HIL_ARTIFACT_CAMPAIGN_ID=ID_DO_PACOTE_OTA_ASSINADO
+python3 - "$HIL_PREP" "$HIL_DEVICE_IP" "$HIL_SCHEDULE_ID" "$HIL_ARTIFACT_CAMPAIGN_ID" <<'PY'
 import ipaddress, json, pathlib, sys, uuid
 root = pathlib.Path(sys.argv[1])
 device = str(ipaddress.IPv4Address(sys.argv[2]))
@@ -185,6 +191,7 @@ root.mkdir(mode=0o700, parents=True, exist_ok=True)
 campaign_id = str(uuid.UUID(sys.argv[3]))
 metadata = {'protocol_revision': 'issue20-v1.0', 'campaign_type': 'pilot',
             'campaign_id': campaign_id, 'session_id': str(uuid.uuid4()),
+            'artifact_campaign_id': sys.argv[4],
             'bench': {'observer_host': 'wasmhome-bench', 'observer_ipv4': '192.168.0.138',
                       'https_ipv4': '192.168.0.138', 'https_port': 8446,
                       'device_ipv4': device, 'serial_port': '/dev/ttyACM0'},
@@ -192,7 +199,7 @@ metadata = {'protocol_revision': 'issue20-v1.0', 'campaign_type': 'pilot',
 with (root / 'metadata.json').open('x') as stream:
     json.dump(metadata, stream, indent=2)
     stream.write('\n')
-print(campaign_id)
+print('metadata criada para a agenda HIL')
 PY
 HIL_CAMPAIGN_ROOT="$HIL_PREP/campaign"
 python3 tools/update_campaign.py plan --output "$HIL_CAMPAIGN_ROOT" \
@@ -223,7 +230,7 @@ python3 tools/update_campaign.py run-slot "$HIL_CAMPAIGN_ROOT" "$HIL_SLOT_ID" \
   --period-ms 100 --timeout-ms 300 --max-sample-age-ms 1000 \
   --remote-observer wasmhome@192.168.0.138 \
   --remote-known-hosts "$HIL_KNOWN_HOSTS" --remote-identity "$HIL_KEY" \
-  --remote-server-log /home/wasmhome/HIL/http-events.jsonl
+  --remote-server-log /CAMINHO_PRIVADO_NO_CT/log-exclusivo-da-campanha.jsonl
 ```
 
 `--remote-server-log` refere-se ao CT e recebe os mesmos controles de
@@ -268,6 +275,30 @@ de uso único. O CT mede o RTT do desafio no próprio relógio monotônico e exi
 são subtraídos. Desafios expirados, substituídos ou já consumidos são
 recusados. Essa sequência garante que a amostra serial usada para autorizar o
 trigger ocorreu depois do timestamp do CT.
+
+Em novas coletas, o laptop abre um único `ControlMaster` SSH por slot antes de
+`prepare`. O socket fica em um diretório temporário local exclusivo, curto e
+0700. `challenge`, `heartbeat` e coleta dos arquivos usam essa mesma conexão,
+com a identidade e o `known_hosts` explícitos já exigidos. Isso evita repetir
+o handshake SSH a cada renovação; o desafio de uso único, a amostragem UART
+posterior ao desafio e o limite de 2 s permanecem iguais. Os clientes do
+socket recusam o fallback para uma nova conexão. A primeira perda ou falha
+de RPC torna o transporte inutilizável para o restante da captura, mesmo que
+o processo master ainda exista; a lease remota expira normalmente. O master
+é encerrado e seu diretório removido ao sair, inclusive em falhas. A recuperação
+posterior continua restrita a `status`/`recover`, sem renovar ou relançar.
+Se o sistema não confirmar o encerramento mesmo após `kill`, o cliente registra
+erro de cleanup incompleto e remove o socket; não considera a captura concluída
+nem abre outra conexão automaticamente.
+
+Se o worker terminar enquanto o cliente pede o próximo desafio, o servidor
+retorna o estado terminal e o manifesto selado, sem criar nonce ou lease.
+Publicação do manifesto/estado terminal e RPCs compartilham o mesmo lock, para
+que uma renovação não atravesse a publicação terminal usando estado antigo.
+O cliente então arquiva o resultado sem tratar essa corrida como perda de
+transporte. Essa mudança vale apenas para planos e snapshots novos: preservar
+os dados e o código arquivado da r7. Testes offline verificam o ciclo do
+transporte e os bloqueios, mas não demonstram a margem de latência na bancada.
 
 A validade da lease também começa no timestamp do desafio: o prazo termina no
 menor entre `desafio + 3 s` e `desafio + 2 s - idade_uart`. Assim, a lease
