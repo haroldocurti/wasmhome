@@ -228,6 +228,20 @@ if(CONFIG_WASMHOME_RESILIENCE_TEST_MODE OR CONFIG_WASMHOME_MODULE_RESILIENCE_TES
     endif()
     file(SHA256 "${SDKCONFIG}" ISSUE22_SDKCONFIG_SHA256)
     file(SHA256 "${CONFIG_WASMHOME_UPDATE_CA_CERT_PATH}" ISSUE22_CA_SHA256)
+    if(NOT CMAKE_BUILD_EARLY_EXPANSION)
+        execute_process(
+            COMMAND "${PYTHON}" -B "${CMAKE_SOURCE_DIR}/tools/issue22_source_identity.py"
+                --root "${CMAKE_SOURCE_DIR}" --cmake
+            RESULT_VARIABLE ISSUE22_SOURCE_RESULT
+            OUTPUT_VARIABLE ISSUE22_SOURCE_IDENTITY
+            ERROR_VARIABLE ISSUE22_SOURCE_ERROR
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
+        if(NOT ISSUE22_SOURCE_RESULT EQUAL 0)
+            message(FATAL_ERROR "${ISSUE22_SOURCE_ERROR}")
+        endif()
+        list(GET ISSUE22_SOURCE_IDENTITY 0 ISSUE22_SOURCE_COMMIT)
+        list(GET ISSUE22_SOURCE_IDENTITY 1 ISSUE22_SOURCE_TREE)
+    endif()
     set(ISSUE22_PROVENANCE_FILE "${CMAKE_CURRENT_BINARY_DIR}/issue22-build-provenance.txt")
     configure_file("${CMAKE_CURRENT_LIST_DIR}/issue22-build-provenance.txt.in"
         "${ISSUE22_PROVENANCE_FILE}" @ONLY)
@@ -256,6 +270,19 @@ idf_component_register(
 )
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE ${SCENARIO_DEFINE})
+
+if((CONFIG_WASMHOME_RESILIENCE_TEST_MODE OR CONFIG_WASMHOME_MODULE_RESILIENCE_TEST_MODE)
+        AND NOT CMAKE_BUILD_EARLY_EXPANSION)
+    # This runs on every build, including incremental builds that do not rerun
+    # configuration. A stale marker must never survive source edits or a new HEAD.
+    add_custom_target(issue22_source_identity_check
+        COMMAND "${PYTHON}" -B "${CMAKE_SOURCE_DIR}/tools/issue22_source_identity.py"
+            --root "${CMAKE_SOURCE_DIR}"
+            --expected-commit "${ISSUE22_SOURCE_COMMIT}"
+            --expected-tree "${ISSUE22_SOURCE_TREE}"
+        VERBATIM)
+    add_dependencies(${COMPONENT_LIB} issue22_source_identity_check)
+endif()
 
 if(CONFIG_WASMHOME_MODULE_SERVICES)
     idf_component_get_property(WAMR_MODULE_COMPONENT_DIR wasm-micro-runtime COMPONENT_DIR)

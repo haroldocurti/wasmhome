@@ -55,6 +55,8 @@ import resilience_harness
 import resilience_hil_runner as hil_runner
 import resilience_nvs_preflight as nvs_preflight
 import signed_artifacts
+import user_owned_https_server_manager as user_server_manager
+from user_owned_https_batch_hook import Issue22FixtureServerHook
 
 
 class OrchestratorError(ValueError):
@@ -257,10 +259,14 @@ def _artifact_row(row: object, label: str, *, max_bytes: int) -> tuple[Path, str
 
 def _embedded_issue22_build_marker(data: bytes) -> dict:
     start_tag = b"WASMHOME_ISSUE22_BUILD_V2\n"
+    # The generated file starts with profile=. Including that first key
+    # distinguishes its opening tag from the suffix of its END_ tag when
+    # CMake embeds the template's final newline.
+    start_prefix = start_tag + b"profile="
     end_tag = b"\nEND_WASMHOME_ISSUE22_BUILD_V2"
-    require(data.count(start_tag) == 1 and data.count(end_tag) == 1,
+    require(data.count(start_prefix) == 1 and data.count(end_tag) == 1,
             "bootstrap app must embed exactly one CMake-generated #22 provenance marker")
-    start = data.index(start_tag) + len(start_tag)
+    start = data.index(start_prefix) + len(start_tag)
     end = data.index(end_tag, start)
     try:
         lines = data[start:end].decode("ascii").splitlines()
@@ -272,7 +278,7 @@ def _embedded_issue22_build_marker(data: bytes) -> dict:
         key, value = line.split("=", 1)
         require(key not in marker, "embedded #22 provenance marker repeats a field")
         marker[key] = value
-    require(set(marker) == {"profile", "functional_timeout_ms", "server_ipv4",
+    require(set(marker) == {"profile", "source_commit", "source_tree", "functional_timeout_ms", "server_ipv4",
                             "server_port", "server_name", "ca_sha256",
                             "sdkconfig_sha256", "app_rollback_enabled", "update_server_ipv4",
                             "update_server_port", "update_server_name"},
@@ -286,6 +292,9 @@ def _embedded_issue22_build_marker(data: bytes) -> dict:
     require(marker["app_rollback_enabled"] in {"0", "1"}
             and re.fullmatch(r"[0-9a-f]{64}", marker["sdkconfig_sha256"]),
             "embedded #22 provenance must attest its sdkconfig rollback mode")
+    require(all(re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", marker[key])
+                for key in ("source_commit", "source_tree")),
+            "embedded #22 provenance must identify its clean source commit and tree")
     require(isinstance(marker["server_ipv4"], str)
             and isinstance(marker["server_name"], str)
             and re.fullmatch(r"[0-9a-f]{64}", marker["ca_sha256"]),
@@ -307,6 +316,10 @@ def validate_profile_manifest(path: Path, timeout_ms: int, server_ip: str,
             "profile manifest must attest opt-in issue #22 test hooks")
     require(value.get("functional_timeout_ms") == timeout_ms,
             "profile build timeout differs from the frozen #20 timeout")
+    require(all(isinstance(value.get(key), str)
+                and re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", value[key])
+                for key in ("source_commit", "source_tree")),
+            "profile build manifest must identify its source commit and tree")
     endpoint = value.get("endpoint")
     require(isinstance(endpoint, dict) and set(endpoint) == {"ipv4", "port", "server_name", "ca_sha256"}
             and endpoint["ipv4"] == server_ip and endpoint["port"] == server_port
@@ -366,7 +379,8 @@ def validate_profile_manifest(path: Path, timeout_ms: int, server_ip: str,
                 and int.from_bytes(header[12:14], "little") == 9,
                 f"{name} bootstrap file is not a valid ESP32-S3 application image")
         marker = _embedded_issue22_build_marker(app_bytes)
-        require(marker == {"profile": name, "functional_timeout_ms": timeout_ms,
+        require(marker == {"profile": name, "source_commit": value["source_commit"],
+                           "source_tree": value["source_tree"], "functional_timeout_ms": timeout_ms,
                            "server_ipv4": server_ip, "server_port": server_port,
                            "server_name": server_name,
                            "update_server_ipv4": server_ip, "update_server_port": server_port,
@@ -384,10 +398,8 @@ def validate_profile_manifest(path: Path, timeout_ms: int, server_ip: str,
                                           "bytes": len(bootloader_data)},
                            "sdkconfig": {"path": str(config), "sha256": config_digest},
                            "bootloader_config": {"path": str(boot_config), "sha256": boot_config_digest}}
-    require(isinstance(value.get("source_commit"), str)
-            and re.fullmatch(r"[0-9a-f]{40,64}", value["source_commit"]),
-            "profile build manifest must identify its source commit")
     return {"schema": PROFILE_SCHEMA, "source_commit": value["source_commit"],
+            "source_tree": value["source_tree"],
             "functional_timeout_ms": timeout_ms, "endpoint": endpoint,
             "update_endpoint": endpoint, "profiles": snapshots}
 
@@ -468,19 +480,50 @@ def strict_ssh_args(target: str, identity: Path, known_hosts: Path,
 
 class SSHSession:
     def __init__(self, target: str, identity: Path, known_hosts: Path, port: int = 22,
-                 host_key_alias: str | None = None):
+                 host_key_alias: str | None = None, *, manager_ssh: dict | None = None):
         self.target = target
-        self.options = strict_ssh_args(target, identity, known_hosts, port, host_key_alias)
+        self.manager_ssh = manager_ssh
+        self.options = (strict_ssh_args(target, identity, known_hosts, port, host_key_alias)
+                        if manager_ssh is None else None)
 
-    def run(self, command: list[str], *, timeout: int = 30, check: bool = True) -> subprocess.CompletedProcess:
-        result = subprocess.run(["ssh", *self.options, self.target, shlex.join(command)],
-                                capture_output=True, timeout=timeout, check=False)
+    def run(self, command: list[str], *, timeout: int = 30, check: bool = True,
+            transport: dict | None = None) -> subprocess.CompletedProcess:
+        if self.manager_ssh is None:
+            argv = ["ssh", *self.options, self.target, shlex.join(command)]
+            result = subprocess.run(argv, capture_output=True, timeout=timeout, check=False)
+        elif transport is not None:
+            argv = [*user_server_manager.ssh_args(transport), shlex.join(command)]
+            result = subprocess.run(argv, capture_output=True, timeout=timeout, check=False)
+        else:
+            with user_server_manager.verified_ssh_snapshot(self.manager_ssh) as transport:
+                argv = [*user_server_manager.ssh_args(transport), shlex.join(command)]
+                result = subprocess.run(argv, capture_output=True, timeout=timeout, check=False)
         if check and result.returncode:
             # Never copy remote server logs or secrets into shared stdout.
             raise OrchestratorError("strict CT SSH command failed; private operation log has details")
         return result
 
-    def scp(self, source: Path, destination: str, *, recursive: bool = False) -> None:
+    def scp(self, source: Path, destination: str, *, recursive: bool = False,
+            transport: dict | None = None) -> None:
+        if transport is not None:
+            flags = user_server_manager.scp_args(transport)
+            if recursive:
+                flags.append("-r")
+            result = subprocess.run([*flags, str(source), f"{self.target}:{destination}"],
+                                    capture_output=True, timeout=120, check=False)
+            if result.returncode:
+                raise OrchestratorError("strict CT SCP failed; no password or host-key fallback is allowed")
+            return
+        if self.manager_ssh is not None:
+            with user_server_manager.verified_ssh_snapshot(self.manager_ssh) as transport:
+                flags = user_server_manager.scp_args(transport)
+                if recursive:
+                    flags.append("-r")
+                result = subprocess.run([*flags, str(source), f"{self.target}:{destination}"],
+                                        capture_output=True, timeout=120, check=False)
+            if result.returncode:
+                raise OrchestratorError("strict CT SCP failed; no password or host-key fallback is allowed")
+            return
         flags = ["scp"]
         index = 0
         while index < len(self.options):
@@ -523,7 +566,8 @@ class RemoteFixtureServer:
     def __init__(self, ssh: SSHSession, *, fixture_root: Path, package_root: Path,
                  fixture_trusted: Path, fixture_untrusted: Path, ota_public: Path,
                  certificate: Path, private_key: Path, campaign_root: Path,
-                 server_ip: str, port: int, server_name: str, toolchain: str):
+                 server_ip: str, port: int, server_name: str, toolchain: str,
+                 manager_spec: dict | None = None):
         self.ssh = ssh
         self.fixture_root = Path(fixture_root)
         self.package_root = Path(package_root)
@@ -535,16 +579,44 @@ class RemoteFixtureServer:
         self.root = Path(campaign_root)
         self.server_ip, self.port = server_ip, port
         self.server_name, self.toolchain = server_name, toolchain
+        self.manager_spec = manager_spec
         self.log = self.root / "http-events.jsonl"
         self.pid_file = self.root / "server.pid"
         self.ready = False
 
-    def _validate_remote_path(self, path: Path, expected: str) -> None:
+    def _check_reservation(self, reservation) -> None:
+        if reservation is not None:
+            require(reservation.poll() is None,
+                    "CT staging reservation was lost; aborting before the next staging operation")
+
+    def _stage_run(self, reservation, command: list[str], *, timeout: int = 30) -> None:
+        self._check_reservation(reservation)
+        self.ssh.run(command, timeout=timeout,
+                     transport=getattr(reservation, "transport", None))
+        self._check_reservation(reservation)
+
+    def _stage_scp(self, reservation, source: Path, destination: str) -> None:
+        self._check_reservation(reservation)
+        self.ssh.scp(source, destination,
+                     transport=getattr(reservation, "transport", None))
+        self._check_reservation(reservation)
+
+    def _validate_remote_path(self, path: Path, expected: str, reservation=None) -> None:
         """Refuse unsafe remote paths before mkdir/SCP/receipt operations."""
+        self._check_reservation(reservation)
+        self._validate_root_lexical()
         script = (
             "import os,pathlib,stat,sys\n"
             "root=pathlib.Path(sys.argv[1]); p=pathlib.Path(sys.argv[2]); kind=sys.argv[3]\n"
             "assert root.is_absolute() and p.is_absolute() and '..' not in root.parts and '..' not in p.parts\n"
+            "home=pathlib.Path('/home/wasmhome')\n"
+            "assert home in root.parents and root!=home and home.lstat().st_uid==os.getuid() and not home.lstat().st_mode & 0o022\n"
+            "for q in reversed(home.parents): assert stat.S_ISDIR(q.lstat().st_mode), 'unsafe home ancestor'\n"
+            "for q in reversed(root.parents):\n"
+            " if q==home or home in q.parents:\n"
+            "  try: s=q.lstat()\n"
+            "  except FileNotFoundError: continue\n"
+            "  assert stat.S_ISDIR(s.st_mode) and s.st_uid==os.getuid() and not s.st_mode & 0o022, 'unsafe campaign ancestor'\n"
             "assert p==root or root in p.parents, 'path escapes campaign root'\n"
             "for q in reversed(root.parents):\n"
             " try: s=q.lstat()\n"
@@ -555,7 +627,7 @@ class RemoteFixtureServer:
             "for q in chain if kind=='dir' else chain[:-1]:\n"
             " try: s=q.lstat()\n"
             " except FileNotFoundError: continue\n"
-            " assert not stat.S_ISLNK(s.st_mode) and stat.S_ISDIR(s.st_mode), 'unsafe path component'\n"
+            " assert not stat.S_ISLNK(s.st_mode) and stat.S_ISDIR(s.st_mode) and s.st_uid==os.getuid() and stat.S_IMODE(s.st_mode)==0o700, 'unsafe staged directory component'\n"
             "if p.exists():\n"
             " s=p.lstat()\n"
             " assert s.st_uid==os.getuid() and not stat.S_ISLNK(s.st_mode), 'path owner/type differs'\n"
@@ -572,64 +644,97 @@ class RemoteFixtureServer:
             "  assert stat.S_ISREG(target.st_mode) and target.st_mode & 0o022==0, 'unsafe target file'\n"
             "  if kind=='secret': assert stat.S_IMODE(target.st_mode)==0o600, 'private target mode differs'\n"
         )
-        self.ssh.run(["python3", "-c", script, str(self.root), str(path), expected], timeout=20)
+        self.ssh.run(["python3", "-c", script, str(self.root), str(path), expected],
+                     timeout=20, transport=getattr(reservation, "transport", None))
+        self._check_reservation(reservation)
 
-    def _validate_remote_root(self) -> None:
-        self._validate_remote_path(self.root, "dir")
+    def _validate_root_lexical(self) -> None:
+        home = Path("/home/wasmhome")
+        require(self.root.is_absolute() and self.root.as_posix() == str(self.root)
+                and ".." not in self.root.parts and home in self.root.parents
+                and self.root != home,
+                "CT campaign root must be canonical and below /home/wasmhome")
 
-    def _copy(self, source: Path, destination: Path) -> None:
+    def _validate_remote_root(self, reservation=None) -> None:
+        self._validate_root_lexical()
+        self._validate_remote_path(self.root, "dir", reservation)
+
+    def preflight(self) -> dict:
+        """Read remote receipts/port owners; refuse existing owners before staging."""
+        self._validate_root_lexical()
+        require(self.manager_spec is not None,
+                "stage requires a frozen issue22-fixture manager specification")
+        result = user_server_manager.remote_preflight(self.manager_spec)
+        require(not result["manager_busy"]
+                and not result["manager_receipt_present"]
+                and not result["server_pid_receipt_present"]
+                and not result["port_owners"],
+                "active manager, existing server receipt or TCP listener found; use cleanup-only recovery before staging")
+        return result
+
+    def _copy(self, source: Path, destination: Path, reservation=None) -> None:
         if source.is_dir():
-            self.ssh.run(["mkdir", "-m", "700", "-p", str(destination)], timeout=20)
-            self._validate_remote_path(destination, "dir")
-            for child in _safe_tree(source):
+            children = _safe_tree(source)
+            # Check the complete path before mkdir can follow an existing symlink.
+            self._validate_remote_path(destination, "dir", reservation)
+            self._stage_run(reservation, ["mkdir", "-m", "700", "-p", str(destination)], timeout=20)
+            self._validate_remote_path(destination, "dir", reservation)
+            for child in children:
                 relative = child.relative_to(source)
                 remote_parent = destination / relative.parent
-                self.ssh.run(["mkdir", "-m", "700", "-p", str(remote_parent)], timeout=20)
-                self._validate_remote_path(remote_parent, "dir")
+                self._validate_remote_path(remote_parent, "dir", reservation)
+                self._stage_run(reservation,
+                                ["mkdir", "-m", "700", "-p", str(remote_parent)], timeout=20)
+                self._validate_remote_path(remote_parent, "dir", reservation)
                 remote_file = remote_parent / child.name
-                self._validate_remote_path(remote_file, "file")
-                self.ssh.scp(child, str(remote_file))
-                self._validate_remote_path(remote_file, "file")
+                self._validate_remote_path(remote_file, "file", reservation)
+                self._stage_scp(reservation, child, str(remote_file))
+                self._validate_remote_path(remote_file, "file", reservation)
         else:
-            self._validate_remote_path(destination, "file")
-            self.ssh.scp(source, str(destination))
-            self._validate_remote_path(destination, "file")
+            self._validate_remote_path(destination, "file", reservation)
+            self._stage_scp(reservation, source, str(destination))
+            self._validate_remote_path(destination, "file", reservation)
 
-    def start(self) -> None:
-        # A previous invocation may have crashed while leaving its listener
-        # alive. Reap only a process proven by this campaign's pid, kernel
-        # start-time and exact script path before staging or writing a new PID.
-        self._validate_remote_root()
-        self.stop()
-        self.ssh.run(["mkdir", "-m", "700", "-p", str(self.root)], timeout=20)
-        self._validate_remote_root()
+    def stage(self, reservation=None) -> list[str]:
+        """Copy the existing 24-route fixture/release bundle without launching it."""
+        require(self.manager_spec is not None,
+                "stage requires a frozen issue22-fixture manager specification")
+        if reservation is None:
+            with user_server_manager.remote_reservation(self.manager_spec) as lease:
+                return self.stage(lease)
+        self._validate_remote_root(reservation)
         server_py = TOOLS / "resilience_fixture_https_server.py"
         signed_py = TOOLS / "signed_artifacts.py"
         code_root = self.root / "tools"
-        self.ssh.run(["mkdir", "-m", "700", "-p", str(code_root)], timeout=20)
-        self._validate_remote_path(code_root, "dir")
+        # Validate before every mkdir -p to prevent traversal through a
+        # pre-existing symlink component.
+        self._validate_remote_path(code_root, "dir", reservation)
+        self._stage_run(reservation,
+                        ["mkdir", "-m", "700", "-p", str(code_root)], timeout=20)
+        self._validate_remote_path(code_root, "dir", reservation)
         for source in (server_py, signed_py):
             target = code_root / source.name
-            self._validate_remote_path(target, "file")
-            self.ssh.scp(source, str(target))
-            self._validate_remote_path(target, "file")
+            self._validate_remote_path(target, "file", reservation)
+            self._stage_scp(reservation, source, str(target))
+            self._validate_remote_path(target, "file", reservation)
         paths = {
             self.fixture_root: self.root / "fixtures",
             self.package_root: self.root / "ota-package",
         }
         for source, destination in paths.items():
-            self._copy(source, destination)
+            self._copy(source, destination, reservation)
         for source, filename in ((self.fixture_trusted, "fixture-trusted.pub"),
                                  (self.fixture_untrusted, "fixture-untrusted.pub"),
                                  (self.ota_public, "ota-signing.pub"),
                                  (self.certificate, "server.crt"),
                                  (self.private_key, "server.key")):
             target = self.root / filename
-            self._validate_remote_path(target, "file")
-            self.ssh.scp(source, str(target))
-            self._validate_remote_path(target, "file")
-        self.ssh.run(["chmod", "600", str(self.root / "server.key")], timeout=20)
-        self._validate_remote_path(self.root / "server.key", "secret")
+            self._validate_remote_path(target, "file", reservation)
+            self._stage_scp(reservation, source, str(target))
+            self._validate_remote_path(target, "file", reservation)
+        self._stage_run(reservation,
+                        ["chmod", "600", str(self.root / "server.key")], timeout=20)
+        self._validate_remote_path(self.root / "server.key", "secret", reservation)
         command = ["python3", str(code_root / "resilience_fixture_https_server.py"),
             "--fixture-root", str(self.root / "fixtures"),
             "--trusted-public-key", str(self.root / "fixture-trusted.pub"),
@@ -642,83 +747,13 @@ class RemoteFixtureServer:
             "--port", str(self.port), "--server-name", self.server_name,
             "--server-ip", self.server_ip, "--campaign-id", hil_runner.CAMPAIGN_ID,
             "--aot-toolchain-id", self.toolchain, "--log-mode", "600",
-            "--pid-file", str(self.pid_file)]
-        self.ssh.run(["python3", str(code_root / "resilience_fixture_https_server.py"),
-            "--fixture-root", str(self.root / "fixtures"),
-            "--trusted-public-key", str(self.root / "fixture-trusted.pub"),
-            "--untrusted-public-key", str(self.root / "fixture-untrusted.pub"),
-            "--ota-package-root", str(self.root / "ota-package"),
-            "--ota-public-key", str(self.root / "ota-signing.pub"),
-            "--certificate", str(self.root / "server.crt"),
-            "--private-key", str(self.root / "server.key"),
-            "--log", str(self.log), "--bind", self.server_ip,
-            "--port", str(self.port), "--server-name", self.server_name,
-            "--server-ip", self.server_ip, "--campaign-id", hil_runner.CAMPAIGN_ID,
-            "--aot-toolchain-id", self.toolchain, "--log-mode", "600", "--check"], timeout=30)
-        # Start only our process. If the configured unprivileged port is occupied,
-        # the new process exits and this routine fails; existing units are untouched.
-        pid_start = ("python3 -c 'import pathlib,sys; "
-                     "s=pathlib.Path(\"/proc\",sys.argv[1],\"stat\").read_text(); "
-                     "print(s.rsplit(\")\",1)[1].split()[19])' ")
-        server_script = str(code_root / "resilience_fixture_https_server.py")
-        terminate_owned = (
-            "import os,pathlib,signal,sys\n"
-            "pid,start,expected,receipt,port=sys.argv[1:6]\n"
-            "raw=pathlib.Path('/proc',pid,'stat').read_text()\n"
-            "actual=raw.rsplit(')',1)[1].split()[19]\n"
-            "args=pathlib.Path('/proc',pid,'cmdline').read_bytes().split(b'\\0')\n"
-            "args=[x.decode(errors='replace') for x in args if x]\n"
-            "assert actual==start and len(args)>1 and args[1]==expected, 'process identity differs'\n"
-            "assert args[args.index('--pid-file')+1]==receipt and args[args.index('--port')+1]==port, 'campaign arguments differ'\n"
-            "os.kill(int(pid),signal.SIGTERM)\n"
-        )
-        launch = ("set -eu; umask 077; nohup " + shlex.join(command) +
-            " >" + shlex.quote(str(self.root / "server.log")) +
-            " 2>&1 </dev/null & pid=$!; i=0; start=''; "
-            "while [ $i -lt 40 ]; do "
-            "if ! kill -0 $pid 2>/dev/null; then exit 3; fi; "
-            "start=$(" + pid_start + "$pid 2>/dev/null) || start=''; "
-            "[ -n \"$start\" ] && break; i=$((i+1)); sleep 0.05; done; "
-            "if [ -z \"$start\" ]; then kill -TERM $pid 2>/dev/null || true; exit 4; fi; "
-            "i=0; while [ ! -e " + shlex.quote(str(self.pid_file)) + " ] && [ $i -lt 100 ]; do "
-            "if ! kill -0 $pid 2>/dev/null; then exit 3; fi; "
-            "i=$((i+1)); sleep 0.05; done; "
-            "if [ ! -e " + shlex.quote(str(self.pid_file)) + " ]; then python3 -c " +
-            shlex.quote(terminate_owned) + " \"$pid\" \"$start\" " +
-            shlex.quote(server_script) + " " + shlex.quote(str(self.pid_file)) + " " +
-            shlex.quote(str(self.port)) + " >/dev/null 2>&1 || true; exit 6; fi; "
-            "test -f " + shlex.quote(str(self.pid_file)) + " && test ! -L " +
-            shlex.quote(str(self.pid_file)) + " || exit 6; "
-            "read receipt_pid receipt_start < " + shlex.quote(str(self.pid_file)) + "; "
-            "test \"$receipt_pid\" = \"$pid\" && test \"$receipt_start\" = \"$start\" || exit 7")
-        try:
-            self.ssh.run(["sh", "-c", launch], timeout=20)
-            self._validate_remote_path(self.pid_file, "secret")
-        except BaseException:
-            try:
-                self.stop()
-            except (OrchestratorError, OSError, subprocess.TimeoutExpired):
-                pass
-            raise
-        wait_code = (
-            "read pid start < " + shlex.quote(str(self.pid_file)) + "; "
-            "case $pid in ''|*[!0-9]*) exit 2;; esac; "
-            "i=0; while [ $i -lt 40 ]; do "
-            "if ! kill -0 $pid 2>/dev/null; then exit 3; fi; "
-            "current=$(" + pid_start + "$pid); test \"$current\" = \"$start\" || exit 5; "
-            "if grep -Fq '\"status\": \"listening\"' " + shlex.quote(str(self.root / "server.log")) +
-            " 2>/dev/null; then exit 0; fi; "
-            "i=$((i+1)); sleep 0.25; done; exit 4"
-        )
-        result = self.ssh.run(["sh", "-c", wait_code], timeout=20, check=False)
-        if result.returncode != 0:
-            try:
-                self.stop()
-            except (OrchestratorError, OSError, subprocess.TimeoutExpired):
-                pass
-            raise OrchestratorError(
-                "user-level HTTPS listener failed to bind/start (port may be occupied); no system unit was stopped")
-        self.ready = True
+            "--pid-file", str(self.pid_file), "--listen-fd", "3"]
+        self._stage_run(reservation, [*command, "--check"], timeout=30)
+        return command
+
+    def start(self) -> None:
+        raise OrchestratorError(
+            "direct fixture-server start is disabled; use the user-owned manager hook")
 
     def snapshot(self, destination: Path) -> bytes:
         py = ("import os,stat,sys\n"
@@ -742,37 +777,8 @@ class RemoteFixtureServer:
         return data
 
     def stop(self) -> None:
-        self._validate_remote_root()
-        self._validate_remote_path(self.pid_file, "secret")
-        script = str(self.root / "tools/resilience_fixture_https_server.py")
-        identity_check = (
-            "import pathlib,sys\n"
-            "pid,start,expected,receipt,port=sys.argv[1:6]\n"
-            "stat=pathlib.Path('/proc',pid,'stat').read_text()\n"
-            "actual=stat.rsplit(')',1)[1].split()[19]\n"
-            "args=pathlib.Path('/proc',pid,'cmdline').read_bytes().split(b'\\0')\n"
-            "args=[x.decode(errors='replace') for x in args if x]\n"
-            "assert actual==start and len(args)>1 and args[1]==expected, 'process identity differs'\n"
-            "assert args[args.index('--pid-file')+1]==receipt and args[args.index('--port')+1]==port, 'campaign arguments differ'\n"
-        )
-        stop_code = (
-            "test -e " + shlex.quote(str(self.pid_file)) + " || exit 0; "
-            "test -f " + shlex.quote(str(self.pid_file)) + " && test ! -L " + shlex.quote(str(self.pid_file)) + " || exit 2; "
-            "read pid start < " + shlex.quote(str(self.pid_file)) + "; "
-            "case $pid in ''|*[!0-9]*) exit 2;; esac; "
-            "if ! kill -0 $pid 2>/dev/null; then rm -f " + shlex.quote(str(self.pid_file)) + "; exit 0; fi; "
-            "test -r /proc/$pid/cmdline || exit 3; "
-            "python3 -c " + shlex.quote(identity_check) + " \"$pid\" \"$start\" " +
-            shlex.quote(script) + " " + shlex.quote(str(self.pid_file)) + " " +
-            shlex.quote(str(self.port)) + " || exit 4; "
-            "kill -TERM $pid; "
-            "i=0; while kill -0 $pid 2>/dev/null && [ $i -lt 20 ]; do "
-            "i=$((i+1)); sleep 0.25; done; "
-            "kill -0 $pid 2>/dev/null && exit 5; rm -f " + shlex.quote(str(self.pid_file))
-        )
-        result = self.ssh.run(["sh", "-c", stop_code], timeout=15, check=False)
-        self.ready = False
-        require(result.returncode == 0, "could not safely stop the owned user-level fixture server")
+        raise OrchestratorError(
+            "direct fixture-server stop is disabled; use cleanup-only manager recovery")
 
 
 class Board:
@@ -1074,18 +1080,106 @@ def _validate_observer_boot(summary: dict, *, expected_version: int,
     return f"{boot:016x}"
 
 
-def _server_arguments(options, root: Path, package_root: Path, fixture_root: Path) -> RemoteFixtureServer:
-    ssh = SSHSession(options.ct_target, options.ct_identity,
-                     options.ct_known_hosts, options.ct_ssh_port, options.ct_host_key_alias)
+def _remote_staging_root(options, root: Path) -> Path:
+    ct_root = Path(options.ct_root)
+    home = Path("/home/wasmhome")
+    require(ct_root.is_absolute() and ct_root.as_posix() == str(ct_root)
+            and ".." not in ct_root.parts and home in ct_root.parents
+            and ct_root != home,
+            "--ct-root must be canonical and below /home/wasmhome")
     root_id = hashlib.sha256(str(root.resolve()).encode()).hexdigest()[:12]
-    remote_root = Path(options.ct_root) / "issue22" / f"{root.name}-{root_id}"
+    return ct_root / "issue22" / f"{root.name}-{root_id}"
+
+
+def _pinned_manager_ssh(options) -> dict:
+    identity = Path(options.ct_identity).absolute()
+    known_hosts = Path(options.ct_known_hosts).absolute()
+    user_server_manager.owned_file(identity, private=True)
+    user_server_manager.owned_file(known_hosts)
+    target_host = options.ct_target.split("@", 1)[1]
+    destination = {
+        "target": options.ct_target,
+        "identity": str(identity),
+        "identity_sha256": sha256_file(identity),
+        "known_hosts": str(known_hosts),
+        "known_hosts_sha256": sha256_file(known_hosts),
+        "port": options.ct_ssh_port,
+        "host_key_alias": options.ct_host_key_alias or target_host,
+    }
+    jump_values = (getattr(options, "ct_jump_target", None),
+                   getattr(options, "ct_jump_identity", None),
+                   getattr(options, "ct_jump_known_hosts", None),
+                   getattr(options, "ct_jump_host_key_alias", None))
+    jump_port = getattr(options, "ct_jump_ssh_port", 22)
+    if any(value is not None for value in jump_values) or jump_port != 22:
+        require(all(value is not None for value in jump_values),
+                "pinned Proxmox jump needs target, identity, known_hosts, and host-key alias")
+        jump_identity = Path(options.ct_jump_identity).absolute()
+        jump_known_hosts = Path(options.ct_jump_known_hosts).absolute()
+        user_server_manager.owned_file(jump_identity, private=True)
+        user_server_manager.owned_file(jump_known_hosts)
+        destination["jump"] = {
+            "target": options.ct_jump_target,
+            "identity": str(jump_identity),
+            "identity_sha256": sha256_file(jump_identity),
+            "known_hosts": str(jump_known_hosts),
+            "known_hosts_sha256": sha256_file(jump_known_hosts),
+            "port": jump_port,
+            "host_key_alias": options.ct_jump_host_key_alias,
+        }
+    user_server_manager.ssh_args(destination)
+    return destination
+
+
+def _manager_tool_fingerprints() -> dict:
+    paths = {
+        "orchestrator": Path(__file__).resolve(),
+        "manager": TOOLS / "user_owned_https_server_manager.py",
+        "remote_helper": TOOLS / "user_owned_https_server_remote.py",
+        "batch_hook": TOOLS / "user_owned_https_batch_hook.py",
+        "fixture_server": TOOLS / "resilience_fixture_https_server.py",
+        "signed_artifacts": TOOLS / "signed_artifacts.py",
+    }
+    return {name: sha256_file(path) for name, path in paths.items()}
+
+
+def _freeze_server_manager(options, root: Path, fixture_root: Path) -> tuple[Path, Path, str, dict]:
+    remote_root = _remote_staging_root(options, root)
+    spec = user_server_manager.build_issue22_fixture_spec(
+        ssh=_pinned_manager_ssh(options), staged_root=remote_root,
+        bind_ip=options.server_ip, port=options.https_port,
+        server_name=options.server_name, campaign_id=hil_runner.CAMPAIGN_ID,
+        aot_toolchain_id=options.aot_toolchain_id, ca_path=options.tls_ca,
+        local_fixture_root=fixture_root)
+    spec_path = root / "server-manager-spec.json"
+    expected = (user_server_manager.canonical(spec) + "\n").encode("utf-8")
+    if spec_path.exists() or spec_path.is_symlink():
+        raw = user_server_manager.owned_file(spec_path, private=True).read_bytes()
+        require(raw == expected,
+                "frozen user-owned server specification changed; use the original inputs")
+        spec_sha256 = hashlib.sha256(raw).hexdigest()
+    else:
+        spec_sha256 = user_server_manager.write_frozen_spec(spec_path, spec)
+    state_path = root / "server-manager-state.json"
+    fingerprints = _manager_tool_fingerprints()
+    return spec_path, state_path, spec_sha256, fingerprints
+
+
+def _server_arguments(options, root: Path, package_root: Path, fixture_root: Path,
+                      manager_spec: dict | None = None) -> RemoteFixtureServer:
+    ssh = SSHSession(options.ct_target, options.ct_identity,
+                     options.ct_known_hosts, options.ct_ssh_port,
+                     options.ct_host_key_alias,
+                     manager_ssh=manager_spec["ssh"] if manager_spec is not None else None)
+    remote_root = _remote_staging_root(options, root)
     return RemoteFixtureServer(ssh, fixture_root=fixture_root, package_root=package_root,
         fixture_trusted=options.fixture_trusted_public,
         fixture_untrusted=options.fixture_untrusted_public,
         ota_public=options.ota_signing_public, certificate=options.tls_certificate,
         private_key=options.tls_private_key, campaign_root=remote_root,
         server_ip=options.server_ip, port=options.https_port,
-        server_name=options.server_name, toolchain=options.aot_toolchain_id)
+        server_name=options.server_name, toolchain=options.aot_toolchain_id,
+        manager_spec=manager_spec)
 
 
 def _prepare_profile(options, board: Board, row: dict, profile_data: dict,
@@ -1288,6 +1382,7 @@ def execute(options: argparse.Namespace) -> dict:
                                                options.accepted_baseline_sha256)
     strict_ssh_args(options.ct_target, options.ct_identity, options.ct_known_hosts,
                     options.ct_ssh_port, options.ct_host_key_alias)
+    _pinned_manager_ssh(options)
 
     root = private_directory(options.output_root)
     journal_path = root / "journal.json"
@@ -1340,6 +1435,15 @@ def execute(options: argparse.Namespace) -> dict:
         require(claimed <= next_index,
                 "one-shot claim is newer than the journal; recover before resuming")
         if next_index == 16:
+            # A process can be interrupted after persisting the final schedule
+            # index but before its batch guard stops the listener. A completed
+            # resume is cleanup-only and never stages or claims another row.
+            manager_hook = Issue22FixtureServerHook(
+                root / "server-manager-spec.json", root / "server-manager-state.json",
+                journal_path, spec_sha256=None)
+            cleanup = manager_hook.cleanup_only()
+            require(cleanup.get("state") in {"stopped", "absent", "uninitialized"},
+                    "completed campaign still has a manager-owned fixture listener")
             journal["state"] = "complete"
             write_json(journal_path, journal)
             return {"state": "complete", "attempted_slots": 0, "next_index": 16,
@@ -1347,10 +1451,27 @@ def execute(options: argparse.Namespace) -> dict:
 
         operation = _board_operations(root)
         board = Board(options, operation)
+        spec_path, state_path, spec_sha256, tool_fingerprints = _freeze_server_manager(
+            options, root, options.fixture_root)
+        manager_fingerprint = {"server_kind": "issue22-fixture",
+                               "spec_sha256": spec_sha256,
+                               "tool_sha256": tool_fingerprints}
+        if "server_manager" in journal:
+            require(journal["server_manager"] == manager_fingerprint,
+                    "frozen user-owned server manager inputs changed")
+        else:
+            journal["server_manager"] = manager_fingerprint
+            write_json(journal_path, journal, exclusive=False)
+        hook = Issue22FixtureServerHook(spec_path, state_path, journal_path,
+                                        spec_sha256=spec_sha256)
         server = _server_arguments(options, root, options.ota_package_root,
-                                   options.fixture_root)
-        server.start()
-        try:
+                                   options.fixture_root,
+                                   manager_spec=user_server_manager.load_spec(
+                                       spec_path, spec_sha256))
+        # The remote lease performs its authoritative read-only preflight,
+        # reserves the socket, and stays alive through staging and the first
+        # before_child handoff. No hardware claim is written before ensure.
+        with hook.stage_and_batch_guard(server):
             # This first board access is read-only. A mismatch must fail
             # without granting recover permission to overwrite a flash image
             # that #20 did not accept.
@@ -1362,6 +1483,10 @@ def execute(options: argparse.Namespace) -> dict:
             write_json(journal_path, journal)
             attempted = 0
             for row in rows[next_index:min(16, next_index + options.max_slots)]:
+                # Ensure the exact manager-owned listener before the one-shot
+                # claim is written inside _run_row. Readiness retries cannot
+                # claim or re-run a hardware trial.
+                hook.before_child()
                 _run_row(options, row, plan_path, root, board, bundle, server,
                          baseline, baseline_data["sha256"])
                 attempted += 1
@@ -1371,8 +1496,6 @@ def execute(options: argparse.Namespace) -> dict:
             return {"state": journal["state"], "attempted_slots": attempted,
                     "next_index": journal["next_index"], "campaign_root": str(root),
                     "timeout_ms": options.timeout_ms, "package": package_data, "tls": tls}
-        finally:
-            server.stop()
 
 
 def _validate_run_options(options: argparse.Namespace) -> None:
@@ -1435,13 +1558,15 @@ def recover(options: argparse.Namespace) -> dict:
         needs_restore = journal.get("restore_required") is True
         remote_stopped = False
         try:
-            server = _server_arguments(options, root, options.ota_package_root, options.fixture_root)
-            server.stop()
-            remote_stopped = True
-        except (OrchestratorError, OSError, subprocess.TimeoutExpired):
-            # Never let CT reachability block local safety restoration. The only
-            # server process that stop() can signal is the one with this
-            # campaign's path, PID, and recorded Linux process start-time.
+            manager_hook = Issue22FixtureServerHook(
+                root / "server-manager-spec.json", root / "server-manager-state.json",
+                journal_path, spec_sha256=None)
+            cleanup = manager_hook.cleanup_only()
+            remote_stopped = cleanup.get("state") in {"stopped", "absent", "uninitialized"}
+        except (OrchestratorError, OSError, ValueError, subprocess.SubprocessError):
+            # Never let CT reachability block local safety restoration. The
+            # cleanup-only manager can signal only its saved exact-process
+            # receipt and does not need the spec or hardware journal.
             remote_stopped = False
         board.identify()
         recovery_dir = _private_output(root / "recoveries", f"{time.time_ns()}")
@@ -1500,7 +1625,8 @@ PATH_OPTIONS = {
     "profiles", "timeout_proof", "ota_package_root", "ota_signing_public",
     "fixture_root", "fixture_trusted_public", "fixture_untrusted_public",
     "tls_ca", "tls_certificate", "tls_private_key", "ct_identity",
-    "ct_known_hosts", "accepted_baseline", "output_root",
+    "ct_known_hosts", "ct_jump_identity", "ct_jump_known_hosts",
+    "accepted_baseline", "output_root",
 }
 
 
@@ -1552,6 +1678,12 @@ def build_parser() -> argparse.ArgumentParser:
                         default=Path.home() / ".ssh/wasmhome-ct107_known_hosts")
     parser.add_argument("--ct-host-key-alias", default="192.168.0.138")
     parser.add_argument("--ct-ssh-port", type=int, default=22)
+    parser.add_argument("--ct-jump-target",
+                        help="optional pinned SSH jump, e.g. user@Proxmox-Tailscale-IP")
+    parser.add_argument("--ct-jump-identity", type=Path)
+    parser.add_argument("--ct-jump-known-hosts", type=Path)
+    parser.add_argument("--ct-jump-host-key-alias")
+    parser.add_argument("--ct-jump-ssh-port", type=int, default=22)
     parser.add_argument("--ct-root", default="/home/wasmhome/.local/share/wasmhome-hil")
     parser.add_argument("--device-ip")
     parser.add_argument("--bind-ip")

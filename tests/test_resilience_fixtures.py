@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -115,7 +116,53 @@ class ResilienceFixtureTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "already exists"):
             write_server_pid_receipt(receipt)
 
-    def test_startup_interruption_after_receipt_leaves_recoverable_identity_before_bind(self):
+    def test_inherited_listener_is_adopted_after_parent_closes_its_copy(self):
+        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(socket.SOMAXCONN)
+        bind_ip, port = listener.getsockname()
+        descriptor = listener.fileno()
+        child_code = r'''
+import os, socket, sys
+fd, bind_ip, port = int(sys.argv[1]), sys.argv[2], int(sys.argv[3])
+if fd != 3:
+    os.dup2(fd, 3, inheritable=True)
+else:
+    os.set_inheritable(3, True)
+from tools.resilience_fixture_https_server import adopt_fixture_listener
+owned = adopt_fixture_listener(3, bind_ip, port)
+print("ready", flush=True)
+connection, _ = owned.accept()
+connection.close()
+owned.close()
+print("accepted", flush=True)
+'''
+        child = subprocess.Popen([sys.executable, "-c", child_code,
+                                  str(descriptor), bind_ip, str(port)],
+                                 cwd=Path(__file__).resolve().parents[1],
+                                 pass_fds=(descriptor,), stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE, text=True)
+        contender = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            self.assertEqual(child.stdout.readline().strip(), "ready")
+            listener.close()
+            with self.assertRaises(OSError):
+                contender.bind((bind_ip, port))
+            with socket.create_connection((bind_ip, port), timeout=3):
+                pass
+            self.assertEqual(child.stdout.readline().strip(), "accepted")
+            self.assertEqual(child.wait(timeout=3), 0, child.stderr.read())
+        finally:
+            listener.close()
+            if child.poll() is None:
+                child.kill()
+                child.wait(timeout=3)
+            child.stdout.close()
+            child.stderr.close()
+        contender.bind((bind_ip, port))
+        contender.close()
+
+    def test_startup_interruption_before_socket_adoption_writes_no_pid_receipt(self):
         directory = self.root / "private-startup"
         directory.mkdir(mode=0o700)
         directory.chmod(0o700)
@@ -132,16 +179,63 @@ class ResilienceFixtureTests(unittest.TestCase):
             "--server-ip", "192.0.2.22",
             "--campaign-id", "issues16-18-fixture",
             "--aot-toolchain-id", "wamr-2.4.5-wasmhome.3",
-            "--pid-file", str(receipt)]
+            "--pid-file", str(receipt), "--listen-fd", "3"]
+        inherited = mock.Mock()
         with mock.patch.object(sys, "argv", arguments), \
+             mock.patch.object(fixture_server, "adopt_fixture_listener",
+                               return_value=inherited) as adopt, \
              mock.patch.object(fixture_server, "FixtureHTTPServer",
-                               side_effect=RuntimeError("simulated interruption before bind")) as bind:
-            with self.assertRaisesRegex(RuntimeError, "before bind"):
+                               side_effect=RuntimeError("simulated interruption during adoption")) as bind:
+            with self.assertRaisesRegex(RuntimeError, "during adoption"):
                 fixture_server.main()
+        adopt.assert_called_once_with(3, "127.0.0.1", 18445)
         self.assertTrue(bind.called)
-        pid, starttime = map(int, receipt.read_text().split())
-        self.assertEqual(pid, os.getpid())
-        self.assertGreater(starttime, 0)
+        inherited.close.assert_called_once()
+        self.assertFalse(receipt.exists())
+
+    def test_server_pid_receipt_is_published_only_after_listener_adoption(self):
+        directory = self.root / "private-adopted-server"
+        directory.mkdir(mode=0o700)
+        directory.chmod(0o700)
+        receipt = directory / "server.pid"
+        arguments = ["resilience_fixture_https_server.py",
+            "--fixture-root", str(self.root / "fixtures"),
+            "--trusted-public-key", str(self.trusted_public),
+            "--untrusted-public-key", str(self.untrusted_public),
+            "--certificate", str(self.root / "server.crt"),
+            "--private-key", str(self.root / "server.key"),
+            "--log", str(directory / "http.jsonl"),
+            "--bind", "127.0.0.1", "--port", "18445",
+            "--server-name", "wasmhome-issue22.test",
+            "--server-ip", "127.0.0.1",
+            "--campaign-id", "issues16-18-fixture",
+            "--aot-toolchain-id", "wamr-2.4.5-wasmhome.3",
+            "--pid-file", str(receipt), "--listen-fd", "3"]
+        events = []
+        listener = mock.Mock()
+        server = mock.Mock(campaign_id="issues16-18-fixture", allowed=[1] * 48)
+        server.serve_forever.side_effect = KeyboardInterrupt
+        original_writer = fixture_server.write_server_pid_receipt
+
+        def write_after_adoption(path):
+            events.append("receipt")
+            return original_writer(path)
+
+        def construct(*_args, **kwargs):
+            self.assertIs(kwargs["listener"], listener)
+            events.append("server")
+            return server
+
+        with mock.patch.object(sys, "argv", arguments), \
+             mock.patch.object(fixture_server, "adopt_fixture_listener",
+                               side_effect=lambda *_args: (events.append("adopt"), listener)[1]), \
+             mock.patch.object(fixture_server, "FixtureHTTPServer", side_effect=construct), \
+             mock.patch.object(fixture_server, "write_server_pid_receipt",
+                               side_effect=write_after_adoption):
+            self.assertEqual(fixture_server.main(), 0)
+        self.assertEqual(events, ["adopt", "server", "receipt"])
+        self.assertTrue(receipt.exists())
+        server.server_close.assert_called_once()
 
     def test_fixture_matrix_has_well_formed_signatures_and_correct_failure_modes(self):
         output = self.root / "resilience-fixtures"

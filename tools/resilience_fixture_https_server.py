@@ -8,6 +8,7 @@ import json
 import os
 import pathlib
 import re
+import socket
 import ssl
 import stat
 import threading
@@ -40,7 +41,7 @@ def require(condition, message):
 
 
 def write_server_pid_receipt(path):
-    """Durably record this server process before constructing/binding its socket."""
+    """Durably record this server process after it adopts its reserved socket."""
     receipt = pathlib.Path(path)
     require(receipt.is_absolute() and ".." not in receipt.parts,
             "server PID receipt must be an absolute canonical path")
@@ -86,6 +87,29 @@ def write_server_pid_receipt(path):
         except FileNotFoundError:
             pass
     return os.getpid(), start_time
+
+
+def adopt_fixture_listener(descriptor, bind_ip, port):
+    """Take ownership of the manager-reserved listening socket without rebinding."""
+    require(type(descriptor) is int and descriptor == 3,
+            "managed fixture listener must arrive on descriptor 3")
+    listener = socket.socket(fileno=descriptor)
+    try:
+        address = listener.getsockname()
+        require(listener.family == socket.AF_INET
+                and listener.type & socket.SOCK_STREAM
+                and address == (bind_ip, port)
+                and listener.getsockopt(socket.SOL_SOCKET, socket.SO_ACCEPTCONN) == 1
+                and listener.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR) == 0,
+                "inherited fixture listener identity differs")
+        if hasattr(socket, "SO_REUSEPORT"):
+            require(listener.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT) == 0,
+                    "inherited fixture listener permits port sharing")
+        listener.setblocking(True)
+        return listener
+    except BaseException:
+        listener.close()
+        raise
 
 
 def validate_fixture_port(port):
@@ -387,7 +411,8 @@ class FixtureHTTPServer(http.server.ThreadingHTTPServer):
 
     def __init__(self, address, root, certificate, private_key, log_path, server_name,
                  server_ip, trusted_public, untrusted_public, campaign_id, aot_toolchain_id,
-                 ota_package_root=None, ota_public_key=None, log_mode=0o640):
+                 ota_package_root=None, ota_public_key=None, log_mode=0o640,
+                 listener=None):
         validate_fixture_port(address[1])
         package_root, campaign, allowed, index = load_allowlist(
             root, trusted_public, untrusted_public, campaign_id, aot_toolchain_id,
@@ -408,7 +433,15 @@ class FixtureHTTPServer(http.server.ThreadingHTTPServer):
         require(cert_path.is_file() and not cert_path.is_symlink(), "TLS certificate missing or symlink")
         require(key_path.is_file() and not key_path.is_symlink(), "TLS key missing or symlink")
         require(key_path.stat().st_mode & 0o077 == 0, "TLS private key permissions must exclude group and other")
-        super().__init__(address, FixtureHandler)
+        if listener is None:
+            super().__init__(address, FixtureHandler)
+        else:
+            # Wrap the HTTP server without bind/listen and adopt the socket held
+            # throughout staging. The manager remains the only process owner.
+            super().__init__(address, FixtureHandler, bind_and_activate=False)
+            self.socket.close()
+            self.socket = listener
+            self.server_address = listener.getsockname()
         self.server_port = self.server_address[1]
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.minimum_version = ssl.TLSVersion.TLSv1_2
@@ -457,7 +490,9 @@ def main():
     parser.add_argument("--log-mode", type=lambda value: int(value, 8), default=0o640,
                         help="private append log mode: 600 or 640")
     parser.add_argument("--pid-file", type=pathlib.Path,
-                        help="private receipt written by this process before binding the HTTPS socket")
+                        help="private receipt written after adopting the inherited HTTPS socket")
+    parser.add_argument("--listen-fd", type=int,
+                        help="manager-only inherited listener descriptor (always 3)")
     parser.add_argument("--check", action="store_true", help="validate immutable catalog/TLS config without binding")
     args = parser.parse_args()
     try:
@@ -482,13 +517,24 @@ def main():
             "bind":args.bind, "port":args.port, "server_name":args.server_name,
             "server_ip":args.server_ip, "trusted_public_key_sha256":index["trusted_fixture_public_key_sha256"]}, sort_keys=True))
         return 0
-    if args.pid_file is not None:
+    require(args.listen_fd == 3 and args.pid_file is not None,
+            "managed fixture startup requires inherited listener descriptor 3 and PID receipt")
+    listener = adopt_fixture_listener(args.listen_fd, args.bind, args.port)
+    server = None
+    try:
+        server = FixtureHTTPServer((args.bind, args.port), args.fixture_root,
+            args.certificate, args.private_key, args.log, args.server_name, args.server_ip,
+            args.trusted_public_key, args.untrusted_public_key, args.campaign_id,
+            args.aot_toolchain_id, ota_package_root=args.ota_package_root,
+            ota_public_key=args.ota_public_key, log_mode=args.log_mode, listener=listener)
+        listener = None  # FixtureHTTPServer owns the adopted descriptor now.
         write_server_pid_receipt(args.pid_file)
-    server = FixtureHTTPServer((args.bind, args.port), args.fixture_root, args.certificate,
-        args.private_key, args.log, args.server_name, args.server_ip, args.trusted_public_key,
-        args.untrusted_public_key, args.campaign_id, args.aot_toolchain_id,
-        ota_package_root=args.ota_package_root, ota_public_key=args.ota_public_key,
-        log_mode=args.log_mode)
+    except BaseException:
+        if server is not None:
+            server.server_close()
+        elif listener is not None:
+            listener.close()
+        raise
     print(json.dumps({"status":"listening", "bind":args.bind, "port":args.port,
         "campaign_id":server.campaign_id, "fixtures":len(server.allowed)//2}, sort_keys=True), flush=True)
     try:

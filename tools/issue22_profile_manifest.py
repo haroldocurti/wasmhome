@@ -6,10 +6,13 @@ import argparse
 import json
 from pathlib import Path
 
-import issue22_hil_orchestrator as hil
+if __package__:
+    from . import issue22_hil_orchestrator as hil
+else:
+    import issue22_hil_orchestrator as hil
 
 
-def build_manifest(builds: dict[str, Path], source_commit: str) -> dict:
+def build_manifest(builds: dict[str, Path], source_commit: str | None = None) -> dict:
     profiles = {}
     common = None
     for name, directory in builds.items():
@@ -35,15 +38,19 @@ def build_manifest(builds: dict[str, Path], source_commit: str) -> dict:
                            "server_name": marker["update_server_name"], "ca_sha256": marker["ca_sha256"]}
         hil.require(update_endpoint == endpoint,
                     f"{name} signed provisioning and fixture endpoints differ")
-        settings = (marker["functional_timeout_ms"], endpoint)
+        settings = (marker["functional_timeout_ms"], endpoint,
+                    marker["source_commit"], marker["source_tree"])
         hil.require(common is None or common == settings,
-                    "profile build endpoints or functional timeouts differ")
+                    "profile build source identities, endpoints or functional timeouts differ")
+        hil.require(source_commit is None or source_commit == marker["source_commit"],
+                    "requested source commit differs from the BIN-embedded build revision")
         common = settings
         profiles[name] = {kind: {"path": str(path.absolute()), "sha256": hil.sha256_file(path)}
                           for kind, path in artifacts.items()}
     hil.require(set(profiles) == {"native", "interp", "aot"}, "all three completed builds are required")
     return {"schema": hil.PROFILE_SCHEMA, "resilience_test_mode": True,
-            "source_commit": source_commit, "functional_timeout_ms": common[0],
+            "source_commit": common[2], "source_tree": common[3],
+            "functional_timeout_ms": common[0],
             "endpoint": common[1], "update_endpoint": common[1], "profiles": profiles}
 
 
@@ -51,7 +58,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("native", "interp", "aot"):
         parser.add_argument(f"--{name}-build", type=Path, required=True)
-    parser.add_argument("--source-commit", required=True)
+    parser.add_argument("--source-commit", help="Optional assertion; source identity is read from app BINs")
     parser.add_argument("--tls-ca", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     options = parser.parse_args()

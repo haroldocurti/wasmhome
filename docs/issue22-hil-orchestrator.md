@@ -203,6 +203,17 @@ bootloader, app slots, partition table and NVS after the row. The restore
 leaves the board in the ROM loader so baseline runtime cannot mutate NVS
 between rows.
 
+Each #22 CMake marker also records the clean Git source commit and tree ID.
+Configuration rejects tracked edits and untracked files, and a dependency
+checks the same source identity on every build, including incremental builds.
+Commit the final source before configuring these builds. Changing HEAD or
+source bytes requires a fresh build directory and refreshed module provenance.
+The manifest generator derives commit/tree from all three app BINs and requires
+them to agree. `--source-commit` is an optional equality assertion; it cannot
+relabel an older BIN. Earlier V2 BINs without these source fields are rejected
+and must be rebuilt. This receipt binds a trusted local build's source identity;
+it does not claim an independently reproducible build.
+
 After merging the final #20 source, rebuild four ESP32-S3 apps in distinct
 build directories: native bootstrap v1, native OTA candidate v2, module-interp
 bootstrap and module-aot bootstrap. The three bootstrap apps need the new V2
@@ -314,28 +325,58 @@ host-key alias; the firmware HTTPS endpoint must still use an address that the
 ESP32-S3 can reach directly on its own network.
 
 The orchestrator stages the strict fixture handler, its verifier, the signed
-package, public verification keys, and the TLS files beneath a unique
-user-owned directory under
-`/home/wasmhome/.local/share/wasmhome-hil/issue22/`. It validates the combined
-allowlist with `--check`, then starts its own Python HTTPS process in the
-foreground-detached `nohup` pattern over strict SSH as `wasmhome`. The listener
-binds only to the configured CT IPv4 address and port 18445. Its HTTP log is
-0600 in the same 0700 campaign directory.
+package, public verification keys, and TLS files beneath a unique user-owned
+directory under `/home/wasmhome/.local/share/wasmhome-hil/issue22/`. It runs the
+existing `--check` validation without starting a listener. A closed
+`issue22-fixture` user-level manager then owns the only process launch and
+cleanup path. It binds only to the configured CT IPv4 address and port 18445;
+the HTTP log is 0600 in the same 0700 campaign directory. The manager spec,
+state and source fingerprints are frozen in the private local campaign.
 
-At startup it first reads any previous PID receipt for this campaign. It sends
-TERM only if the PID, Linux process start-time and exact orchestrator server
-script path all still match. A mismatch fails closed without overwriting the
-receipt. The HTTPS server process itself writes the receipt atomically and
-syncs it before constructing or binding its socket. Therefore, a crash between
-launch and readiness either leaves a verifiable PID/start-time receipt for
-`recover` to stop, or happens before the server can open the port. A different
-process occupying 18445 also causes the new listener to fail; no system unit,
-old campaign, or other process is stopped. On ordinary completion the same
-identity check stops the listener. After a crash,
-`recover` attempts this cleanup; CT unavailability does not block local board
-restoration, and the journal records whether remote cleanup succeeded. Running
-`resume` later performs the same exact-process cleanup before relaunching the
-campaign listener.
+The manager's launcher publishes a durable exact-process receipt before it
+execs the fixture server, and records cleanup intent before any remote
+operation. It reuses a listener only when its manager ID, boot ID, PID, Linux
+start-time, UID, exact
+argv and listening socket all match. It never adopts an unowned process or
+signals by a reusable PID. A mismatched receipt or another process occupying
+18445 fails closed. Direct `RemoteFixtureServer.start()` and `.stop()` are
+disabled; only the user-owned manager controls the process lifecycle. On
+ordinary completion the manager stops its owned listener. After
+a crash, `recover` uses only the manager's saved receipt; CT unavailability does
+not block local board restoration, and the journal records whether remote
+cleanup succeeded. Before staging, one persistent SSH helper performs the
+authoritative read-only CT check for root containment, ownership and
+permissions, manager and fixture PID receipts, the manager lock and port
+owners. It creates a missing campaign root only from validated user-owned
+ancestors, takes the exclusive manager lock, repeats those checks, then binds
+and listens on the configured endpoint before granting the lease. Any receipt
+or listener blocks staging without stopping or adopting it. Run cleanup-only
+`recover` before `resume` after an interrupted managed run; investigate an
+unowned listener separately. Every destination and parent is checked before
+`mkdir -p`, so a pre-existing symlink blocks the write before traversal.
+
+The same lease remains open through staging SSH/SCP and read-only baseline
+verification. Those transfers consume private 0600 snapshots of the exact
+pinned key and known-hosts bytes verified at lease start. The first
+`before_child` sends the single ensure request over that SSH session. The
+helper revalidates the staged inputs and passes the held listener as FD 3 to
+the manager launcher; the fixture adopts the inherited socket without a
+second bind and publishes its PID receipt only after successful adoption and
+TLS server construction. If stage or baseline fails before handoff, closing
+the lease releases the listener and lock without a server process or receipt.
+The manager receipt is written before exec while its inherited lock remains
+held. The workstation health probe uses a private snapshot of the verified CA
+bytes and continues to connect directly to the configured HTTPS endpoint.
+
+The ensure handoff is one-shot. Subsequent rows check readiness and ownership
+through the manager before claiming a row. If the exact owned server has
+stopped, ensure reacquires the endpoint under the exclusive lock, adopts a new
+FD 3 listener, and verifies HTTPS before the claim. An unowned port owner or
+mismatched receipt blocks relaunch. SSH server-alive probes detect a broken
+transport. The client renews the remote reservation every 5 seconds; its
+30-second idle timeout releases the lock and socket after a dead or blocked
+client without interrupting a long active stage or baseline. No SSH jump tunnels the
+HTTPS probe; workstation-to-endpoint routing remains a required live condition.
 
 There is no `systemctl`, `sudo`, linger or daemon prerequisite. The listener
 starts when an HIL run/resume starts and stops when that invocation ends. If a

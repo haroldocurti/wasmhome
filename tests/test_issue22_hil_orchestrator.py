@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+from contextlib import contextmanager
 from pathlib import Path
 import stat
 import struct
@@ -98,12 +99,13 @@ class Issue22OrchestratorTests(unittest.TestCase):
                 config_hash = hashlib.sha256(config.read_bytes()).hexdigest()
                 update_port = native_update_port if name == "native" else 18445
                 marker = ("WASMHOME_ISSUE22_BUILD_V2\n"
-                    f"profile={name}\nfunctional_timeout_ms=450\nserver_ipv4=192.0.2.8\n"
+                    f"profile={name}\nsource_commit={'a' * 40}\nsource_tree={'c' * 40}\n"
+                    "functional_timeout_ms=450\nserver_ipv4=192.0.2.8\n"
                     f"server_port={port}\nserver_name=wasmhome-issue22.test\nca_sha256={ca_hash}\n"
                     f"update_server_ipv4=192.0.2.8\nupdate_server_port={update_port}\n"
                     "update_server_name=wasmhome-issue22.test\n"
                     f"sdkconfig_sha256={config_hash}\napp_rollback_enabled={1 if rollback else 0}\n"
-                    "END_WASMHOME_ISSUE22_BUILD_V2")
+                    "END_WASMHOME_ISSUE22_BUILD_V2\n\0")
                 header = bytearray(24)
                 header[0] = 0xE9
                 header[1] = 1
@@ -136,6 +138,7 @@ class Issue22OrchestratorTests(unittest.TestCase):
                     "server_name": "wasmhome-issue22.test", "ca_sha256": ca_hash},
                 "profiles": profiles,
                 "source_commit": "a" * 40,
+                "source_tree": "c" * 40,
             }))
             return manifest
 
@@ -143,6 +146,20 @@ class Issue22OrchestratorTests(unittest.TestCase):
         value = orchestrator.validate_profile_manifest(manifest, 450, "192.0.2.8",
             18445, "wasmhome-issue22.test", ca)
         self.assertEqual(value["profiles"]["native"]["build_provenance"]["server_port"], 18445)
+
+        native_app = Path(json.loads(manifest.read_text())["profiles"]["native"]["v1_app"]["path"])
+        with self.assertRaisesRegex(orchestrator.OrchestratorError, "exactly one"):
+            orchestrator._embedded_issue22_build_marker(native_app.read_bytes() * 2)
+
+        for key in ("source_commit", "source_tree"):
+            with self.subTest(forged_source_field=key):
+                original = json.loads(manifest.read_text())
+                forged = dict(original, **{key: "b" * 40})
+                manifest.write_text(json.dumps(forged))
+                with self.assertRaisesRegex(orchestrator.OrchestratorError, "BIN-embedded"):
+                    orchestrator.validate_profile_manifest(manifest, 450, "192.0.2.8",
+                        18445, "wasmhome-issue22.test", ca)
+                manifest.write_text(json.dumps(original))
 
         module_without_app_rollback = write_manifest(module_rollback=False)
         compatible = orchestrator.validate_profile_manifest(module_without_app_rollback, 450,
@@ -294,7 +311,7 @@ class Issue22OrchestratorTests(unittest.TestCase):
         self.assertEqual(args[args.index("-P") + 1], "2222")
         self.assertNotIn("-p", args)
 
-    def test_remote_server_scripts_are_syntax_checked_and_start_uses_process_receipt(self):
+    def test_remote_server_scripts_are_syntax_checked_and_legacy_lifecycle_is_disabled(self):
         fixture_root = self.root / "fixtures"
         package_root = self.root / "package"
         fixture_root.mkdir()
@@ -326,24 +343,36 @@ class Issue22OrchestratorTests(unittest.TestCase):
             certificate=sources["server.crt"], private_key=sources["server.key"],
             campaign_root=Path("/home/wasmhome/.local/share/wasmhome-hil/issue22/test-campaign"),
             server_ip="192.0.2.8", port=18445, server_name="wasmhome-issue22.test",
-            toolchain="wamr-test")
-        server.start()
-        self.assertTrue(server.ready)
-        server.stop()
+            toolchain="wamr-test", manager_spec={"server_kind": "issue22-fixture"})
+
+        @contextmanager
+        def reservation(_spec):
+            class LiveReservation:
+                @staticmethod
+                def poll():
+                    return None
+
+            yield LiveReservation()
+
+        with mock.patch.object(server, "preflight", return_value={
+                "manager_receipt_present": False, "server_pid_receipt_present": False,
+                "port_owners": [], "campaign_root_exists": False}), \
+             mock.patch.object(orchestrator.user_server_manager, "remote_reservation",
+                               side_effect=reservation):
+            argv = server.stage()
+        self.assertEqual(argv[1], str(server.root / "tools/resilience_fixture_https_server.py"))
         self.assertFalse(server.ready)
-        shell_commands = []
+        with self.assertRaisesRegex(orchestrator.OrchestratorError,
+                                    "direct fixture-server start is disabled"):
+            server.start()
+        with self.assertRaisesRegex(orchestrator.OrchestratorError,
+                                    "direct fixture-server stop is disabled"):
+            server.stop()
         for command in ssh.commands:
             if command[:2] == ["python3", "-c"]:
                 compile(command[2], "remote-python-embedded", "exec")
-            if command[:2] == ["sh", "-c"]:
-                shell_commands.append(command[2])
-                checked = orchestrator.subprocess.run(["sh", "-n", "-c", command[2]],
-                    capture_output=True, check=False)
-                self.assertEqual(checked.returncode, 0, checked.stderr.decode(errors="replace"))
-        self.assertTrue(any("--pid-file" in command and "nohup" in command
-                            for command in shell_commands))
-        self.assertTrue(any("process identity differs" in command
-                            for command in shell_commands))
+        self.assertTrue(any(command[-1] == "--check" for command in ssh.commands))
+        self.assertFalse(any(command[:2] == ["sh", "-c"] for command in ssh.commands))
 
     def test_board_operation_receipts_are_reused_after_resume(self):
         operation = self.root / "board-operations"
@@ -469,6 +498,8 @@ class Issue22OrchestratorTests(unittest.TestCase):
         self.assertEqual(options.https_port, 18445)
         self.assertEqual(options.ct_target, "wasmhome@192.168.0.138")
         self.assertEqual(options.ct_host_key_alias, "192.168.0.138")
+        self.assertIsNone(options.ct_jump_target)
+        self.assertEqual(options.ct_jump_ssh_port, 22)
 
     def test_restore_runs_even_when_restoring_journal_write_fails(self):
         campaign = self.root / "campaign"
